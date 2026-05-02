@@ -1,0 +1,3627 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carnet d'Amirauté — App de comptabilité par Mschap</title>
+<style>
+/* ── Variables ── */
+:root {
+  --ink: #1a1208;
+  --parchment: #f5efdf;
+  --parchment-dark: #ede4cc;
+  --parchment-mid: #e8ddc4;
+  --gold: #8b6914;
+  --gold-light: #c9a227;
+  --crimson: #8b1a1a;
+  --sea: #1a4a5a;
+  --sea-light: #2a6a7a;
+  --success: #2d6a2d;
+  --muted: #7a6a4a;
+  --border: #c8b88a;
+  --shadow: rgba(26,18,8,0.15);
+  --card: #faf6ec;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  background: var(--parchment);
+  color: var(--ink);
+  min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(139,105,20,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(26,74,90,0.04) 0%, transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+/* ── Typography ── */
+h1,h2,h3,h4 { font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif; font-weight: 700; }
+.overline { font-family: 'Courier New', monospace; font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); }
+.font-mono { font-family: 'Courier New', monospace; }
+
+/* ── Header ── */
+#header {
+  border-bottom: 2px solid var(--border);
+  background: linear-gradient(to bottom, rgba(245,239,223,0.98), rgba(237,228,204,0.95));
+  backdrop-filter: blur(4px);
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 12px var(--shadow);
+}
+.header-inner {
+  max-width: 1400px; margin: 0 auto; padding: 1.25rem 2rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+}
+.header-logo { display: flex; align-items: center; gap: 1rem; }
+.compass-icon {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 2px solid var(--gold); display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle, rgba(201,162,39,0.12), transparent);
+  flex-shrink: 0; font-size: 1.4rem;
+}
+.nation-name-display { font-size: 2rem; color: var(--gold); line-height: 1.1; cursor: pointer; }
+.nation-name-display:hover { text-decoration: underline; text-decoration-style: dotted; }
+.header-meta { font-family: 'Courier New', monospace; font-size: 0.75rem; color: var(--muted); margin-top: 0.2rem; }
+.header-actions { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+
+/* ── Buttons ── */
+.btn {
+  padding: 0.5rem 1.25rem; border-radius: 2px; font-family: 'Courier New', monospace;
+  font-size: 0.8rem; letter-spacing: 0.05em; cursor: pointer; border: 1px solid;
+  transition: all 0.15s; display: inline-flex; align-items: center; gap: 0.4rem;
+}
+.btn-primary { background: var(--gold); color: #faf6ec; border-color: var(--gold); }
+.btn-primary:hover { background: var(--gold-light); }
+.btn-outline { background: transparent; color: var(--ink); border-color: var(--border); }
+.btn-outline:hover { background: var(--parchment-dark); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn-ghost:hover { background: var(--parchment-dark); color: var(--ink); }
+.btn-danger { background: transparent; border-color: var(--crimson); color: var(--crimson); }
+.btn-danger:hover { background: var(--crimson); color: #fff; }
+.btn-seal {
+  background: linear-gradient(135deg, var(--sea), var(--sea-light));
+  color: #faf6ec; border-color: var(--sea); padding: 0.65rem 1.75rem;
+  font-size: 0.85rem; font-weight: bold; letter-spacing: 0.1em;
+  box-shadow: 0 2px 8px rgba(26,74,90,0.3);
+}
+.btn-seal:hover { background: linear-gradient(135deg, var(--sea-light), var(--sea)); box-shadow: 0 4px 16px rgba(26,74,90,0.4); }
+.btn-sm { padding: 0.3rem 0.75rem; font-size: 0.72rem; }
+.btn-icon { padding: 0.4rem; width: 2rem; height: 2rem; justify-content: center; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── Tabs ── */
+.tabs-container { max-width: 1400px; margin: 0 auto; padding: 1.5rem 2rem 4rem; }
+.tabs-nav {
+  display: flex; gap: 0; flex-wrap: wrap;
+  border-bottom: 2px solid var(--border); margin-bottom: 2rem;
+}
+.tab-btn {
+  padding: 0.6rem 1.1rem; background: transparent; border: none; border-bottom: 3px solid transparent;
+  margin-bottom: -2px; cursor: pointer; font-family: 'Courier New', monospace;
+  font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+  transition: all 0.15s; display: flex; align-items: center; gap: 0.4rem;
+}
+.tab-btn:hover { color: var(--ink); background: rgba(139,105,20,0.05); }
+.tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); font-weight: bold; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* ── Cards ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  box-shadow: 2px 2px 0 rgba(139,105,20,0.08), 0 2px 8px var(--shadow);
+}
+.card-body { padding: 1.25rem; }
+.card-gold { border-color: var(--gold-light); border-width: 2px; }
+.card-sea { border-color: var(--sea-light); border-width: 2px; }
+
+/* ── Grid ── */
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+.grid-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.75rem; }
+@media (max-width: 900px) { .grid-6 { grid-template-columns: repeat(3,1fr); } .grid-4 { grid-template-columns: repeat(2,1fr); } .grid-3 { grid-template-columns: repeat(2,1fr); } }
+@media (max-width: 600px) { .grid-6,.grid-4,.grid-3,.grid-2 { grid-template-columns: 1fr; } }
+
+/* ── Resource tile ── */
+.resource-tile {
+  background: var(--card); border: 1px solid var(--border); border-radius: 2px;
+  padding: 1rem; box-shadow: 2px 2px 0 rgba(139,105,20,0.06);
+}
+.resource-value { font-size: 1.9rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.resource-delta { font-family: 'Courier New', monospace; font-size: 0.72rem; margin-top: 0.4rem; display: flex; align-items: center; gap: 0.25rem; }
+.delta-pos { color: var(--success); }
+.delta-neg { color: var(--crimson); }
+.delta-neu { color: var(--muted); }
+
+/* ── Forms ── */
+input, select, textarea {
+  width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 2px;
+  background: #fffdf7; font-family: inherit; font-size: 0.9rem; color: var(--ink);
+  transition: border-color 0.15s;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 2px rgba(139,105,20,0.15); }
+label { display: block; margin-bottom: 0.35rem; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.form-group { margin-bottom: 0.85rem; }
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(26,18,8,0.55); z-index: 200;
+  display: none; align-items: center; justify-content: center; padding: 1rem;
+}
+.modal-overlay.open { display: flex; animation: fadeIn 0.15s; }
+.modal {
+  background: var(--parchment); border: 2px solid var(--border); border-radius: 2px;
+  max-width: 560px; width: 100%; max-height: 90vh; overflow-y: auto;
+  box-shadow: 8px 8px 0 rgba(139,105,20,0.15), 0 20px 60px rgba(26,18,8,0.3);
+  animation: slideIn 0.2s ease;
+}
+@keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: none; opacity: 1; } }
+.modal-header { padding: 1.5rem 1.5rem 0.75rem; border-bottom: 1px solid var(--border); }
+.modal-body { padding: 1.25rem 1.5rem; }
+.modal-footer { padding: 0.75rem 1.5rem 1.5rem; display: flex; justify-content: flex-end; gap: 0.5rem; }
+.modal-title { font-size: 1.5rem; color: var(--gold); }
+
+/* ── Toast ── */
+#toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 300; display: flex; flex-direction: column; gap: 0.5rem; }
+.toast {
+  padding: 0.75rem 1.25rem; border-radius: 2px; font-family: 'Courier New', monospace;
+  font-size: 0.8rem; max-width: 320px; border: 1px solid;
+  animation: toastIn 0.2s ease; box-shadow: 4px 4px 0 rgba(139,105,20,0.1);
+}
+.toast-success { background: #f0f9f0; border-color: var(--success); color: var(--success); }
+.toast-error { background: #fdf0f0; border-color: var(--crimson); color: var(--crimson); }
+@keyframes toastIn { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ── Misc ── */
+.divider { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+.brass-divider {
+  text-align: center; overflow: hidden; margin: 1rem 0;
+  color: var(--gold); font-size: 0.8rem; letter-spacing: 0.3em;
+}
+.brass-divider::before,.brass-divider::after { content:''; display:inline-block; vertical-align:middle; width:30%; height:1px; background:var(--border); margin:0 0.75rem; }
+.badge {
+  display: inline-flex; align-items: center; padding: 0.15rem 0.5rem;
+  font-family: 'Courier New', monospace; font-size: 0.65rem; letter-spacing: 0.08em;
+  text-transform: uppercase; border-radius: 2px; border: 1px solid;
+}
+.badge-gold { border-color: var(--gold-light); color: var(--gold); background: rgba(201,162,39,0.1); }
+.badge-sea { border-color: var(--sea); color: var(--sea); background: rgba(26,74,90,0.1); }
+.badge-success { background: rgba(45,106,45,0.15); border-color: var(--success); color: var(--success); }
+.badge-danger { background: rgba(139,26,26,0.12); border-color: var(--crimson); color: var(--crimson); }
+.badge-muted { border-color: var(--border); color: var(--muted); }
+.fiche-paper { background: #fffdf5; border: 1px solid var(--border); padding: 2rem; border-radius: 2px; }
+.space-y > * + * { margin-top: 1rem; }
+.space-y-sm > * + * { margin-top: 0.5rem; }
+.flex { display: flex; }
+.flex-wrap { flex-wrap: wrap; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.justify-between { justify-content: space-between; }
+.gap-sm { gap: 0.5rem; }
+.gap { gap: 0.75rem; }
+.gap-lg { gap: 1.25rem; }
+.ml-auto { margin-left: auto; }
+.text-muted { color: var(--muted); }
+.text-success { color: var(--success); }
+.text-danger { color: var(--crimson); }
+.text-gold { color: var(--gold); }
+.text-sea { color: var(--sea); }
+.text-sm { font-size: 0.85rem; }
+.text-xs { font-size: 0.75rem; }
+.italic { font-style: italic; }
+.bold { font-weight: bold; }
+.mt-1 { margin-top: 0.4rem; }
+.mt-2 { margin-top: 0.75rem; }
+.mt-3 { margin-top: 1rem; }
+.mb-1 { margin-bottom: 0.4rem; }
+.mb-2 { margin-bottom: 0.75rem; }
+.opacity-50 { opacity: 0.5; }
+.w-full { width: 100%; }
+.hidden { display: none !important; }
+.table-row { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dotted var(--border); padding: 0.35rem 0; }
+.table-row:last-child { border-bottom: none; }
+#loading {
+  position: fixed; inset: 0; background: var(--parchment); display: flex;
+  align-items: center; justify-content: center; z-index: 999; flex-direction: column; gap: 1rem;
+}
+.spinner { width: 48px; height: 48px; border: 3px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; inset: 0; background: var(--border); transition: 0.3s; border-radius: 22px; }
+.slider:before { position: absolute; content: ''; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; transition: 0.3s; border-radius: 50%; }
+input:checked + .slider { background: var(--gold); }
+input:checked + .slider:before { transform: translateX(18px); }
+.wax-pulse { animation: wax 2s ease-in-out infinite; }
+@keyframes wax { 0%,100%{box-shadow:0 0 0 0 rgba(26,74,90,0.3)} 50%{box-shadow:0 0 0 6px rgba(26,74,90,0)} }
+.conseil-mode-btn.active { background: var(--gold) !important; color: #faf6ec !important; border-color: var(--gold) !important; }
+.conseil-section { margin-bottom: 1.25rem; }
+.conseil-section h3 { font-size: 1rem; font-weight: 700; color: var(--gold); margin-bottom: 0.4rem; }
+.conseil-action { display:flex; align-items:flex-start; gap:0.6rem; padding: 0.4rem 0; border-bottom: 1px dotted var(--border); }
+.conseil-action:last-child { border-bottom: none; }
+.conseil-priority { font-family: monospace; font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 2px; flex-shrink:0; margin-top:0.1rem; }
+.prio-high { background:rgba(139,26,26,0.12); color:var(--crimson); border:1px solid var(--crimson); }
+.prio-med  { background:rgba(139,105,20,0.12); color:var(--gold); border:1px solid var(--gold-light); }
+.prio-low  { background:rgba(26,74,90,0.1); color:var(--sea); border:1px solid var(--sea); }
+@media print {
+  #header,.tabs-nav,.header-actions,button,.modal-overlay { display: none !important; }
+  body { background: white; }
+  .fiche-paper { border: none; padding: 0; }
+  .tab-panel { display: block !important; }
+  .tabs-container { padding: 0; }
+}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p class="overline">Chargement du carnet…</p>
+</div>
+
+<div id="toast-container"></div>
+
+<!-- ── HEADER ── -->
+<div id="header">
+  <div class="header-inner">
+    <div class="header-logo">
+      <div class="compass-icon">⚓</div>
+      <div>
+        <div class="overline mb-1">Carnet d'Amirauté · App de comptabilité · <span style="color:var(--gold)">Mschap</span></div>
+        <div id="nation-name-display" class="nation-name-display" title="Cliquer pour renommer" onclick="openRenameModal()">Mon Empire</div>
+        <div class="header-meta">
+          Tour № <span id="hdr-turn">1</span> &nbsp;·&nbsp; Pop. <span id="hdr-pop">0</span>/<span id="hdr-cap">100</span>
+        </div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline btn-sm" onclick="confirmReset()">↺ Recommencer</button>
+      <div style="display:flex;gap:0.4rem;align-items:center">
+        <button class="btn btn-outline btn-sm" onclick="exportSave()" title="Télécharger la sauvegarde">💾 Exporter</button>
+        <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0" title="Charger une sauvegarde">
+          📂 Importer
+          <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="importSave(this)">
+        </label>
+      </div>
+      <button class="btn btn-seal wax-pulse" onclick="endTurn()">⚔ Fin de tour</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TABS ── -->
+<div class="tabs-container">
+  <nav class="tabs-nav">
+    <button class="tab-btn active" onclick="showTab('ressources', this)">⚙ Ressources</button>
+    <button class="tab-btn" onclick="showTab('empire', this)">🗺 Empire</button>
+    <button class="tab-btn" onclick="showTab('batiments', this)">🏛 Bâtiments</button>
+    <button class="tab-btn" onclick="showTab('usines', this)">⚙ Usines</button>
+    <button class="tab-btn" onclick="showTab('militaire', this)">⚔ Armée & Marine</button>
+    <button class="tab-btn" onclick="showTab('commerce', this)">⛵ Commerce</button>
+    <button class="tab-btn" onclick="showTab('attaques', this)">🗡 Attaques</button>
+    <button class="tab-btn" onclick="showTab('fiche', this)">📜 Fiche de tour</button>
+    <button class="tab-btn" onclick="showTab('evenements', this)">✨ Événements</button>
+    <button class="tab-btn" onclick="showTab('conseiller', this)">🧭 Conseiller</button>
+  </nav>
+
+  <!-- RESSOURCES -->
+  <div id="tab-ressources" class="tab-panel active">
+    <div class="grid-3 mb-2" id="pop-cards"></div>
+    <div class="brass-divider">✦ Inventaire des ressources ✦</div>
+    <div class="grid-6" id="resource-grid"></div>
+    <div class="card mt-3" id="breakdown-card" style="display:none">
+      <div class="card-body">
+        <div class="overline mb-2">Détail du prochain tour</div>
+        <div id="breakdown-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMPIRE -->
+  <div id="tab-empire" class="tab-panel">
+    <div class="flex items-center justify-between mb-2 flex-wrap gap">
+      <div>
+        <h2 style="font-size:1.7rem;color:var(--gold)">Vos territoires</h2>
+        <p class="text-sm text-muted mt-1">Conquête de case gérée par le MJ (aucun coût en or). Bâtiment primaire : <span class="font-mono">200 or</span>.</p>
+      </div>
+      <button class="btn btn-primary" onclick="openAddTileModal()">+ Conquérir une case</button>
+    </div>
+    <div id="capital-card" class="mb-2"></div>
+    <div class="tabs-nav" style="margin-bottom:1rem">
+      <button class="tab-btn active" id="empire-tab-terre" onclick="showEmpireTab('terre',this)">📍 Terres (<span id="count-terre">0</span>)</button>
+      <button class="tab-btn" id="empire-tab-mer" onclick="showEmpireTab('mer',this)">⛵ Mers (<span id="count-mer">0</span>)</button>
+    </div>
+    <div id="tiles-terre" class="grid-3"></div>
+    <div id="tiles-mer" class="grid-3 hidden"></div>
+    <div class="card mt-3"><div class="card-body">
+      <div class="overline mb-2">Coûts de référence</div>
+      <div class="grid-2 text-sm">
+        <div class="table-row"><span>Conquête terrestre</span><span class="font-mono">200 or</span></div>
+        <div class="table-row"><span>Bâtiment primaire</span><span class="font-mono">200 or</span></div>
+        <div class="table-row"><span>Pop. case brute</span><span class="font-mono">5 hab.</span></div>
+        <div class="table-row"><span>Pop. avec bâtiment</span><span class="font-mono">10 hab.</span></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- BATIMENTS -->
+  <div id="tab-batiments" class="tab-panel">
+    <h2 class="mb-1" style="font-size:1.7rem;color:var(--gold)">Bâtiments utilitaires</h2>
+    <p class="text-sm text-muted mb-2">Améliorez vos bâtiments par niveaux successifs.</p>
+    <div class="tabs-nav" style="margin-bottom:1rem">
+      <button class="tab-btn active" onclick="showBldTab('infrastructure',this)">Infrastructure</button>
+      <button class="tab-btn" onclick="showBldTab('economie',this)">Économie</button>
+      <button class="tab-btn" onclick="showBldTab('militaire',this)">Militaire</button>
+      <button class="tab-btn" onclick="showBldTab('defense',this)">Défense</button>
+    </div>
+    <div id="bld-infrastructure" class="grid-3"></div>
+    <div id="bld-economie" class="grid-3 hidden"></div>
+    <div id="bld-militaire" class="grid-3 hidden"></div>
+    <div id="bld-defense" class="grid-3 hidden"></div>
+  </div>
+
+  <!-- USINES -->
+  <div id="tab-usines" class="tab-panel">
+    <h2 class="mb-1" style="font-size:1.7rem;color:var(--gold)">Usines de mon pays</h2>
+    <p class="text-sm text-muted mb-2">Transformez vos ressources brutes. Cadence configurable (0 = pause).</p>
+    <div id="usines-en-service" class="mb-2"></div>
+    <div class="grid-3" id="usines-catalogue"></div>
+    <div class="card mt-3"><div class="card-body">
+      <div class="overline mb-2">Prix de rachat internationaux (vente PNJ)</div>
+      <div class="grid-4 text-sm" id="intl-prices"></div>
+    </div></div>
+  </div>
+
+  <!-- MILITAIRE -->
+  <div id="tab-militaire" class="tab-panel">
+    <div class="tabs-nav" style="margin-bottom:1rem">
+      <button class="tab-btn active" onclick="showMilTab('armee',this)">⚔ Armée de terre</button>
+      <button class="tab-btn" onclick="showMilTab('marine',this)">⚓ Marine</button>
+    </div>
+    <div id="mil-armee" class="space-y"></div>
+    <div id="mil-marine" class="space-y hidden"></div>
+  </div>
+
+  <!-- COMMERCE -->
+  <div id="tab-commerce" class="tab-panel">
+    <div class="flex items-center justify-between mb-2 flex-wrap gap">
+      <div>
+        <h2 style="font-size:1.7rem;color:var(--gold)">Routes commerciales</h2>
+        <p class="text-sm text-muted mt-1">Navires marchands : <strong id="merchant-count">0</strong>. Chaque route récurrente s'applique à chaque tour.</p>
+      </div>
+      <button class="btn btn-primary" onclick="openTradeModal()">+ Nouveau contrat</button>
+    </div>
+    <div class="grid-2" id="trade-list"></div>
+  </div>
+
+  <!-- ATTAQUES -->
+  <div id="tab-attaques" class="tab-panel">
+    <div class="flex items-center justify-between mb-2 flex-wrap gap">
+      <div>
+        <h2 style="font-size:1.7rem;color:var(--gold)">Attaques & campagnes</h2>
+        <p class="text-sm text-muted mt-1">Case terrestre : <strong>200 or</strong> engagés — remboursement de <strong>100 or</strong> en cas de défaite.</p>
+      </div>
+      <button class="btn btn-seal" onclick="openAttackModal()">⚔ Déclarer une attaque</button>
+    </div>
+    <div class="grid-2" id="attacks-list"></div>
+  </div>
+
+  <!-- FICHE DE TOUR -->
+  <div id="tab-fiche" class="tab-panel">
+    <div class="flex items-center justify-between mb-2 flex-wrap gap">
+      <div>
+        <h2 style="font-size:1.7rem;color:var(--gold)">Fiche de tour № <span id="fiche-turn">1</span></h2>
+        <p class="text-sm text-muted">Document officiel à imprimer ou recopier.</p>
+      </div>
+      <button class="btn btn-outline" onclick="window.print()">🖨 Imprimer</button>
+    </div>
+    <div class="fiche-paper" id="fiche-content"></div>
+  </div>
+
+  <!-- ÉVÉNEMENTS -->
+  <div id="tab-evenements" class="tab-panel">
+    <div class="flex items-center justify-between mb-2 flex-wrap gap">
+      <div>
+        <h2 style="font-size:1.7rem;color:var(--gold)">Événements &amp; récompenses</h2>
+        <p class="text-sm text-muted mt-1">Attribuez des ressources, bâtiments, usines ou troupes suite à un événement du MJ. Les éléments <span class="badge badge-sea">Sans entretien</span> ne coûtent rien par tour.</p>
+      </div>
+      <button class="btn btn-seal" onclick="openEventModal()">✨ Nouvel événement</button>
+    </div>
+    <div id="events-log"></div>
+  </div>
+
+  <!-- CONSEILLER -->
+  <div id="tab-conseiller" class="tab-panel">
+    <div class="flex items-center justify-between mb-2 flex-wrap gap">
+      <div>
+        <h2 style="font-size:1.7rem;color:var(--gold)">🧭 Conseiller d'Empire</h2>
+        <p class="text-sm text-muted mt-1">Analyse ton empire et recommande les meilleures actions pour ce tour.</p>
+      </div>
+    </div>
+
+    <!-- Options -->
+    <div class="card mb-2"><div class="card-body">
+      <div class="overline mb-2">Stratégie prioritaire</div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap" id="conseil-mode-btns">
+        <button class="btn btn-outline btn-sm conseil-mode-btn active" data-mode="expansion" onclick="setConseilMode('expansion',this)">🗺 Expansion</button>
+        <button class="btn btn-outline btn-sm conseil-mode-btn" data-mode="developpement" onclick="setConseilMode('developpement',this)">🏛 Développement</button>
+        <button class="btn btn-outline btn-sm conseil-mode-btn" data-mode="guerre" onclick="setConseilMode('guerre',this)">⚔ Préparation guerre</button>
+        <button class="btn btn-outline btn-sm conseil-mode-btn" data-mode="mixte" onclick="setConseilMode('mixte',this)">🔄 Équilibre</button>
+      </div>
+      <div style="height:1px;background:var(--border);margin:0.75rem 0"></div>
+      <div class="overline mb-1" style="font-size:0.6rem">Contraintes d'expansion</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.5rem">
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <label class="switch"><input type="checkbox" id="conseil-land-reachable" checked><span class="slider"></span></label>
+          <span class="text-sm">🗺 Terres terrestres atteignables</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <label class="switch"><input type="checkbox" id="conseil-sea-reachable" checked><span class="slider"></span></label>
+          <span class="text-sm">⛵ Terres maritimes atteignables</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.75rem;margin-top:0.25rem">
+        <label class="switch"><input type="checkbox" id="conseil-no-expansion" onchange="updateConseilOptions()"><span class="slider"></span></label>
+        <span class="text-sm">Expansion totalement bloquée ce tour (MJ)</span>
+      </div>
+      <div style="height:1px;background:var(--border);margin:0.75rem 0"></div>
+      <div class="overline mb-1" style="font-size:0.6rem">Objectifs militaires</div>
+      <div style="display:flex;align-items:center;gap:0.75rem">
+        <label class="switch"><input type="checkbox" id="conseil-prepare-war" onchange="updateConseilOptions()"><span class="slider"></span></label>
+        <span class="text-sm">Préparer la guerre tout en développant</span>
+      </div>
+    </div></div>
+
+    <!-- Bouton générer -->
+    <button class="btn btn-seal w-full" style="margin-bottom:1rem;justify-content:center" onclick="genererConseils()">
+      🧭 Analyser ce tour
+    </button>
+
+    <!-- Zone de résultat -->
+    <div id="conseil-result" style="display:none">
+      <div class="card"><div class="card-body" id="conseil-content">
+        <div style="display:flex;align-items:center;gap:0.75rem">
+          <div class="spinner" style="width:24px;height:24px;border-width:2px"></div>
+          <span class="text-muted text-sm">Analyse en cours…</span>
+        </div>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODALS ── -->
+<div class="modal-overlay" id="modal-rename">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Renommer l'empire</div></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="overline">Nom</label><input id="rename-input" placeholder="Mon Empire" /></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-rename')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveRename()">Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-tile">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Conquête d'une nouvelle case</div></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="overline">Type de case</label>
+        <select id="tile-domain">
+          <option value="terre">Terrestre</option>
+          <option value="mer">Maritime (gratuite, via roll)</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="overline">Ressource (slot 1)</label>
+        <select id="tile-resource"><option value="random">Aléatoire selon probabilités</option></select>
+      </div>
+      <div class="form-group" id="tile-resource2-group">
+        <label class="overline">Ressource (slot 2) <span class="text-muted text-xs">— terres uniquement</span></label>
+        <select id="tile-resource2"></select>
+      </div>
+      <div class="form-group"><label class="overline">Nom (optionnel)</label>
+        <input id="tile-name" placeholder="Ex : Province du Nord" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-add-tile')">Annuler</button>
+      <button class="btn btn-primary" onclick="addTile()">Conquérir</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-trade">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Signer un contrat commercial</div></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="overline">Partenaire</label><input id="trade-partner" placeholder="Ex : Royaume d'Albion" /></div>
+      <div class="form-row">
+        <div class="form-group"><label class="overline">Direction</label>
+          <select id="trade-direction">
+            <option value="import">Importer (entrée)</option>
+            <option value="export">Exporter (sortie)</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="overline">Ressource</label>
+          <select id="trade-resource"></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="overline">Quantité / tour</label><input type="number" id="trade-qty" value="10" min="1" /></div>
+        <div class="form-group"><label class="overline">Prix unitaire (or)</label><input type="number" id="trade-price" value="1" min="0" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="overline">Navires requis</label><input type="number" id="trade-ships" value="1" min="1" /></div>
+        <div class="form-group" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.4rem">
+          <label class="switch"><input type="checkbox" id="trade-recurring" checked><span class="slider"></span></label>
+          <span class="text-sm">Récurrent (chaque tour)</span>
+        </div>
+      </div>
+      <div class="form-group"><label class="overline">Notes</label><input id="trade-notes" placeholder="Conditions particulières…" /></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-trade')">Annuler</button>
+      <button class="btn btn-primary" onclick="createTrade()">Signer le contrat</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-attack">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Déclaration d'offensive</div></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="overline">Cible</label><input id="attack-target" placeholder="Ex : Île de la Tortue, Royaume d'Albion..." /></div>
+      <div class="form-row">
+        <div class="form-group"><label class="overline">Type</label>
+          <select id="attack-kind">
+            <option value="terre">Case terrestre — 200 or (100 remboursés si défaite)</option>
+            <option value="mer">Case maritime — Gratuite</option>
+            <option value="joueur">Joueur ennemi — Gratuit</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="overline">Direction</label><input id="attack-direction" placeholder="Ex : Nord, Est..." /></div>
+      </div>
+      <div class="form-group"><label class="overline">Troupes engagées</label><input id="attack-troops" placeholder="Ex : 30 infanterie Niv. II" /></div>
+      <div class="form-group"><label class="overline">Navires engagés</label><input id="attack-ships" placeholder="Ex : 2 frégates, 1 galion" /></div>
+      <div class="form-group"><label class="overline">Notes</label><textarea id="attack-notes" rows="3" placeholder="Tactique, contexte RP, alliés..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-attack')">Annuler</button>
+      <button class="btn btn-seal" onclick="declareAttack()">⚔ Lancer l'offensive</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-overlay" id="modal-event">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <div class="modal-title">✨ Événement du MJ</div>
+      <p class="text-xs text-muted mt-1">Attribuez ce que le MJ accorde suite à un événement.</p>
+    </div>
+    <div class="modal-body">
+      <!-- Description -->
+      <div class="form-group">
+        <label class="overline">Description de l'événement</label>
+        <input id="evt-desc" placeholder="Ex : Découverte d'un gisement, ambassade réussie…" />
+      </div>
+
+      <!-- Type selector -->
+      <div class="form-group">
+        <label class="overline">Type de récompense</label>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap" id="evt-type-btns">
+          <button class="btn btn-outline btn-sm evt-type-btn active" data-type="ressources" onclick="setEvtType('ressources',this)">💰 Ressources</button>
+          <button class="btn btn-outline btn-sm evt-type-btn" data-type="batiment" onclick="setEvtType('batiment',this)">🏛 Bâtiment</button>
+          <button class="btn btn-outline btn-sm evt-type-btn" data-type="usine" onclick="setEvtType('usine',this)">⚙ Usine</button>
+          <button class="btn btn-outline btn-sm evt-type-btn" data-type="troupe" onclick="setEvtType('troupe',this)">⚔ Troupe / Navire</button>
+          <button class="btn btn-outline btn-sm evt-type-btn" data-type="case" onclick="setEvtType('case',this)">🗺 Case</button>
+          <button class="btn btn-outline btn-sm evt-type-btn" data-type="population" onclick="setEvtType('population',this)">👥 Population</button>
+        </div>
+      </div>
+
+      <!-- RESSOURCES panel -->
+      <div id="evt-panel-ressources" class="evt-panel">
+        <div class="overline mb-1">Ressources à attribuer <span class="text-muted text-xs">(négatif = perte)</span></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem" id="evt-res-grid"></div>
+      </div>
+
+      <!-- BATIMENT panel -->
+      <div id="evt-panel-batiment" class="evt-panel hidden">
+        <div class="form-group">
+          <label class="overline">Bâtiment</label>
+          <select id="evt-bld-type"></select>
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:0.75rem">
+          <label class="switch"><input type="checkbox" id="evt-bld-free"><span class="slider"></span></label>
+          <span class="text-sm">Sans entretien (cadeau du MJ — ignore les coûts par tour)</span>
+        </div>
+      </div>
+
+      <!-- USINE panel -->
+      <div id="evt-panel-usine" class="evt-panel hidden">
+        <div class="form-group">
+          <label class="overline">Usine</label>
+          <select id="evt-usine-type"></select>
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:0.75rem">
+          <label class="switch"><input type="checkbox" id="evt-usine-free"><span class="slider"></span></label>
+          <span class="text-sm">Sans entretien</span>
+        </div>
+        <div class="form-group">
+          <label class="overline">Cycles / tour</label>
+          <input type="number" id="evt-usine-batches" value="1" min="0" style="width:80px" />
+        </div>
+      </div>
+
+      <!-- TROUPE panel -->
+      <div id="evt-panel-troupe" class="evt-panel hidden">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="overline">Type</label>
+            <select id="evt-trp-kind">
+              <option value="infanterie">Infanterie</option>
+              <option value="marine">Marins</option>
+              <option value="guerre">Navire de guerre</option>
+              <option value="galion">Galion</option>
+              <option value="commerce">Navire marchand</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="overline">Niveau / Classe</label>
+            <select id="evt-trp-tier">
+              <option value="1">Niveau I</option>
+              <option value="2">Niveau II</option>
+              <option value="3">Niveau III</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="overline">Quantité (paquets de 10 pour troupes, unités pour navires)</label>
+          <input type="number" id="evt-trp-qty" value="1" min="1" style="width:80px" />
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:0.75rem">
+          <label class="switch"><input type="checkbox" id="evt-trp-free"><span class="slider"></span></label>
+          <span class="text-sm">Sans entretien</span>
+        </div>
+      </div>
+
+      <!-- CASE panel -->
+      <div id="evt-panel-case" class="evt-panel hidden">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="overline">Domaine</label>
+            <select id="evt-case-domain">
+              <option value="terre">Terrestre</option>
+              <option value="mer">Maritime</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="overline">Ressource</label>
+            <select id="evt-case-resource"></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="overline">Nom (optionnel)</label>
+            <input id="evt-case-name" placeholder="Ex : Île maudite" />
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;gap:0.75rem;padding-top:1.3rem">
+            <label class="switch"><input type="checkbox" id="evt-case-primary"><span class="slider"></span></label>
+            <span class="text-sm">Avec bâtiment primaire</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- POPULATION panel -->
+      <div id="evt-panel-population" class="evt-panel hidden">
+        <div class="form-group">
+          <label class="overline">Habitants supplémentaires</label>
+          <input type="number" id="evt-pop-amount" value="50" min="1" />
+          <p class="text-xs text-muted mt-1">Augmente la capacité maximale de population de ce montant.</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-event')">Annuler</button>
+      <button class="btn btn-seal" onclick="applyEvent()">✨ Appliquer l'événement</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header"><div class="modal-title" id="confirm-title">Confirmer</div></div>
+    <div class="modal-body"><p id="confirm-msg" class="text-sm"></p></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-confirm')">Annuler</button>
+      <button class="btn btn-danger" id="confirm-ok">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL ERREUR ── -->
+<div class="modal-overlay" id="modal-error">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header" style="border-bottom-color:var(--crimson)">
+      <div class="modal-title" style="color:var(--crimson)">⚠ Une erreur est survenue</div>
+      <p class="text-xs text-muted mt-1">Vous pouvez signaler cette erreur à Mschap.</p>
+    </div>
+    <div class="modal-body">
+      <div id="error-msg-display" style="
+        background:#fdf0f0; border:1px solid var(--crimson); border-radius:2px;
+        padding:0.75rem; font-family:'Courier New',monospace; font-size:0.75rem;
+        color:var(--crimson); white-space:pre-wrap; word-break:break-all;
+        max-height:180px; overflow-y:auto; line-height:1.5;
+      "></div>
+      <p class="text-xs text-muted mt-2">
+        Copiez ce message et envoyez-le à <strong>Mschap</strong> pour qu'il puisse corriger le problème.
+      </p>
+    </div>
+    <div class="modal-footer" style="gap:0.5rem">
+      <button class="btn btn-outline" onclick="closeModal('modal-error')">Fermer</button>
+      <button class="btn btn-primary" onclick="copyErrorToClipboard()" id="copy-error-btn">📋 Copier le message</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL DÉMOLITION ── -->
+<div class="modal-overlay" id="modal-demolish">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header" style="border-bottom-color:var(--crimson)">
+      <div class="modal-title" id="demolish-title">Démolir ?</div>
+      <p class="text-xs text-muted mt-1" id="demolish-subtitle"></p>
+    </div>
+    <div class="modal-body">
+      <div id="demolish-refund-block" style="background:rgba(45,106,45,0.08);border:1px solid var(--success);border-radius:2px;padding:0.75rem;margin-bottom:0.75rem;display:none">
+        <div class="overline mb-1" style="color:var(--success)">Remboursement disponible</div>
+        <div id="demolish-refund-lines" class="text-sm"></div>
+      </div>
+      <p class="text-sm text-muted" id="demolish-warning"></p>
+    </div>
+    <div class="modal-footer" style="gap:0.5rem">
+      <button class="btn btn-outline" onclick="closeModal('modal-demolish')">Annuler</button>
+      <button class="btn btn-outline" id="demolish-btn-refund" style="border-color:var(--success);color:var(--success)" onclick="_demolishWithRefund()">↩ Annuler avec remboursement</button>
+      <button class="btn btn-danger" id="demolish-btn-destroy" onclick="_demolishNoRefund()">🗑 Détruire</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =============================================================================
+// GAME ENGINE — toute la logique du backend portée en JS
+// =============================================================================
+
+// Capture erreurs JS globales non gérées
+window.addEventListener("error", function(e) {
+  // Ignore erreurs inoffensives de chargement d'assets
+  if(!e.error && !e.message) return;
+  const msg = [
+    "=== Rapport d'erreur Carnet d'Amirauté ===",
+    "Contexte : erreur JavaScript non gérée",
+    `Message  : ${e.message || "Erreur inconnue"}`,
+    `Fichier  : ${e.filename || "?"}:${e.lineno || "?"}`,
+    `Tour     : ${typeof G !== "undefined" ? G?.turn : "chargement"}`,
+    `Heure    : ${new Date().toLocaleString("fr-FR")}`,
+    e.error?.stack ? `\nStack :\n${e.error.stack.split("\n").slice(0,5).join("\n")}` : "",
+  ].filter(Boolean).join("\n");
+  // Petit délai pour que le DOM soit prêt
+  setTimeout(() => {
+    const el = document.getElementById("error-msg-display");
+    if(el) {
+      el.textContent = msg;
+      document.getElementById("copy-error-btn").textContent = "📋 Copier le message";
+      openModal("modal-error");
+    }
+  }, 100);
+});
+
+window.addEventListener("unhandledrejection", function(e) {
+  const msg = [
+    "=== Rapport d'erreur Carnet d'Amirauté ===",
+    "Contexte : promesse rejetée",
+    `Message  : ${e.reason?.message || e.reason || "Erreur inconnue"}`,
+    `Tour     : ${typeof G !== "undefined" ? G?.turn : "chargement"}`,
+    `Heure    : ${new Date().toLocaleString("fr-FR")}`,
+  ].join("\n");
+  setTimeout(() => {
+    const el = document.getElementById("error-msg-display");
+    if(el) { el.textContent = msg; openModal("modal-error"); }
+  }, 100);
+});
+
+const RESOURCE_KEYS = ["or","fer","ble","sucre","tabac","cacao","bois","nacre","sel","acier","planches","rhum","cigares","chocolat","pain","conserves","bijoux"];
+const RESOURCE_LABELS = {or:"Or",fer:"Fer",ble:"Blé",sucre:"Sucre",tabac:"Tabac",cacao:"Cacao",bois:"Bois",nacre:"Nacre",sel:"Sel",acier:"Acier",planches:"Planches",rhum:"Rhum",cigares:"Cigares",chocolat:"Chocolat",pain:"Pain",conserves:"Conserves",bijoux:"Bijoux"};
+const RESOURCE_ICON = {or:"🪙",fer:"⛏️",ble:"🌾",sucre:"🍬",tabac:"🚬",cacao:"🍫",bois:"🌲",nacre:"💎",sel:"🌊",acier:"⚙️",planches:"📦",rhum:"🍺",cigares:"🚬",chocolat:"🍫",pain:"🥐",conserves:"📦",bijoux:"✨"};
+const TILE_RESOURCES = {
+  or:{label:"Gisement d'or",primary:"Mine d'or",domain:"terre"},
+  fer:{label:"Gisement de fer",primary:"Mine de fer",domain:"terre"},
+  ble:{label:"Terrain à blé",primary:"Ferme à blé",domain:"terre"},
+  sucre:{label:"Terrain à sucre",primary:"Ferme à sucre",domain:"terre"},
+  tabac:{label:"Terrain à tabac",primary:"Ferme à tabac",domain:"terre"},
+  cacao:{label:"Terrain à cacao",primary:"Ferme à cacao",domain:"terre"},
+  bois:{label:"Grande forêt",primary:"Scierie",domain:"terre"},
+  capitale_ennemie:{label:"Capitale ennemie conquise",primary:"Capitale fortifiée",domain:"terre"},
+  poisson:{label:"Bassin de poissons",primary:"Port de pêche",domain:"mer"},  // case maritime → blé
+  nacre:{label:"Bassin d'huîtres",primary:"Port perlier",domain:"mer"},
+  sel:{label:"Saline",primary:"Saline aménagée",domain:"mer"},
+  coffre:{label:"Coffre des mers",primary:null,domain:"mer"},
+  terra_incognita:{label:"Terre inconnue",primary:null,domain:"mer"},
+  rien:{label:"Eaux vides",primary:null,domain:"mer"},
+};
+const TILE_YIELD = {
+  or:{resource:"or",raw:100,primary:200},fer:{resource:"fer",raw:100,primary:200},
+  ble:{resource:"ble",raw:100,primary:200},sucre:{resource:"sucre",raw:100,primary:200},
+  tabac:{resource:"tabac",raw:100,primary:200},cacao:{resource:"cacao",raw:100,primary:200},
+  bois:{resource:"bois",raw:100,primary:200},
+  poisson:{resource:"ble",raw:100,primary:200},nacre:{resource:"nacre",raw:100,primary:200},
+  sel:{resource:"sel",raw:100,primary:200},
+  capitale_ennemie:{resource:"__capitale__",raw:0,primary:0}, // gérée séparément
+  coffre:{resource:null,raw:0,primary:0},         // pas de production
+  terra_incognita:{resource:null,raw:0,primary:0}, // pas de production
+  rien:{resource:null,raw:0,primary:0},            // pas de production
+};
+const CAPITAL_PRODUCTION = {or:200,ble:100,bois:100,fer:100};
+const CAPITAL_BASE_DEFENSE = 5;
+const TILE_CONQUEST_COST_LAND = 200;
+const PRIMARY_BUILD_COST = {or:200};
+const PRIMARY_POP = 10;
+const TILE_RAW_POP = 5;
+const CAPITAL_BASE_POP = 100;
+const CAPITAL_FOOD_EXEMPT = 100;
+const POP_PER_LAND_TILE = 50;
+const POP_PER_SEA_TILE = 10;
+const ATTACK_COST = {terre:200,mer:0,joueur:0};
+
+const UTILITY_BUILDINGS = {
+  maison:{label:"Maison",cost:{or:200,bois:50},upkeep:{bois:10},pop_required:0,provides_pop:10,effect:"Loge 10 habitants"},
+  banque_1:{label:"Banque (Niv. I)",cost:{or:500},upkeep:{bois:20},pop_required:0,or_per_turn:100,effect:"+100 or par tour"},
+  banque_2:{label:"Banque (Niv. II)",cost:{or:1000},upkeep:{bois:20,fer:5},pop_required:0,or_per_turn:300,effect:"+300 or par tour",requires:"banque_1",upgrades_from:"banque_1"},
+  banque_3:{label:"Banque (Niv. III)",cost:{or:2000},upkeep:{bois:20,fer:10},pop_required:0,or_per_turn:500,effect:"+500 or par tour",requires:"banque_2",upgrades_from:"banque_2"},
+  hotel_impots:{label:"Hôtel des impôts",cost:{or:500},upkeep:{bois:5},pop_required:0,effect:"+50 or par tranche de 100 hab."},
+  taverne:{label:"Taverne",cost:{or:300},upkeep:{bois:10},pop_required:0,effect:"Débloque events de baroudeurs"},
+  port_commerce:{label:"Port de commerce",cost:{or:200},upkeep:{bois:20},pop_required:0,effect:"Permet les navires de commerce"},
+  port_militaire_1:{label:"Port militaire (Niv. I)",cost:{or:200},upkeep:{bois:20},pop_required:0,effect:"Recrute marins et navires de guerre"},
+  port_militaire_2:{label:"Port militaire (Niv. II)",cost:{or:500},upkeep:{bois:30},pop_required:0,effect:"Améliore la flotte de guerre",requires:"port_militaire_1",upgrades_from:"port_militaire_1"},
+  port_militaire_3:{label:"Port militaire (Niv. III)",cost:{or:1000},upkeep:{bois:40,fer:5},pop_required:0,effect:"Permet l'élite de la flotte",requires:"port_militaire_2",upgrades_from:"port_militaire_2"},
+  base_militaire_1:{label:"Base militaire (Niv. I)",cost:{or:200},upkeep:{bois:20},pop_required:0,effect:"Recrute de l'infanterie"},
+  base_militaire_2:{label:"Base militaire (Niv. II)",cost:{or:500},upkeep:{bois:30},pop_required:0,effect:"Améliore l'armée de terre",requires:"base_militaire_1",upgrades_from:"base_militaire_1"},
+  base_militaire_3:{label:"Base militaire (Niv. III)",cost:{or:1000},upkeep:{bois:40,fer:5},pop_required:0,effect:"Permet l'infanterie d'élite",requires:"base_militaire_2",upgrades_from:"base_militaire_2"},
+  forteresse_cap_1:{label:"Forteresse capitale (I)",cost:{or:300},upkeep:{bois:10},pop_required:0,defense_attack_pts:3,effect:"+3 pts d'attaque à briser"},
+  forteresse_cap_2:{label:"Forteresse capitale (II)",cost:{or:1000},upkeep:{fer:10},pop_required:0,defense_attack_pts:5,capital_pop_bonus:200,effect:"+5 pts, capitale loge +200 hab.",requires:"forteresse_cap_1",upgrades_from:"forteresse_cap_1"},
+  forteresse_cap_3:{label:"Forteresse capitale (III)",cost:{or:1500},upkeep:{acier:10},pop_required:0,defense_attack_pts:8,capital_pop_bonus:400,effect:"+8 pts, capitale loge +400 hab.",requires:"forteresse_cap_2",upgrades_from:"forteresse_cap_2"},
+  forteresse_prov_1:{label:"Forteresse province (I)",cost:{or:200},upkeep:{bois:30},pop_required:0,defense_attack_pts:2,effect:"Province : +2 pts d'attaque"},
+  forteresse_prov_2:{label:"Forteresse province (II)",cost:{or:1000},upkeep:{fer:30},pop_required:0,defense_attack_pts:5,effect:"+5 pts, gros bonus défense",requires:"forteresse_prov_1",upgrades_from:"forteresse_prov_1"},
+};
+const BLD_FAMILIES = {
+  infrastructure:["maison","taverne","hotel_impots","port_commerce"],
+  economie:["banque_1","banque_2","banque_3"],
+  militaire:["base_militaire_1","base_militaire_2","base_militaire_3","port_militaire_1","port_militaire_2","port_militaire_3"],
+  defense:["forteresse_cap_1","forteresse_cap_2","forteresse_cap_3","forteresse_prov_1","forteresse_prov_2"],
+};
+
+const TROOP_TIERS_INFANTERIE = {
+  1:{label:"Niveau I",   recruit_cost:{or:100},       upkeep:{or:30, fer:30, ble:30},  power:1.0},
+  2:{label:"Niveau II",  recruit_cost:{or:200},       upkeep:{or:60, fer:60, ble:60},  power:1.6},
+  3:{label:"Niveau III", recruit_cost:{or:300},       upkeep:{or:120,acier:60,ble:120},power:2.5},
+};
+const TROOP_TIERS_MARINE = {
+  1:{label:"Niveau I",   recruit_cost:{or:100},       upkeep:{or:30, fer:30, ble:30},  power:1.0},
+  2:{label:"Niveau II",  recruit_cost:{or:200},       upkeep:{or:60, fer:60, ble:60},  power:1.6},
+  3:{label:"Niveau III", recruit_cost:{or:300},       upkeep:{or:120,fer:120,ble:120}, power:2.5},
+};
+const INFANTRY_BUILDING_REQ = {1:"base_militaire_1",2:"base_militaire_2",3:"base_militaire_3"};
+const MARINE_BUILDING_REQ = {1:"port_militaire_1",2:"port_militaire_2",3:"port_militaire_3"};
+const TROOP_POP_PER_PACK = 10;
+
+const SHIP_TIERS = {
+  1:{label:"Navire Niv. I",cost:{or:300},upkeep:{bois:20},crew:20,power:1.0,requires:"port_militaire_1"},
+  2:{label:"Navire Niv. II",cost:{or:600},upkeep:{planches:20},crew:20,power:1.8,requires:"port_militaire_2"},
+  3:{label:"Navire Niv. III",cost:{or:1200},upkeep:{planches:30},crew:20,power:3.0,requires:"port_militaire_3"},
+};
+const GALION = {label:"Galion légendaire",cost:{or:1500},upkeep:{planches:100},crew:150,power:5.0,max_per_nation:3,requires:"port_militaire_3"};
+const MERCHANT_SHIP = {label:"Navire marchand",cost:{or:300},upkeep:{bois:10},crew:10,requires:"port_commerce"};
+
+const USINES = {
+  rhum:{label:"Distillerie de Rhum",cost:{or:1000},pop:20,prereq:[["sucre",3]],consume:{sucre:600},produce:{rhum:100}},
+  cigares:{label:"Manufacture de cigares",cost:{or:1000},pop:20,prereq:[["tabac",3]],consume:{tabac:600},produce:{cigares:100}},
+  chocolat:{label:"Chocolaterie",cost:{or:1000},pop:20,prereq:[["cacao",3]],consume:{cacao:600},produce:{chocolat:100}},
+  boulangerie:{label:"Boulangerie",cost:{or:1000},pop:20,prereq:[["ble",3],["sel",3]],consume:{ble:1000,sel:100},produce:{pain:100}},
+  conserverie:{label:"Conserverie",cost:{or:1000},pop:20,prereq:[["poisson",3]],consume:{ble:800},produce:{conserves:100}},
+  bijouterie:{label:"Bijouterie",cost:{or:1000},pop:20,prereq:[["nacre",3],["or",3]],consume:{or:600,nacre:100},produce:{bijoux:100}},
+  forgerie:{label:"Forgerie",cost:{or:1000},pop:20,prereq:[["fer",3]],consume:{fer:600},produce:{acier:300}},
+  scierie_indus:{label:"Usine à planches",cost:{or:1000},pop:20,prereq:[["bois",3]],consume:{bois:600},produce:{planches:300}},
+};
+
+const INTERNATIONAL_PRICES = {sucre:100,tabac:100,cacao:100,nacre:200,sel:100,rhum:1000,cigares:1000,chocolat:1000,bijoux:3000};
+const POP_FOOD_PER_HABITANT = 1;
+
+// =============================================================================
+// STATE & PERSISTENCE
+// =============================================================================
+const STORAGE_KEY = 'carnet-amiraute-v1';
+let G = null; // game state
+let preview = null;
+
+function newNation() {
+  return {
+    id:"default",name:"Mon Empire",turn:0,
+    resources:{or:600,fer:600,ble:600,bois:600,sucre:0,tabac:0,cacao:0,nacre:0,sel:0,acier:0,planches:0,rhum:0,cigares:0,chocolat:0,pain:0,conserves:0,bijoux:0},
+    population_total:100,
+    tiles:[{id:uid(),name:"Capitale",domain:"capitale",resource:null,has_primary:false,has_fortress:false}],
+    buildings:[],usines:[],troops:[],ships:[],trade_routes:[],attacks:[],
+    free_pop_gold_active:true,
+    pop_bonus:0,
+    capital_active:true,
+    or_preempted:0,
+    history:[],last_turn_report:null,
+  };
+}
+
+function saveGame() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(G)); } catch(e) { /* disk full etc */ }
+}
+
+function exportSave() {
+  const filename = `carnet-${(G.name||"empire").replace(/[^a-z0-9]/gi,"-").toLowerCase()}-tour${G.turn}-${new Date().toISOString().slice(0,10)}.json`;
+  const data = JSON.stringify(G, null, 2);
+  const blob = new Blob([data], {type: "application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast(`Sauvegarde exportée : ${filename}`);
+}
+
+function importSave(input) {
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      // Validation minimale
+      if(!data.name || !data.resources || !data.tiles) throw new Error("Fichier invalide ou corrompu.");
+      // Compat
+      data.usines        = data.usines        || [];
+      data.attacks       = data.attacks       || [];
+      data.events        = data.events        || [];
+      data.free_buildings= data.free_buildings|| [];
+      data.free_usines   = data.free_usines   || [];
+      data.free_troops   = data.free_troops   || [];
+      data.free_ships    = data.free_ships    || [];
+      if(data.free_pop_gold_active === undefined) data.free_pop_gold_active = true;
+      if(data.capital_active === undefined) data.capital_active = true;
+      if(data.or_preempted === undefined) data.or_preempted = 0;
+      G = data;
+      saveGame();
+      preview = getPreview();
+      render();
+      toast(`✅ Sauvegarde "${data.name}" chargée (Tour ${data.turn})`);
+    } catch(err) {
+      toast("Erreur lors de l'import : " + err.message, "error");
+    }
+    // Reset input pour permettre de re-importer le même fichier
+    input.value = "";
+  };
+  reader.readAsText(file);
+}
+
+function loadGame() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) { G = JSON.parse(raw); G.usines = G.usines||[]; G.attacks = G.attacks||[]; return; }
+  } catch(e) {}
+  G = newNation();
+  saveGame();
+}
+
+function uid() { return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)+Date.now().toString(36); }
+
+// =============================================================================
+// GAME LOGIC
+// =============================================================================
+function emptyRes() { return Object.fromEntries(RESOURCE_KEYS.map(k=>[k,0])); }
+
+function canAfford(res,cost) {
+  for(const[k,v] of Object.entries(cost)) { if((res[k]||0)<v) return `Insuffisant : ${RESOURCE_LABELS[k]||k} (${res[k]||0}/${v})`; }
+  return null;
+}
+
+function deduct(res,cost) { for(const[k,v] of Object.entries(cost)) { res[k]=(res[k]||0)-v; } }
+
+function popOccupied() {
+  let occ=0;
+  for(const t of G.tiles) {
+    if(t.domain==="capitale") continue;
+    if(t.resource==="capitale_ennemie") continue; // pas de pop employée
+    // Slot 1
+    if(t.has_primary) occ+=PRIMARY_POP;
+    else if(t.resource) occ+=TILE_RAW_POP;
+    // Slot 2 (terre uniquement)
+    if(t.domain==="terre"&&t.resource2) {
+      if(t.has_primary2) occ+=PRIMARY_POP;
+      else occ+=TILE_RAW_POP;
+    }
+  }
+  for(const u of G.usines) { const i=USINES[u.type]; if(i) occ+=i.pop; }
+  for(const b of G.buildings) { const i=UTILITY_BUILDINGS[b.type]; if(i) occ+=(i.pop_required||0); }
+  for(const tg of G.troops) occ+=tg.packs*TROOP_POP_PER_PACK;
+  for(const sg of G.ships) {
+    const crew = sg.kind==="guerre"?(SHIP_TIERS[sg.tier]||SHIP_TIERS[1]).crew : sg.kind==="galion"?GALION.crew:MERCHANT_SHIP.crew;
+    occ+=sg.count*crew;
+  }
+  return occ;
+}
+
+function popCapacity() {
+  let cap = G.capital_active !== false ? CAPITAL_BASE_POP : 0;
+  for(const b of G.buildings) {
+    const i=UTILITY_BUILDINGS[b.type]||{};
+    if(i.capital_pop_bonus) cap+=i.capital_pop_bonus;
+    if(b.type==="maison") cap+=10;
+  }
+  for(const t of G.tiles) {
+    if(t.domain==="terre") cap+=POP_PER_LAND_TILE;
+    else if(t.domain==="mer") {
+      if(t.resource!=="terra_incognita") cap+=POP_PER_SEA_TILE; // terra incognita = 0 pop
+    }
+  }
+  cap += (G.pop_bonus||0);
+  return cap;
+}
+
+function computeTurnChanges() {
+  const delta = emptyRes();
+  const breakdown = [];
+
+  // 1) Capitale
+  if(G.capital_active !== false) {
+    for(const[k,v] of Object.entries(CAPITAL_PRODUCTION)) delta[k]+=v;
+    breakdown.push({label:"Capitale",changes:{...CAPITAL_PRODUCTION}});
+  }
+
+  // 2) Cases
+  const tilesChanges={};
+  for(const t of G.tiles) {
+    if(t.domain==="capitale") continue;
+    const info=TILE_YIELD[t.resource]; if(!info) continue;
+    const qty=t.has_primary?info.primary:info.raw;
+    tilesChanges[info.resource]=(tilesChanges[info.resource]||0)+qty;
+  }
+  for(const[k,v] of Object.entries(tilesChanges)) delta[k]+=v;
+  if(Object.keys(tilesChanges).length) breakdown.push({label:"Cases & primaires",changes:{...tilesChanges}});
+
+  // 3) Banques (meilleur niveau)
+  const bankLevels=G.buildings.filter(b=>b.type.startsWith("banque_")).map(b=>b.type);
+  if(bankLevels.length) {
+    const top=bankLevels.sort((a,b)=>parseInt(b.split("_")[1])-parseInt(a.split("_")[1]))[0];
+    const bonus=UTILITY_BUILDINGS[top]?.or_per_turn||0;
+    if(bonus){delta.or+=bonus;breakdown.push({label:UTILITY_BUILDINGS[top].label,changes:{or:bonus}});}
+  }
+
+  // 4) Hôtel des impôts
+  if(G.buildings.some(b=>b.type==="hotel_impots")) {
+    const tranches=Math.floor(popCapacity()/100);
+    const bonus=50*tranches;
+    if(bonus){delta.or+=bonus;breakdown.push({label:`Hôtel des impôts (${tranches} tranches)`,changes:{or:bonus}});}
+  }
+
+  // 5) Entretien bâtiments
+  const bldUpkeep=emptyRes();
+  for(const b of G.buildings) {
+    const i=UTILITY_BUILDINGS[b.type]; if(!i) continue;
+    for(const[k,v] of Object.entries(i.upkeep||{})) bldUpkeep[k]-=v;
+  }
+  if(Object.values(bldUpkeep).some(v=>v!==0)) {
+    for(const[k,v] of Object.entries(bldUpkeep)) delta[k]+=v;
+    const ch=Object.fromEntries(Object.entries(bldUpkeep).filter(([,v])=>v!==0));
+    breakdown.push({label:"Entretien bâtiments",changes:ch});
+  }
+
+  // 6) Usines — batches_per_turn=0 signifie pause (aucune production ni consommation)
+  for(const u of G.usines) {
+    const info=USINES[u.type]; if(!info) continue;
+    const maxB = u.batches_per_turn === 0 ? 0 : Math.max(1, u.batches_per_turn||1);
+    if(maxB===0) continue; // pause explicite
+    const uCh={};let runs=0;
+    for(let i=0;i<maxB;i++){
+      let ok=true;
+      for(const[k,v] of Object.entries(info.consume)) {
+        if((G.resources[k]||0)+(delta[k]||0)+(uCh[k]||0)<v){ok=false;break;}
+      }
+      if(!ok) break;
+      for(const[k,v] of Object.entries(info.consume)) uCh[k]=(uCh[k]||0)-v;
+      for(const[k,v] of Object.entries(info.produce)) uCh[k]=(uCh[k]||0)+v;
+      runs++;
+    }
+    if(runs){
+      for(const[k,v] of Object.entries(uCh)) delta[k]=(delta[k]||0)+v;
+      breakdown.push({label:`${info.label} (×${runs})`,changes:{...uCh}});
+    }
+  }
+
+  // 7) Solde troupes
+  const troopUpkeep=emptyRes();
+  for(const tg of G.troops) {
+    const tiers=tg.branch==="infanterie"?TROOP_TIERS_INFANTERIE:TROOP_TIERS_MARINE;
+    const spec=tiers[tg.tier]; if(!spec) continue;
+    for(const[k,v] of Object.entries(spec.upkeep)) troopUpkeep[k]-=v*tg.packs;
+  }
+  if(Object.values(troopUpkeep).some(v=>v!==0)) {
+    for(const[k,v] of Object.entries(troopUpkeep)) delta[k]+=v;
+    breakdown.push({label:"Solde des troupes",changes:Object.fromEntries(Object.entries(troopUpkeep).filter(([,v])=>v!==0))});
+  }
+
+  // 8) Entretien navires
+  const shipUpkeep=emptyRes();
+  for(const sg of G.ships) {
+    const spec=sg.kind==="guerre"?(SHIP_TIERS[sg.tier]||SHIP_TIERS[1]):sg.kind==="galion"?GALION:MERCHANT_SHIP;
+    for(const[k,v] of Object.entries(spec.upkeep)) shipUpkeep[k]-=v*sg.count;
+  }
+  if(Object.values(shipUpkeep).some(v=>v!==0)) {
+    for(const[k,v] of Object.entries(shipUpkeep)) delta[k]+=v;
+    breakdown.push({label:"Entretien navires",changes:Object.fromEntries(Object.entries(shipUpkeep).filter(([,v])=>v!==0))});
+  }
+
+  // 9) Nourriture — tous les habitants hors capitale paient 1 blé/tour
+  // La capitale (CAPITAL_BASE_POP + forteresses) est exemptée
+  const occ=popOccupied();
+  const totalCap=popCapacity();
+  // Pop hors capitale = capacité totale moins la capacité fixe de la capitale
+  const capitalCap = CAPITAL_BASE_POP + G.buildings.reduce((sum,b)=>{
+    return sum + (UTILITY_BUILDINGS[b.type]?.capital_pop_bonus||0);
+  }, 0);
+  const eaters=Math.max(0, totalCap - capitalCap);
+  const foodNeeded=eaters*POP_FOOD_PER_HABITANT;
+  if(foodNeeded>0) {
+    const bleAvail=(G.resources.ble||0)+(delta.ble||0);
+    const bleUsed=Math.min(bleAvail,foodNeeded);
+    delta.ble-=bleUsed;
+    // Plus de fallback poisson — le blé est la seule nourriture
+    breakdown.push({label:`Nourriture (${eaters} hab. hors capitale × 1 blé)`,changes:{ble:-bleUsed,__pop:eaters}});
+  }
+
+  // 10) Commerce récurrent
+  const tradeCh=emptyRes();
+  for(const r of G.trade_routes) {
+    if(!r.recurring) continue;
+    if(r.direction==="import"){tradeCh[r.resource]=(tradeCh[r.resource]||0)+r.quantity;tradeCh.or=(tradeCh.or||0)-r.quantity*r.price_per_unit;}
+    else{tradeCh[r.resource]=(tradeCh[r.resource]||0)-r.quantity;tradeCh.or=(tradeCh.or||0)+r.quantity*r.price_per_unit;}
+  }
+  if(Object.values(tradeCh).some(v=>v!==0)) {
+    for(const[k,v] of Object.entries(tradeCh)) delta[k]=(delta[k]||0)+v;
+    breakdown.push({label:"Commerce (récurrent)",changes:Object.fromEntries(Object.entries(tradeCh).filter(([,v])=>v!==0))});
+  }
+
+  // 11) Population libre → 1 or / habitant libre / tour (bêta, activable)
+  if(G.free_pop_gold_active) {
+    const cap=popCapacity();
+    const popFree=Math.max(0,cap-occ);
+    if(popFree>0) {
+      delta.or=(delta.or||0)+popFree;
+      breakdown.push({label:`Pop. libre productive (${fmt(popFree)} hab. × 1 or)`,changes:{or:popFree}});
+    }
+  }
+
+  return {delta,breakdown,pop_occupied:occ}; // deficits calculés dans actionEndTurn
+}
+
+function getPreview() {
+  const ch=computeTurnChanges();
+  // Refléter la préemption dans la preview
+  if(G.or_preempted>0) {
+    ch.delta.or=(ch.delta.or||0)-G.or_preempted;
+    ch.breakdown.push({label:`Or préempté (${fmt(G.or_preempted)} or sur gains)`,changes:{or:-G.or_preempted}});
+  }
+  const occ=popOccupied(),cap=popCapacity();
+  return {
+    delta:ch.delta,breakdown:ch.breakdown,
+    after:Object.fromEntries(RESOURCE_KEYS.map(k=>[k,Math.max(0,(G.resources[k]||0)+(ch.delta[k]||0))])),
+    population_occupied:occ,population_free:Math.max(0,cap-occ),population_capacity:cap,
+  };
+}
+
+// =============================================================================
+// ACTIONS (mutations)
+// =============================================================================
+function toast(msg,type="success") {
+  const el=document.createElement("div");
+  el.className=`toast toast-${type}`;
+  el.textContent=msg;
+  document.getElementById("toast-container").appendChild(el);
+  setTimeout(()=>el.remove(),3500);
+}
+
+function showErrorModal(message) {
+  const el = document.getElementById("error-msg-display");
+  if(el) el.textContent = message;
+  document.getElementById("copy-error-btn").textContent = "📋 Copier le message";
+  openModal("modal-error");
+}
+
+function copyErrorToClipboard() {
+  const msg = document.getElementById("error-msg-display").textContent;
+  navigator.clipboard.writeText(msg).then(() => {
+    document.getElementById("copy-error-btn").textContent = "✅ Copié !";
+    setTimeout(() => { document.getElementById("copy-error-btn").textContent = "📋 Copier le message"; }, 2000);
+  }).catch(() => {
+    // Fallback : sélectionner le texte manuellement
+    const el = document.getElementById("error-msg-display");
+    const range = document.createRange();
+    range.selectNode(el);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+    document.getElementById("copy-error-btn").textContent = "✅ Sélectionné !";
+  });
+}
+
+function formatError(e, context) {
+  const lines = [
+    "=== Rapport d'erreur Carnet d'Amirauté ===",
+    `Contexte : ${context || "action"}`,
+    `Message  : ${e?.message || e}`,
+    `Tour     : ${G?.turn ?? "?"}`,
+    `Heure    : ${new Date().toLocaleString("fr-FR")}`,
+  ];
+  if(e?.stack) lines.push(`\nStack :\n${e.stack.split("\n").slice(0,5).join("\n")}`);
+  return lines.join("\n");
+}
+
+function run(fn, context) {
+  try { fn(); saveGame(); preview=getPreview(); render(); return true; }
+  catch(e) {
+    if(e?.isGameError) {
+      // Erreur métier normale (prérequis, ressources insuffisantes…) → juste toast
+      toast(e.message, "error");
+    } else {
+      // Erreur JS inattendue → modal de rapport
+      toast(e.message, "error");
+      showErrorModal(formatError(e, context));
+    }
+    return false;
+  }
+}
+
+function error(msg) { const e = new Error(msg); e.isGameError = true; throw e; }
+
+function actionReset() {
+  G=newNation(); saveGame(); preview=getPreview(); render();
+  toast("Empire réinitialisé.");
+}
+
+function actionRename(name) {
+  G.name=name||"Mon Empire"; run(()=>{});
+  toast("Nom mis à jour.");
+}
+
+function actionAddTile(domain,resource,resource2,name) {
+  let toastLabel="";
+  run(()=>{
+    const n=G.tiles.filter(t=>t.domain===domain).length;
+    const tname=name||(domain==="mer"?`Île ${n+1}`:`Province ${n+1}`);
+    let r1=resource, r2=resource2||null;
+
+    if(r1==="random") {
+      // Tirage pondéré — terre=2 ressources, mer=1
+      const results=randomResources(domain);
+      // Tout résultat avec un TILE_RESOURCES valide est accepté (y compris rien/coffre/terra)
+      const valid=results.filter(r=>r&&TILE_RESOURCES[r]);
+      if(!valid.length) throw Object.assign(new Error("Aucun résultat pour cette case !"),{isGameError:true});
+      r1=valid[0]||null;
+      r2=domain==="terre"?(valid[1]||null):null;
+    }
+
+    if(r1&&r1!=="capitale_ennemie"&&TILE_RESOURCES[r1]?.domain&&TILE_RESOURCES[r1].domain!==domain)
+      error("Ressource 1 incompatible avec ce domaine");
+    if(r2&&TILE_RESOURCES[r2]?.domain&&TILE_RESOURCES[r2].domain!==domain)
+      error("Ressource 2 incompatible avec ce domaine");
+
+    const tile={id:uid(),name:tname,domain,
+      resource:r1,has_primary:false,
+      resource2:domain==="terre"?r2:null,has_primary2:false,
+      has_fortress:false};
+    G.tiles.push(tile);
+
+    const l1=r1?(TILE_RESOURCES[r1]?.label||r1):"—";
+    const l2=r2?(TILE_RESOURCES[r2]?.label||r2):null;
+    toastLabel=l2?`${l1} + ${l2}`:l1;
+  });
+  if(toastLabel) toast(`Case ajoutée : ${toastLabel}`);
+}
+
+function actionRemoveTile(id) {
+  const t=G.tiles.find(x=>x.id===id); if(!t) return;
+  if(t.domain==="capitale") { toast("Impossible de supprimer la capitale","error"); return; }
+  run(()=>{ G.tiles=G.tiles.filter(x=>x.id!==id); });
+  toast("Case retirée.");
+}
+
+function actionBuildPrimary(id, slot) {
+  run(()=>{
+    const t=G.tiles.find(x=>x.id===id); if(!t) error("Case introuvable");
+    if(t.domain==="capitale") error("Pas de bâtiment primaire sur la capitale");
+    const field = slot===2 ? "has_primary2" : "has_primary";
+    if(t[field]) error("Bâtiment primaire déjà construit sur ce slot");
+    const err=canAfford(G.resources,PRIMARY_BUILD_COST); if(err) error(err);
+    deduct(G.resources,PRIMARY_BUILD_COST);
+    t[field]=true;
+  });
+  toast("Bâtiment primaire construit !");
+}
+
+function actionDestroyPrimary(id, slot) {
+  run(()=>{
+    const t=G.tiles.find(x=>x.id===id); if(!t) return;
+    const field = slot===2 ? "has_primary2" : "has_primary";
+    t[field]=false;
+  });
+  toast("Bâtiment démoli.");
+}
+
+function actionConstruct(type) {
+  run(()=>{
+    const info=UTILITY_BUILDINGS[type]; if(!info) error("Bâtiment inconnu");
+    if(info.requires && !G.buildings.some(b=>b.type===info.requires)) {
+      error(`Prérequis manquant : ${UTILITY_BUILDINGS[info.requires]?.label||info.requires}`);
+    }
+    const err=canAfford(G.resources,info.cost); if(err) error(err);
+    const free=popCapacity()-popOccupied();
+    if((info.pop_required||0)>free) error(`Population insuffisante (${free}/${info.pop_required})`);
+    deduct(G.resources,info.cost);
+    if(info.upgrades_from) {
+      const prev=G.buildings.find(b=>b.type===info.upgrades_from);
+      if(prev) G.buildings=G.buildings.filter(b=>b.id!==prev.id);
+    }
+    G.buildings.push({id:uid(),type,level:1});
+  });
+  toast("Bâtiment construit !");
+}
+
+function actionDemolish(id) {
+  run(()=>{ G.buildings=G.buildings.filter(b=>b.id!==id); });
+  toast("Bâtiment démoli.");
+}
+
+function actionBuildUsine(type) {
+  run(()=>{
+    const info=USINES[type]; if(!info) error("Usine inconnue");
+    const primaryByRes={};
+    for(const t of G.tiles) { if(t.has_primary&&t.resource) primaryByRes[t.resource]=(primaryByRes[t.resource]||0)+1; }
+    for(const[res,needed] of info.prereq) {
+      const have=primaryByRes[res]||0;
+      if(have<needed) error(`Prérequis : ${needed} bât. primaire(s) sur ${RESOURCE_LABELS[res]||res} (${have}/${needed})`);
+    }
+    const err=canAfford(G.resources,info.cost); if(err) error(err);
+    const free=popCapacity()-popOccupied();
+    if(free<info.pop) error(`Population insuffisante (${free}/${info.pop})`);
+    deduct(G.resources,info.cost);
+    G.usines.push({id:uid(),type,batches_per_turn:1});
+  });
+  toast("Usine construite !");
+}
+
+function actionConfigureFreeUsine(id, batches) {
+  initEventsState();
+  run(()=>{
+    const u = G.free_usines.find(x=>x.id===id);
+    if(!u) error("Usine introuvable");
+    u.batches_per_turn = Math.max(0, parseInt(batches)||0);
+  });
+  toast("Cadence mise à jour.");
+}
+
+function actionDemolishUsine(id) {
+  run(()=>{ G.usines=G.usines.filter(u=>u.id!==id); });
+  toast("Usine démolie.");
+}
+
+function actionConfigureUsine(id,batches) {
+  run(()=>{
+    const u=G.usines.find(x=>x.id===id); if(!u) error("Usine introuvable");
+    u.batches_per_turn=Math.max(0,parseInt(batches)||0);
+  });
+  toast("Cadence mise à jour.");
+}
+
+function actionRecruit(branch,tier,packs) {
+  run(()=>{
+    tier=parseInt(tier); packs=parseInt(packs);
+    if(![1,2,3].includes(tier)) error("Niveau invalide");
+    if(packs<=0) error("Quantité invalide");
+    const tiers=branch==="infanterie"?TROOP_TIERS_INFANTERIE:TROOP_TIERS_MARINE;
+    const spec=tiers[tier];
+    const reqBld=branch==="infanterie"?INFANTRY_BUILDING_REQ[tier]:MARINE_BUILDING_REQ[tier];
+    if(!G.buildings.some(b=>b.type===reqBld)) error(`Prérequis : ${UTILITY_BUILDINGS[reqBld]?.label||reqBld}`);
+    const cost=Object.fromEntries(Object.entries(spec.recruit_cost).map(([k,v])=>[k,v*packs]));
+    const err=canAfford(G.resources,cost); if(err) error(err);
+    const free=popCapacity()-popOccupied();
+    if(free<packs*TROOP_POP_PER_PACK) error(`Population insuffisante (${free}/${packs*TROOP_POP_PER_PACK})`);
+    deduct(G.resources,cost);
+    const ex=G.troops.find(t=>t.branch===branch&&t.tier===tier);
+    if(ex) ex.packs+=packs;
+    else G.troops.push({id:uid(),branch,tier,packs});
+  });
+  toast("Recrutement effectué !");
+}
+
+function actionDisbandTroop(id,packs) {
+  run(()=>{
+    packs=parseInt(packs);
+    const g=G.troops.find(t=>t.id===id); if(!g) error("Groupe introuvable");
+    if(packs<=0||packs>g.packs) error("Quantité invalide");
+    g.packs-=packs;
+    if(g.packs===0) G.troops=G.troops.filter(t=>t.id!==id);
+  });
+  toast("Pack démobilisé.");
+}
+
+function actionBuildShip(kind,tier,count) {
+  run(()=>{
+    tier=parseInt(tier); count=parseInt(count);
+    if(count<=0) error("Quantité invalide");
+    let spec,required,shipTier=tier;
+    if(kind==="guerre") {
+      if(!SHIP_TIERS[tier]) error("Niveau invalide");
+      spec=SHIP_TIERS[tier]; required=spec.requires;
+    } else if(kind==="galion") {
+      spec=GALION; required=spec.requires; shipTier=1;
+      const existing=G.ships.filter(s=>s.kind==="galion").reduce((a,s)=>a+s.count,0);
+      if(existing+count>GALION.max_per_nation) error(`Max ${GALION.max_per_nation} galions (actuel: ${existing})`);
+    } else {
+      spec=MERCHANT_SHIP; required=spec.requires; shipTier=1;
+    }
+    if(!G.buildings.some(b=>b.type===required)) error(`Prérequis : ${UTILITY_BUILDINGS[required]?.label||required}`);
+    const cost=Object.fromEntries(Object.entries(spec.cost).map(([k,v])=>[k,v*count]));
+    const err=canAfford(G.resources,cost); if(err) error(err);
+    const free=popCapacity()-popOccupied();
+    if(free<spec.crew*count) error(`Population insuffisante pour l'équipage (${free}/${spec.crew*count})`);
+    deduct(G.resources,cost);
+    const ex=G.ships.find(s=>s.kind===kind&&s.tier===shipTier);
+    if(ex) ex.count+=count;
+    else G.ships.push({id:uid(),kind,tier:shipTier,count});
+  });
+  toast("Navire(s) construit(s) !");
+}
+
+function actionDisbandShip(id,count) {
+  run(()=>{
+    count=parseInt(count);
+    const g=G.ships.find(s=>s.id===id); if(!g) error("Groupe introuvable");
+    if(count<=0||count>g.count) error("Quantité invalide");
+    g.count-=count;
+    if(g.count===0) G.ships=G.ships.filter(s=>s.id!==id);
+  });
+  toast("Navire désarmé.");
+}
+
+function actionCreateTrade(data) {
+  run(()=>{
+    if(!RESOURCE_KEYS.includes(data.resource)) error("Ressource inconnue");
+    if(data.quantity<=0||data.price_per_unit<0) error("Quantité ou prix invalide");
+    G.trade_routes.push({id:uid(),...data});
+  });
+  toast("Contrat signé !");
+}
+
+function actionDeleteTrade(id) {
+  run(()=>{ G.trade_routes=G.trade_routes.filter(r=>r.id!==id); });
+  toast("Contrat rompu.");
+}
+
+function actionDeclareAttack(data) {
+  run(()=>{
+    const costOr=ATTACK_COST[data.kind]||0;
+    if(costOr) {
+      const stock=G.resources.or||0;
+      if(stock>=costOr) {
+        // Assez en stock — débit immédiat
+        G.resources.or=stock-costOr;
+      } else {
+        // Pas assez en stock — on vide le stock et on préempte sur le gain futur
+        const fromStock=stock;
+        const fromGain=costOr-fromStock;
+        G.resources.or=0;
+        // On stocke la dette sur le gain : elle sera déduite lors du prochain fin de tour
+        G.or_preempted=(G.or_preempted||0)+fromGain;
+        data._paid_from_gain=fromGain;
+        data._paid_from_stock=fromStock;
+      }
+    }
+    G.attacks.unshift({id:uid(),...data,outcome:"en_cours",created_at:new Date().toISOString()});
+  });
+  const atk=G.attacks[0];
+  if(atk?._paid_from_gain) {
+    toast(`Attaque déclarée — ${fmt(atk._paid_from_stock)} or prélevés en stock + ${fmt(atk._paid_from_gain)} or préemptés sur les gains du prochain tour.`);
+  } else {
+    toast("Attaque déclarée !");
+  }
+}
+
+function actionUpdateAttack(id,data) {
+  let _toastMsg = "Issue mise à jour.";
+  run(()=>{
+    const a=G.attacks.find(x=>x.id===id); if(!a) error("Attaque introuvable");
+    const prevOutcome=a.outcome;
+    const cost=ATTACK_COST[a.kind]||0;
+
+    // Annuler le remboursement précédent si on change de statut depuis défaite/annulée
+    if((prevOutcome==="defaite"||prevOutcome==="annulee") && data.outcome && data.outcome!==prevOutcome && a._refunded) {
+      G.resources.or=Math.max(0,(G.resources.or||0)-a._refunded);
+      delete a._refunded;
+    }
+    // Si le remboursement complet (annulée) couvre la partie préemptée, réduire d'abord la dette
+    if(data.outcome==="annulee" && (a._paid_from_gain||0)>0) {
+      const gainBack=a._paid_from_gain;
+      G.or_preempted=Math.max(0,(G.or_preempted||0)-gainBack);
+      delete a._paid_from_gain; delete a._paid_from_stock;
+    }
+
+    Object.assign(a,data);
+
+    // Défaite → remboursement de 50%
+    if(data.outcome==="defaite" && prevOutcome!=="defaite" && cost>0) {
+      const refund=Math.floor(cost/2);
+      G.resources.or=(G.resources.or||0)+refund;
+      a._refunded=refund;
+      _toastMsg=`Défaite enregistrée — ${fmt(refund)} or récupérés (50%).`;
+    }
+    // Annulée → remboursement total
+    if(data.outcome==="annulee" && prevOutcome!=="annulee" && cost>0) {
+      G.resources.or=(G.resources.or||0)+cost;
+      a._refunded=cost;
+      _toastMsg=`Attaque annulée — ${fmt(cost)} or remboursés intégralement.`;
+    }
+  });
+  toast(_toastMsg);
+}
+
+function actionDeleteAttack(id) {
+  run(()=>{ G.attacks=G.attacks.filter(a=>a.id!==id); });
+  toast("Attaque supprimée.");
+}
+
+function actionEndTurn() {
+  const ch=computeTurnChanges();
+  // Déduire les or préemptés du delta (prélevés sur les gains futurs lors d'attaques)
+  const preempted=G.or_preempted||0;
+  if(preempted>0) {
+    ch.delta.or=(ch.delta.or||0)-preempted;
+    ch.breakdown.push({label:`Or préempté (attaques financées sur gains)`,changes:{or:-preempted}});
+    G.or_preempted=0;
+  }
+  const before={...G.resources};
+  const after={};
+  const deficits={};
+  for(const k of RESOURCE_KEYS) {
+    const raw=(G.resources[k]||0)+(ch.delta[k]||0);
+    if(raw<0) {
+      // Déficit : on note ce qui manque, la ressource tombe à 0
+      deficits[k]=raw; // valeur négative
+      after[k]=0;
+    } else {
+      after[k]=raw;
+    }
+  }
+  // Résumé des déficits dans le rapport
+  ch.deficits=deficits;
+  G.resources=after;
+  G.turn++;
+  const report={turn:G.turn-1,timestamp:new Date().toISOString(),before,delta:ch.delta,after,breakdown:ch.breakdown,pop_occupied:ch.pop_occupied,deficits:ch.deficits||{}};
+  G.last_turn_report=report;
+  G.history=[...G.history,report].slice(-30);
+  saveGame();
+  preview=getPreview();
+  render();
+  const hasDeficit = Object.values(ch.deficits||{}).some(v=>v<0);
+  if(hasDeficit) {
+    const dlist = Object.entries(ch.deficits).filter(([,v])=>v<0)
+      .map(([k,v])=>`${RESOURCE_LABELS[k]} (${fmt(v)})`).join(", ");
+    toast(`Tour ${G.turn-1} clôturé — Déficit absorbé : ${dlist}`, "error");
+  } else {
+    toast(`Tour ${G.turn-1} clôturé !`);
+  }
+}
+
+// Probabilités terrestres (total 100%)
+const LAND_PROBS = [
+  {res:"or",   w:15},
+  {res:"fer",  w:25},
+  {res:"ble",  w:10},
+  {res:"sucre",w:5},
+  {res:"tabac",w:5},
+  {res:"cacao",w:5},
+  {res:"bois", w:35},
+];
+// Probabilités maritimes (total 100%) — "rien" = null, "terre_incognita" = null aussi
+const SEA_PROBS = [
+  {res:"poisson",         w:42},  // → blé via TILE_YIELD
+  {res:"rien",            w:20},  // Rien → case vide, pop +10, pas de production
+  {res:"sel",             w:20},
+  {res:"nacre",           w:15},
+  {res:"coffre",          w:2},   // pop +10, pas de production
+  {res:"terra_incognita", w:1},   // pas de pop, pas de production
+];
+
+function weightedRandom(pool) {
+  const total = pool.reduce((s,e)=>s+e.w, 0);
+  let r = Math.random()*total;
+  for(const e of pool) { r-=e.w; if(r<=0) return e.res; }
+  return pool[pool.length-1].res;
+}
+
+// Retourne UN résultat (peut être null = rien)
+function randomResource(domain) {
+  if(domain==="terre") return weightedRandom(LAND_PROBS);
+  return weightedRandom(SEA_PROBS);
+}
+
+// Case terrestre → DEUX ressources tirées indépendamment
+// Case maritime → UNE ressource
+function randomResources(domain) {
+  if(domain==="terre") {
+    const r1=weightedRandom(LAND_PROBS);
+    const r2=weightedRandom(LAND_PROBS);
+    return [r1, r2];
+  }
+  return [weightedRandom(SEA_PROBS)];
+}
+
+// =============================================================================
+// RENDER
+// =============================================================================
+function fmt(n) { return (n||0).toLocaleString('fr-FR'); }
+function fmtDelta(n) { return n>0?`+${fmt(n)}`:fmt(n); }
+function costStr(cost) { return Object.entries(cost).map(([k,v])=>`${fmt(v)} ${RESOURCE_LABELS[k]||k}`).join(' · '); }
+
+function render() {
+  if(!G||!preview) return;
+  renderHeader();
+  renderResources();
+  renderEmpire();
+  renderBuildings();
+  renderUsines();
+  renderMilitary();
+  renderCommerce();
+  renderAttacks();
+  renderFiche();
+}
+
+function renderHeader() {
+  document.getElementById("nation-name-display").textContent=G.name;
+  document.getElementById("hdr-turn").textContent=G.turn;
+  document.getElementById("hdr-pop").textContent=preview.population_occupied;
+  document.getElementById("hdr-cap").textContent=preview.population_capacity;
+}
+
+function computeResourceSources() {
+  // Retourne pour chaque ressource un tableau de {label, value}
+  const sources = {};
+  const init = (k) => { if(!sources[k]) sources[k] = []; };
+
+  // Capitale
+  if(G.capital_active !== false) {
+    for(const [k,v] of Object.entries(CAPITAL_PRODUCTION)) {
+      init(k); sources[k].push({label:"Capitale", value:v});
+    }
+  }
+
+  // Cases & primaires
+  for(const t of G.tiles) {
+    if(t.domain==="capitale") continue;
+    if(t.resource==="capitale_ennemie") {
+      for(const[k,v] of Object.entries(CAPITAL_PRODUCTION)) {
+        init(k); sources[k].push({label:`${t.name||"Cap. ennemie"}`, value:v});
+      }
+      continue;
+    }
+    const info = TILE_YIELD[t.resource]; if(!info) continue;
+    const qty = t.has_primary ? info.primary : info.raw;
+    const res = info.resource;
+    init(res);
+    const name = t.name || (t.domain==="mer" ? "Île" : "Province");
+    sources[res].push({label: t.has_primary ? `${name} (bât.)` : name, value: qty});
+  }
+
+  // Banques
+  const bankLevels = G.buildings.filter(b=>b.type.startsWith("banque_")).map(b=>b.type);
+  if(bankLevels.length) {
+    const top = bankLevels.sort((a,b)=>parseInt(b.split("_")[1])-parseInt(a.split("_")[1]))[0];
+    const bonus = UTILITY_BUILDINGS[top]?.or_per_turn||0;
+    if(bonus) { init("or"); sources["or"].push({label:UTILITY_BUILDINGS[top].label, value:bonus}); }
+  }
+
+  // Hôtel des impôts
+  if(G.buildings.some(b=>b.type==="hotel_impots")) {
+    const tranches = Math.floor(popCapacity()/100);
+    const bonus = 50*tranches;
+    if(bonus) { init("or"); sources["or"].push({label:`Hôtel des impôts (${tranches}×)`, value:bonus}); }
+  }
+
+  // Pop libre productive
+  if(G.free_pop_gold_active) {
+    const free = Math.max(0, popCapacity()-popOccupied());
+    if(free>0) { init("or"); sources["or"].push({label:`Pop. libre (${free} hab.)`, value:free}); }
+  }
+
+  // Entretien bâtiments (négatif)
+  for(const b of G.buildings) {
+    const i = UTILITY_BUILDINGS[b.type]; if(!i) continue;
+    for(const [k,v] of Object.entries(i.upkeep||{})) {
+      init(k); sources[k].push({label:`Entretien ${i.label}`, value:-v});
+    }
+  }
+
+  // Usines (production - consommation)
+  for(const u of G.usines) {
+    const info = USINES[u.type]; if(!info) continue;
+    const batches = u.batches_per_turn === 0 ? 0 : Math.max(1, u.batches_per_turn||1);
+    if(!batches) continue; // pause explicite
+    for(const [k,v] of Object.entries(info.produce)) {
+      init(k); sources[k].push({label:`${info.label} (prod.)`, value:v*batches});
+    }
+    for(const [k,v] of Object.entries(info.consume)) {
+      init(k); sources[k].push({label:`${info.label} (conso.)`, value:-v*batches});
+    }
+  }
+
+  // Usines gratuites
+  for(const u of G.free_usines||[]) {
+    const info = USINES[u.type]; if(!info) continue;
+    const batches = u.batches_per_turn === 0 ? 0 : Math.max(1, u.batches_per_turn||1);
+    if(!batches) continue; // pause explicite
+    for(const [k,v] of Object.entries(info.produce)) {
+      init(k); sources[k].push({label:`${info.label} ✨`, value:v*batches});
+    }
+  }
+
+  // Nourriture (hors capitale)
+  const _capitalCap2 = CAPITAL_BASE_POP + G.buildings.reduce((sum,b)=>{
+    return sum + (UTILITY_BUILDINGS[b.type]?.capital_pop_bonus||0);
+  }, 0);
+  const _eaters2 = Math.max(0, popCapacity() - _capitalCap2);
+  if(_eaters2 > 0) {
+    init("ble"); sources["ble"].push({label:`Nourriture (${_eaters2} hab. × 1)`, value:-_eaters2});
+  }
+
+  // Solde troupes
+  for(const tg of G.troops) {
+    const tiers = tg.branch==="infanterie"?TROOP_TIERS_INFANTERIE:TROOP_TIERS_MARINE;
+    const spec = tiers[tg.tier]; if(!spec) continue;
+    for(const [k,v] of Object.entries(spec.upkeep)) {
+      init(k); sources[k].push({label:`Solde ${tg.branch} Niv.${tg.tier}`, value:-v*tg.packs});
+    }
+  }
+
+  // Entretien navires
+  for(const sg of G.ships) {
+    const spec = sg.kind==="guerre"?(SHIP_TIERS[sg.tier]||SHIP_TIERS[1]):sg.kind==="galion"?GALION:MERCHANT_SHIP;
+    for(const [k,v] of Object.entries(spec.upkeep)) {
+      init(k); sources[k].push({label:`Entretien ${spec.label}×${sg.count}`, value:-v*sg.count});
+    }
+  }
+
+  // Commerce récurrent
+  for(const r of G.trade_routes) {
+    if(!r.recurring) continue;
+    if(r.direction==="import") {
+      init(r.resource); sources[r.resource].push({label:`Import ${r.partner||"?"}`, value:r.quantity});
+      init("or"); sources["or"].push({label:`Paiement import ${r.partner||"?"}`, value:-r.quantity*r.price_per_unit});
+    } else {
+      init(r.resource); sources[r.resource].push({label:`Export ${r.partner||"?"}`, value:-r.quantity});
+      init("or"); sources["or"].push({label:`Recette export ${r.partner||"?"}`, value:r.quantity*r.price_per_unit});
+    }
+  }
+
+  return sources;
+}
+
+function renderResources() {
+  // Pop cards
+  const pc=document.getElementById("pop-cards");
+  pc.innerHTML=`
+    <div class="resource-tile"><div class="flex items-center justify-between mb-1"><span class="overline">Population occupée</span><span>👥</span></div>
+      <div class="resource-value">${fmt(preview.population_occupied)}</div>
+      <div class="text-xs text-muted mt-1">Affectée à bâtiments, troupes & navires.</div></div>
+    <div class="resource-tile">
+      <div class="flex items-center justify-between mb-1"><span class="overline">Population libre</span><span>🧑</span></div>
+      <div class="resource-value">${fmt(preview.population_free)}</div>
+      <div class="text-xs text-muted mt-1" style="margin-bottom:0.6rem">Disponible pour de nouveaux postes.</div>
+      <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;margin-top:0.5rem;padding-top:0.5rem;border-top:1px dashed var(--border)">
+        <label class="switch" style="flex-shrink:0">
+          <input type="checkbox" id="free-pop-gold-toggle" ${G.free_pop_gold_active?"checked":""} onchange="toggleFreePopGold(this.checked)">
+          <span class="slider"></span>
+        </label>
+        <span class="text-xs" style="line-height:1.3">
+          <strong>Bêta</strong> — 1 hab. libre = +1 or/tour
+          ${G.free_pop_gold_active?`<span class="delta-pos" style="display:block;font-family:monospace;margin-top:0.15rem">+${fmt(preview.population_free)} or/tour actifs</span>`:""}
+        </span>
+      </label>
+    </div>
+    <div class="resource-tile"><div class="flex items-center justify-between mb-1"><span class="overline">Capacité totale</span><span>📊</span></div>
+      <div class="resource-value">${fmt(preview.population_capacity)}</div>
+      <div class="text-xs text-muted mt-1">+50 hab./case terre · +10 hab./case mer · +10 hab./maison</div></div>`;
+
+  // Resource grid
+  const rg=document.getElementById("resource-grid");
+  const srcs = computeResourceSources();
+  rg.innerHTML=RESOURCE_KEYS.map(k=>{
+    const v=G.resources[k]||0, d=preview.delta[k]||0;
+    const dc=d>0?"delta-pos":d<0?"delta-neg":"delta-neu";
+    const da=d>0?"▲":d<0?"▼":"—";
+    const sList = (srcs[k]||[]).filter(s=>s.value!==0);
+    const srcHtml = sList.length
+      ? `<div style="margin-top:0.45rem;padding-top:0.4rem;border-top:1px dashed var(--border)">`
+        + sList.map(s=>{
+            const cl=s.value>0?"text-success":"text-danger";
+            return `<div class="${cl}" style="font-family:monospace;font-size:0.62rem;display:flex;justify-content:space-between;gap:0.25rem">
+              <span style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:65%">${s.label}</span>
+              <span>${s.value>0?"+":""}${fmt(s.value)}</span>
+            </div>`;
+          }).join("")
+        + `</div>`
+      : "";
+    return `<div class="resource-tile">
+      <div class="flex items-center justify-between mb-1">
+        <span class="overline" style="font-size:0.6rem">${RESOURCE_LABELS[k]}</span>
+        <span>${RESOURCE_ICON[k]||""}</span>
+      </div>
+      <div class="resource-value">${fmt(v)}</div>
+      <div class="resource-delta ${dc}">${da} <span>${fmtDelta(d)}/tour</span></div>
+      ${srcHtml}
+    </div>`;
+  }).join("");
+
+  // Breakdown
+  const bk=document.getElementById("breakdown-card");
+  const bl=document.getElementById("breakdown-list");
+  if(preview.breakdown&&preview.breakdown.length) {
+    bk.style.display="";
+    bl.innerHTML=preview.breakdown.map(row=>{
+      const changes=Object.entries(row.changes).filter(([k])=>k!=="__pop").map(([k,v])=>{
+        const cl=v>0?"text-success":v<0?"text-danger":"text-muted";
+        return `<span class="${cl}" style="margin-left:0.75rem;font-family:monospace;font-size:0.75rem">${fmtDelta(v)} ${RESOURCE_LABELS[k]||k}</span>`;
+      }).join("");
+      return `<div class="table-row"><span class="text-sm bold">${row.label}</span><span>${changes}</span></div>`;
+    }).join("");
+  } else { bk.style.display="none"; }
+}
+
+function renderEmpire() {
+  const cap=G.tiles.find(t=>t.domain==="capitale");
+  const terres=G.tiles.filter(t=>t.domain==="terre");
+  const mers=G.tiles.filter(t=>t.domain==="mer");
+
+  document.getElementById("count-terre").textContent=terres.length;
+  document.getElementById("count-mer").textContent=mers.length;
+
+  // Capital card
+  const cc=document.getElementById("capital-card");
+  if(cap) {
+    const active = G.capital_active !== false;
+    const prod=Object.entries(CAPITAL_PRODUCTION).map(([k,v])=>`+${v} ${RESOURCE_LABELS[k]}`).join(" · ");
+    cc.innerHTML=`<div class="card ${active?"card-gold":""}" style="${active?"":"opacity:0.55;border-color:var(--border)"}">
+      <div class="card-body">
+        <div class="flex items-start justify-between gap">
+          <div>
+            <div class="overline mb-1">👑 Capitale · Défense base : ${CAPITAL_BASE_DEFENSE} pts
+              ${active?"":"<span class='badge badge-danger' style='margin-left:0.5rem'>Désactivée</span>"}
+            </div>
+            <h3 style="font-size:1.4rem;color:${active?"var(--gold)":"var(--muted)"}">${cap.name}</h3>
+            <p class="text-sm ${active?"text-muted":"opacity-50"} mt-1">Production fixe : ${prod}</p>
+            <p class="text-xs text-muted mt-1 italic">
+              ${active
+                ? "Les habitants de la capitale (et forteresses) sont exemptés de blé. Chaque habitant hors capitale consomme 1 blé/tour."
+                : "Capitale désactivée — aucune production, 100 habitants de base retirés de la capacité."}
+            </p>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.5rem">
+            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer">
+              <span class="text-xs overline">${active?"Active":"Inactive"}</span>
+              <label class="switch">
+                <input type="checkbox" ${active?"checked":""} onchange="toggleCapital(this.checked)">
+                <span class="slider"></span>
+              </label>
+            </label>
+          </div>
+        </div>
+      </div></div>`;
+  }
+
+  // Update tile domain resource options when modal opens
+  function tileCards(tiles,domain) {
+    if(!tiles.length) return `<p class="text-sm italic text-muted">Aucune case ${domain==="terre"?"terrestre":"maritime"} pour l'instant.</p>`;
+    return tiles.map(t=>{
+      // ── Cas spécial : capitale ennemie ──────────────────────────────────────
+      if(t.resource==="capitale_ennemie") {
+        const prodLines = Object.entries(CAPITAL_PRODUCTION).map(([k,v])=>
+          `<div class="table-row"><span>${RESOURCE_LABELS[k]}</span><span class="font-mono text-success">+${fmt(v)}</span></div>`
+        ).join("");
+        return `<div class="card" style="border-color:var(--crimson);border-width:2px"><div class="card-body">
+          <div class="flex items-start justify-between gap">
+            <div>
+              <div class="overline mb-1" style="color:var(--crimson)">👑 Capitale ennemie conquise</div>
+              <h4 style="font-size:1.1rem;font-weight:700">${t.name}</h4>
+              <p class="text-sm text-muted">Produit comme votre propre capitale</p>
+            </div><span>🏚</span>
+          </div>
+          <div class="mt-2 flex flex-wrap gap-sm">
+            <button class="btn btn-danger btn-icon btn-sm ml-auto" onclick="actionRemoveTile('${t.id}')" title="Supprimer">🗑</button>
+          </div>
+          <div class="mt-2 text-xs space-y-sm">${prodLines}</div>
+        </div></div>`;
+      }
+      // ── Cas spéciaux maritimes : coffre / terra incognita ─────────────────
+      if(t.resource==="coffre"||t.resource==="terra_incognita"||t.resource==="rien") {
+        const META={
+          coffre:          {ico:"💰", label:"Coffre des mers",     pop:POP_PER_SEA_TILE, popNote:"+10 hab. (capacité)"},
+          terra_incognita: {ico:"🌍", label:"Terre inconnue",       pop:0,                popNote:"Aucune"},
+          rien:            {ico:"〰️", label:"Eaux vides",           pop:POP_PER_SEA_TILE, popNote:"+10 hab. (capacité)"},
+        };
+        const m=META[t.resource];
+        return `<div class="card" style="border-style:dashed"><div class="card-body">
+          <div class="flex items-start justify-between gap">
+            <div>
+              <div class="overline mb-1" style="color:var(--sea)">Île maritime</div>
+              <h4 style="font-size:1.1rem;font-weight:700">${t.name}</h4>
+              <p class="text-sm text-muted">${m.ico} ${m.label}</p>
+            </div><span>${m.ico}</span>
+          </div>
+          <div class="mt-2 text-xs text-muted space-y-sm">
+            <div class="table-row"><span>Production</span><span class="font-mono italic">Aucune</span></div>
+            <div class="table-row"><span>Bâtiment primaire</span><span class="font-mono italic">Non disponible</span></div>
+            <div class="table-row"><span>Pop. apportée</span><span class="font-mono">${m.popNote}</span></div>
+          </div>
+          <div class="mt-2 flex">
+            <button class="btn btn-danger btn-icon btn-sm ml-auto" onclick="actionRemoveTile('${t.id}')" title="Supprimer">🗑</button>
+          </div>
+        </div></div>`;
+      }
+      // ── Case normale ────────────────────────────────────────────────────────
+      // Slot 1
+      const info=TILE_RESOURCES[t.resource]||{};
+      const yi=TILE_YIELD[t.resource];
+      const currentYield=yi?(t.has_primary?yi.primary:yi.raw):0;
+      const resLabel=yi?RESOURCE_LABELS[yi.resource]:"—";
+      const slot1Badge=t.has_primary?`<span class="badge badge-gold">${info.primary}</span>`:`<span class="badge badge-muted">Brut</span>`;
+      const slot1Btn=!t.has_primary
+        ?`<button class="btn btn-outline btn-sm" onclick="actionBuildPrimary('${t.id}',1)">🔨 ${info.primary||"Bâtir"}</button>`
+        :`<button class="btn btn-ghost btn-sm" onclick="actionDestroyPrimary('${t.id}',1)">🗑 Démolir</button>`;
+      // Slot 2 (terres uniquement)
+      const hasSlot2 = domain==="terre" && t.resource2;
+      let slot2Html="";
+      if(hasSlot2) {
+        const info2=TILE_RESOURCES[t.resource2]||{};
+        const yi2=TILE_YIELD[t.resource2];
+        const yield2=yi2?(t.has_primary2?yi2.primary:yi2.raw):0;
+        const res2Label=yi2?RESOURCE_LABELS[yi2.resource]:"—";
+        const slot2Badge=t.has_primary2?`<span class="badge badge-gold">${info2.primary}</span>`:`<span class="badge badge-muted">Brut</span>`;
+        const slot2Btn=!t.has_primary2
+          ?`<button class="btn btn-outline btn-sm" onclick="actionBuildPrimary('${t.id}',2)">🔨 ${info2.primary||"Bâtir"}</button>`
+          :`<button class="btn btn-ghost btn-sm" onclick="actionDestroyPrimary('${t.id}',2)">🗑 Démolir</button>`;
+        slot2Html=`<div style="margin-top:0.6rem;padding-top:0.6rem;border-top:1px dashed var(--border)">
+          <div class="flex items-center gap-sm mb-1">
+            <span class="overline" style="font-size:0.58rem">Slot 2</span>
+            <span>${RESOURCE_ICON[yi2?.resource]||""}</span>
+            <span class="text-xs text-muted">${info2.label||""}</span>
+            ${slot2Badge}
+          </div>
+          <div class="flex flex-wrap gap-sm mb-1">
+            ${slot2Btn}
+          </div>
+          <div class="text-xs text-muted">
+            <div class="table-row"><span>Rendement</span><span class="font-mono">+${fmt(yield2)} ${res2Label}</span></div>
+            ${!t.has_primary2&&yi2?`<div class="table-row"><span>Avec bâtiment</span><span class="font-mono">+${fmt(yi2.primary)} ${res2Label}</span></div>`:""}
+          </div>
+        </div>`;
+      }
+      const popSlot1=t.has_primary?PRIMARY_POP:TILE_RAW_POP;
+      const popSlot2=hasSlot2?(t.has_primary2?PRIMARY_POP:TILE_RAW_POP):0;
+      return `<div class="card"><div class="card-body">
+        <div class="flex items-start justify-between gap">
+          <div>
+            <div class="overline mb-1">${domain==="terre"?"Province":"Île"}</div>
+            <h4 style="font-size:1.1rem;font-weight:700">${t.name}</h4>
+            <p class="text-sm text-muted">${info.label||""} ${RESOURCE_ICON[yi?.resource]||""}</p>
+          </div>
+          <button class="btn btn-danger btn-icon btn-sm" onclick="actionRemoveTile('${t.id}')" title="Supprimer">🗑</button>
+        </div>
+        <div class="flex items-center gap-sm mt-1 mb-1">
+          <span class="overline" style="font-size:0.58rem">Slot 1</span>${slot1Badge}
+        </div>
+        <div class="flex flex-wrap gap-sm mb-1">${slot1Btn}</div>
+        <div class="text-xs text-muted space-y-sm">
+          <div class="table-row"><span>Rendement S1</span><span class="font-mono">+${fmt(currentYield)} ${resLabel}</span></div>
+          ${!t.has_primary&&yi?`<div class="table-row"><span>Avec bâtiment</span><span class="font-mono">+${fmt(yi.primary)} ${resLabel}</span></div>`:""}
+          <div class="table-row"><span>Pop. slot 1</span><span class="font-mono">${popSlot1} hab.</span></div>
+          ${hasSlot2?`<div class="table-row"><span>Pop. slot 2</span><span class="font-mono">${popSlot2} hab.</span></div>`:""}
+        </div>
+        ${slot2Html}
+      </div></div>`;
+    }).join("");
+  }
+
+  document.getElementById("tiles-terre").innerHTML=tileCards(terres,"terre");
+  document.getElementById("tiles-mer").innerHTML=tileCards(mers,"mer");
+}
+
+function renderBuildings() {
+  const ownedTypes=new Set(G.buildings.map(b=>b.type));
+  const ownedMap={};
+  for(const b of G.buildings) ownedMap[b.type]=(ownedMap[b.type]||[]).concat(b);
+
+  for(const[family,types] of Object.entries(BLD_FAMILIES)) {
+    const el=document.getElementById(`bld-${family}`);
+    el.innerHTML=types.filter(k=>UTILITY_BUILDINGS[k]).map(key=>{
+      const info=UTILITY_BUILDINGS[key];
+      const count=(ownedMap[key]||[]).length;
+      const buildable=!info.requires||ownedTypes.has(info.requires);
+      const reqLabel=info.requires?UTILITY_BUILDINGS[info.requires]?.label:"";
+      const last=(ownedMap[key]||[]).slice(-1)[0];
+      return `<div class="card ${!buildable?"opacity-50":""}"><div class="card-body">
+        <div class="flex items-start gap justify-between">
+          <div class="flex-1">
+            <h3 style="font-size:1rem;font-weight:700">${info.label}</h3>
+            <p class="text-xs text-muted mt-1">${info.effect}</p>
+          </div>
+          ${count?`<span class="badge badge-gold">×${count}</span>`:""}
+        </div>
+        <div class="mt-2 text-xs space-y-sm">
+          <div class="table-row"><span class="text-muted">Coût</span><span class="font-mono">${costStr(info.cost)}</span></div>
+          ${Object.keys(info.upkeep||{}).length?`<div class="table-row"><span class="text-muted">Entretien/tour</span><span class="font-mono text-danger">${costStr(info.upkeep)}</span></div>`:""}
+          ${reqLabel?`<div class="table-row"><span class="text-muted">Prérequis</span><span class="font-mono">${reqLabel}</span></div>`:""}
+        </div>
+        <div class="mt-2 flex gap-sm">
+          <button class="btn btn-primary btn-sm" ${!buildable?"disabled":""} onclick="actionConstruct('${key}')">
+            ${info.upgrades_from?"↑ Améliorer":"+ Construire"}
+          </button>
+          ${last?`<button class="btn btn-ghost btn-sm text-danger" onclick="confirmDemolish('${last.id}')">🗑</button>`:""}
+        </div>
+      </div></div>`;
+    }).join("");
+  }
+}
+
+function renderUsines() {
+  // En service
+  const es=document.getElementById("usines-en-service");
+  if(G.usines.length) {
+    es.innerHTML=`<div class="card mb-2"><div class="card-body">
+      <div class="overline mb-2">Usines en service</div>
+      ${G.usines.map(u=>{
+        const info=USINES[u.type]; if(!info) return "";
+        const cons=Object.entries(info.consume).map(([k,v])=>`−${v} ${RESOURCE_LABELS[k]}`).join(" · ");
+        const prod=Object.entries(info.produce).map(([k,v])=>`+${v} ${RESOURCE_LABELS[k]}`).join(" · ");
+        return `<div class="table-row flex-wrap gap-sm">
+          <div class="flex items-center gap-sm flex-1">
+            <span>⚙</span>
+            <div>
+              <div class="bold text-sm">${info.label}</div>
+              <div class="text-xs text-muted"><span class="text-danger">${cons}</span> → <span class="text-success">${prod}</span></div>
+            </div>
+          </div>
+          <div class="flex items-center gap-sm">
+            <span class="overline" title="0 = pause (aucune prod. ni conso.)">Cycles/tour</span>
+            <input type="number" min="0" value="${u.batches_per_turn}" style="width:60px"
+              onchange="actionConfigureUsine('${u.id}',this.value)" />
+            <button class="btn btn-ghost btn-icon text-danger" onclick="confirmDemolishUsine('${u.id}')">🗑</button>
+          </div>
+        </div>`;
+      }).join("")}
+    </div></div>`;
+  } else es.innerHTML="";
+
+  // Free usines (event rewards)
+  initEventsState();
+  if(G.free_usines && G.free_usines.length) {
+    const freeRows = G.free_usines.map(u => {
+      const info = USINES[u.type]; if(!info) return "";
+      const prod = Object.entries(info.produce).map(([k,v]) => `+${v} ${RESOURCE_LABELS[k]}`).join(" · ");
+      const uid_ = u.id;
+      return `<div class="table-row flex-wrap gap-sm">
+        <div class="flex items-center gap-sm flex-1">
+          <span>✨</span>
+          <div>
+            <div class="bold text-sm">${info.label} <span class="badge badge-sea">Sans entretien</span></div>
+            <div class="text-xs text-success">${prod}</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-sm">
+          <span class="overline" title="0 = pause (aucune prod. ni conso.)">Cycles/tour</span>
+          <input type="number" min="0" value="${u.batches_per_turn}" style="width:60px"
+            data-free-usine-id="${uid_}"
+            onchange="actionConfigureFreeUsine(this.dataset.freeUsineId, this.value)" />
+        </div>
+      </div>`;
+    }).join("");
+    es.innerHTML += `<div class="card card-sea mb-2"><div class="card-body">
+      <div class="overline mb-2">✨ Usines événement (sans entretien)</div>
+      ${freeRows}
+    </div></div>`;
+  }
+
+  // Catalogue
+  const primaryByRes={};
+  for(const t of G.tiles) { if(t.has_primary&&t.resource) primaryByRes[t.resource]=(primaryByRes[t.resource]||0)+1; }
+  const cat=document.getElementById("usines-catalogue");
+  cat.innerHTML=Object.entries(USINES).map(([key,info])=>{
+    const prereqOk=info.prereq.every(([res,n])=>(primaryByRes[res]||0)>=n);
+    const count=G.usines.filter(u=>u.type===key).length;
+    const prereqLines=info.prereq.map(([res,n])=>{
+      const have=primaryByRes[res]||0; const ok=have>=n;
+      return `<li class="${ok?"text-success":"text-danger"}">${n}× bât. primaire ${RESOURCE_LABELS[res]||res} (${have}/${n})</li>`;
+    }).join("");
+    const cons=Object.entries(info.consume).map(([k,v])=>`−${v} ${RESOURCE_LABELS[k]}`).join(" · ");
+    const prod=Object.entries(info.produce).map(([k,v])=>`+${v} ${RESOURCE_LABELS[k]}`).join(" · ");
+    return `<div class="card ${!prereqOk?"opacity-50":""}"><div class="card-body">
+      <div class="flex items-start gap justify-between">
+        <div><h3 style="font-size:1rem;font-weight:700">⚙ ${info.label}</h3>
+        <p class="text-xs text-muted mt-1"><span class="text-danger">${cons}</span> → <span class="text-success">${prod}</span></p></div>
+        ${count?`<span class="badge badge-gold">×${count}</span>`:""}
+      </div>
+      <div class="mt-2 text-xs space-y-sm">
+        <div class="table-row"><span class="text-muted">Coût</span><span class="font-mono">${costStr(info.cost)}</span></div>
+        <div class="table-row"><span class="text-muted">Pop. requise</span><span class="font-mono">${info.pop} hab.</span></div>
+        <ul class="mt-1 ml-2" style="list-style:none">${prereqLines}</ul>
+      </div>
+      <div class="mt-2"><button class="btn btn-primary btn-sm" ${!prereqOk?"disabled":""} onclick="actionBuildUsine('${key}')">
+        ${prereqOk?"+ Construire":"🔒 Prérequis"}
+      </button></div>
+    </div></div>`;
+  }).join("");
+
+  // Prix internationaux
+  const ip=document.getElementById("intl-prices");
+  ip.innerHTML=Object.entries(INTERNATIONAL_PRICES).map(([k,p])=>
+    `<div class="table-row"><span>${RESOURCE_LABELS[k]||k}</span><span class="font-mono text-gold">${p} or/100</span></div>`
+  ).join("");
+}
+
+function renderMilitary() {
+  // Armée
+  const tierOptions=(tiers)=>Object.entries(tiers).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
+  const ma=document.getElementById("mil-armee");
+  ma.innerHTML=`
+    <div class="card"><div class="card-body">
+      <h3 class="mb-1" style="font-size:1.1rem;font-weight:700">Recrutement d'infanterie</h3>
+      <p class="text-sm text-muted mb-2">Nécessite une Base militaire du niveau correspondant.</p>
+      <div class="flex flex-wrap gap items-end">
+        <div><label class="overline">Niveau</label><select id="inf-tier" style="width:120px">${tierOptions(TROOP_TIERS_INFANTERIE)}</select></div>
+        <div><label class="overline">Paquets de 10</label><input type="number" id="inf-packs" value="1" min="1" style="width:80px"/></div>
+        <button class="btn btn-primary btn-sm" onclick="actionRecruit('infanterie',document.getElementById('inf-tier').value,document.getElementById('inf-packs').value)">+ Recruter</button>
+      </div>
+    </div></div>
+    <div class="card"><div class="card-body">
+      <h3 class="mb-1" style="font-size:1.1rem;font-weight:700">Recrutement de marins</h3>
+      <p class="text-sm text-muted mb-2">Nécessite un Port militaire du niveau correspondant.</p>
+      <div class="flex flex-wrap gap items-end">
+        <div><label class="overline">Niveau</label><select id="mar-tier" style="width:120px">${tierOptions(TROOP_TIERS_MARINE)}</select></div>
+        <div><label class="overline">Paquets de 10</label><input type="number" id="mar-packs" value="1" min="1" style="width:80px"/></div>
+        <button class="btn btn-primary btn-sm" onclick="actionRecruit('marine',document.getElementById('mar-tier').value,document.getElementById('mar-packs').value)">+ Recruter</button>
+      </div>
+    </div></div>
+    <div class="card"><div class="card-body">
+      <h3 class="mb-2" style="font-size:1.1rem;font-weight:700">Forces actuelles</h3>
+      ${!G.troops.length?`<p class="italic text-muted text-sm">Aucune troupe recrutée.</p>`:
+        G.troops.map(t=>{
+          const tiers=t.branch==="infanterie"?TROOP_TIERS_INFANTERIE:TROOP_TIERS_MARINE;
+          const spec=tiers[t.tier];
+          return `<div class="table-row">
+            <div><span class="bold" style="text-transform:capitalize">${t.branch}</span>
+            <span class="badge badge-gold" style="margin-left:0.5rem">${spec?.label}</span></div>
+            <div class="flex items-center gap-sm">
+              <span class="font-mono text-sm">${t.packs*10} soldats (${t.packs} paquets)</span>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDisbandTroop('${t.id}',1)" title="Démobiliser 1 paquet">−</button>
+            </div>
+          </div>`;
+        }).join("")}
+    </div></div>`;
+
+  // Marine
+  const tierOptionsShip=Object.entries(SHIP_TIERS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
+  const mm=document.getElementById("mil-marine");
+  mm.innerHTML=`
+    <div class="card"><div class="card-body">
+      <h3 class="mb-1" style="font-size:1.1rem;font-weight:700">Navires de guerre</h3>
+      <p class="text-sm text-muted mb-2">Nécessite un Port militaire.</p>
+      <div class="flex flex-wrap gap items-end">
+        <div><label class="overline">Classe</label><select id="war-tier" style="width:150px">${tierOptionsShip}</select></div>
+        <div><label class="overline">Quantité</label><input type="number" id="war-count" value="1" min="1" style="width:70px"/></div>
+        <button class="btn btn-primary btn-sm" onclick="actionBuildShip('guerre',document.getElementById('war-tier').value,document.getElementById('war-count').value)">+ Construire</button>
+      </div>
+    </div></div>
+    <div class="card card-gold"><div class="card-body">
+      <h3 class="mb-1" style="font-size:1.1rem;font-weight:700">⚓ ${GALION.label}</h3>
+      <p class="text-sm text-muted mb-2">Nécessite Port militaire III. Max ${GALION.max_per_nation} par nation. Puissance ×${GALION.power}.</p>
+      <div class="flex flex-wrap gap items-end">
+        <div><label class="overline">Quantité</label><input type="number" id="galion-count" value="1" min="1" style="width:70px"/></div>
+        <button class="btn btn-primary btn-sm" onclick="actionBuildShip('galion',1,document.getElementById('galion-count').value)">+ Construire</button>
+      </div>
+    </div></div>
+    <div class="card"><div class="card-body">
+      <h3 class="mb-1" style="font-size:1.1rem;font-weight:700">Navires marchands</h3>
+      <p class="text-sm text-muted mb-2">Nécessite un Port de commerce.</p>
+      <div class="flex flex-wrap gap items-end">
+        <div><label class="overline">Quantité</label><input type="number" id="merch-count" value="1" min="1" style="width:70px"/></div>
+        <button class="btn btn-primary btn-sm" onclick="actionBuildShip('commerce',1,document.getElementById('merch-count').value)">+ Construire</button>
+      </div>
+    </div></div>
+    <div class="card"><div class="card-body">
+      <h3 class="mb-2" style="font-size:1.1rem;font-weight:700">Flotte actuelle</h3>
+      ${!G.ships.length?`<p class="italic text-muted text-sm">Aucun navire en service.</p>`:
+        G.ships.map(s=>{
+          const spec=s.kind==="guerre"?(SHIP_TIERS[s.tier]||SHIP_TIERS[1]):s.kind==="galion"?GALION:MERCHANT_SHIP;
+          const ico=s.kind==="galion"?"⚓":s.kind==="commerce"?"⛵":"🚢";
+          return `<div class="table-row">
+            <div class="flex items-center gap-sm">${ico} <span class="bold text-sm">${spec.label}</span></div>
+            <div class="flex items-center gap-sm">
+              <span class="font-mono text-sm">×${s.count}</span>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDisbandShip('${s.id}',1)" title="Désarmer 1">−</button>
+            </div>
+          </div>`;
+        }).join("")}
+    </div></div>`;
+}
+
+function renderCommerce() {
+  const merchantCount=G.ships.filter(s=>s.kind==="commerce").reduce((a,s)=>a+s.count,0);
+  document.getElementById("merchant-count").textContent=merchantCount;
+
+  // populate trade resource select
+  const trSel=document.getElementById("trade-resource");
+  if(!trSel.children.length) {
+    RESOURCE_KEYS.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=RESOURCE_LABELS[k];trSel.appendChild(o);});
+  }
+
+  const tl=document.getElementById("trade-list");
+  if(!G.trade_routes.length) {
+    tl.innerHTML=`<p class="italic text-muted text-sm col-span-full">Aucune route commerciale active.</p>`;
+    return;
+  }
+  tl.innerHTML=G.trade_routes.map(r=>{
+    const ico=r.direction==="import"?"⬇":"⬆";
+    const costLine=r.direction==="import"
+      ?`Coût : <span class="text-danger">−${fmt(r.quantity*r.price_per_unit)} or</span> · Gain : <span class="text-success">+${fmt(r.quantity)} ${RESOURCE_LABELS[r.resource]}</span>`
+      :`Recette : <span class="text-success">+${fmt(r.quantity*r.price_per_unit)} or</span> · Sortie : <span class="text-danger">−${fmt(r.quantity)} ${RESOURCE_LABELS[r.resource]}</span>`;
+    return `<div class="card"><div class="card-body">
+      <div class="flex items-start justify-between gap">
+        <div class="flex-1">
+          <div class="flex items-center gap-sm mb-1">
+            ${ico} <span class="badge ${r.direction==="import"?"badge-success":"badge-danger"}">${r.direction}</span>
+            ${r.recurring?`<span class="badge badge-gold">Récurrent</span>`:""}
+          </div>
+          <div style="font-size:1.1rem;font-weight:700">${r.partner||"Partenaire inconnu"}</div>
+          <p class="text-sm text-muted mt-1">${r.quantity} <strong>${RESOURCE_LABELS[r.resource]}</strong> à ${r.price_per_unit} or/u</p>
+          <p class="text-xs mt-1">${costLine}</p>
+          ${r.notes?`<p class="text-xs italic text-muted mt-1">« ${r.notes} »</p>`:""}
+        </div>
+        <button class="btn btn-ghost btn-icon text-danger" onclick="actionDeleteTrade('${r.id}')">🗑</button>
+      </div>
+    </div></div>`;
+  }).join("");
+}
+
+function renderAttacks() {
+  const al=document.getElementById("attacks-list");
+  const OUTCOME_META={
+    en_cours:{label:"En cours",ico:"⏳"},
+    victoire:{label:"Victoire",ico:"🏆"},
+    defaite:{label:"Défaite",ico:"🛡"},
+    annulee:{label:"Annulée",ico:"✕"},
+  };
+  const KIND_META={
+    terre:{label:"Case terrestre",ico:"📍"},
+    mer:{label:"Case maritime",ico:"⛵"},
+    joueur:{label:"Joueur ennemi",ico:"🚩"},
+  };
+  if(!G.attacks.length) {
+    al.innerHTML=`<div class="card" style="grid-column:1/-1"><div class="card-body" style="text-align:center;padding:2.5rem">
+      <div style="font-size:2rem;margin-bottom:0.5rem">⚔</div>
+      <p class="bold" style="font-size:1.1rem">Aucune campagne militaire en cours</p>
+      <p class="text-sm text-muted mt-1">Déclarez votre première offensive pour ouvrir le journal de bataille.</p>
+    </div></div>`;
+    return;
+  }
+  al.innerHTML=G.attacks.map(a=>{
+    const km=KIND_META[a.kind]||KIND_META.terre;
+    const om=OUTCOME_META[a.outcome]||OUTCOME_META.en_cours;
+    const outcomeBtns=Object.entries(OUTCOME_META).map(([k,m])=>
+      `<button class="btn ${a.outcome===k?"btn-primary":"btn-outline"} btn-sm" onclick="actionUpdateAttack('${a.id}',{outcome:'${k}'})">
+        ${m.ico} ${m.label}</button>`
+    ).join("");
+    return `<div class="card"><div class="card-body">
+      <div class="flex items-start justify-between gap">
+        <div class="flex-1">
+          <div class="flex flex-wrap items-center gap-sm mb-1">
+            <span>${km.ico}</span>
+            <span class="badge badge-sea">${km.label}</span>
+            <span class="badge ${a.outcome==="victoire"?"badge-success":a.outcome==="defaite"?"badge-danger":a.outcome==="annulee"?"badge-muted":"badge-gold"}">${om.ico} ${om.label}</span>
+          </div>
+          <div style="font-size:1.1rem;font-weight:700">${a.target}</div>
+          ${a.direction?`<p class="text-xs text-muted mt-1">Direction : ${a.direction}</p>`:""}
+          ${a.troops?`<p class="text-sm mt-1"><span class="overline" style="margin-right:0.5rem">Troupes</span>${a.troops}</p>`:""}
+          ${a.ships?`<p class="text-sm"><span class="overline" style="margin-right:0.5rem">Navires</span>${a.ships}</p>`:""}
+          ${a.notes?`<p class="text-xs italic text-muted mt-1">« ${a.notes} »</p>`:""}
+        </div>
+        <button class="btn btn-ghost btn-icon text-danger" onclick="actionDeleteAttack('${a.id}')">🗑</button>
+      </div>
+      <div class="mt-2 flex flex-wrap gap-sm" style="padding-top:0.75rem;border-top:1px solid var(--border)">
+        <span class="overline">Issue :</span>${outcomeBtns}
+      </div>
+    </div></div>`;
+  }).join("");
+}
+
+function renderFiche() {
+  document.getElementById("fiche-turn").textContent=G.turn;
+  const p=preview;
+  const resRows=(res,deltas)=>RESOURCE_KEYS.map(k=>{
+    const v=res?.[k]??0; const d=deltas?.[k];
+    return `<div class="table-row"><span>${RESOURCE_LABELS[k]}</span>
+      <span class="font-mono">${fmt(v)}${d!==undefined?` <span class="${d>0?"text-success":d<0?"text-danger":"text-muted"}">(${d>0?"+":""}${fmt(d)})</span>`:""}</span>
+    </div>`;
+  }).join("");
+
+  const primaries=G.tiles.filter(t=>t.has_primary);
+  const terres=G.tiles.filter(t=>t.domain==="terre");
+  const mers=G.tiles.filter(t=>t.domain==="mer");
+  const lr=G.last_turn_report;
+
+  document.getElementById("fiche-content").innerHTML=`
+    <header style="text-align:center;padding-bottom:1.5rem;border-bottom:1px solid var(--border);margin-bottom:1.5rem">
+      <div class="overline">Carnet d'Amirauté</div>
+      <h1 style="font-size:2rem;color:var(--gold);margin:0.25rem 0">${G.name}</h1>
+      <p class="italic text-muted">Tour № ${G.turn}</p>
+    </header>
+
+    <div class="grid-2 mb-2">
+      <div><h3 class="overline mb-2">Ressources actuelles & gain/tour</h3>
+        <div class="table-row"><span>Pop. occupée</span><span class="font-mono">${fmt(p.population_occupied)}</span></div>
+        <div class="table-row"><span>Pop. libre</span><span class="font-mono">${fmt(p.population_free)}</span></div>
+        ${resRows(G.resources,p.delta)}
+      </div>
+      <div><h3 class="overline mb-2">Projection fin de tour</h3>
+        <div class="table-row"><span>Pop. occupée</span><span class="font-mono">${fmt(p.population_occupied)}</span></div>
+        <div class="table-row"><span>Pop. libre</span><span class="font-mono">${fmt(p.population_free)}</span></div>
+        ${resRows(p.after)}
+      </div>
+    </div>
+
+    <div class="brass-divider">✦</div>
+
+    <div class="grid-2 mb-2">
+      <div><h3 class="overline mb-2">Bâtiments primaires</h3>
+        ${!primaries.length?`<p class="italic text-muted text-sm">Aucun.</p>`:
+          primaries.map(t=>{const i=TILE_RESOURCES[t.resource];return `<div class="table-row">· ${i?.primary||"?"} <span class="text-muted">— ${t.name}</span></div>`;}).join("")}
+      </div>
+      <div><h3 class="overline mb-2">Usines</h3>
+        ${!G.usines.length?`<p class="italic text-muted text-sm">Aucune.</p>`:
+          G.usines.map(u=>{const i=USINES[u.type];return `<div class="table-row">· ${i?.label||u.type} <span class="text-muted">— ${u.batches_per_turn} cycle(s)/tour</span></div>`;}).join("")}
+      </div>
+    </div>
+    <div class="mb-2"><h3 class="overline mb-2">Bâtiments utilitaires</h3>
+      ${!G.buildings.length?`<p class="italic text-muted text-sm">Aucun.</p>`:
+        Object.entries(G.buildings.reduce((a,b)=>{a[b.type]=(a[b.type]||0)+1;return a},{}))
+          .map(([t,n])=>{const i=UTILITY_BUILDINGS[t];return `<div class="table-row" style="display:inline-flex;width:48%;margin-right:2%">· ${i?.label||t} <span class="text-muted" style="margin-left:auto">×${n}</span></div>`;}).join("")}
+    </div>
+
+    <div class="brass-divider">✦</div>
+
+    <div class="grid-2 mb-2">
+      <div><h3 class="overline mb-2">Armée de terre</h3>
+        ${!G.troops.length?`<p class="italic text-muted text-sm">Aucune troupe.</p>`:
+          G.troops.map(t=>{const tiers=t.branch==="infanterie"?TROOP_TIERS_INFANTERIE:TROOP_TIERS_MARINE;const s=tiers[t.tier];
+            return `<div class="table-row">· <span style="text-transform:capitalize">${t.branch}</span> ${s?.label} <span class="text-muted">— ${fmt(t.packs*10)} hommes</span></div>`;}).join("")}
+      </div>
+      <div><h3 class="overline mb-2">Marine de guerre</h3>
+        ${!G.ships.filter(s=>s.kind!=="commerce").length?`<p class="italic text-muted text-sm">Aucun navire de guerre.</p>`:
+          G.ships.filter(s=>s.kind!=="commerce").map(s=>{const spec=s.kind==="guerre"?(SHIP_TIERS[s.tier]||SHIP_TIERS[1]):GALION;
+            return `<div class="table-row">· ${spec.label} <span class="text-muted">— ×${s.count}</span></div>`;}).join("")}
+      </div>
+    </div>
+    <div class="mb-2"><h3 class="overline mb-2">Routes commerciales</h3>
+      ${!G.trade_routes.length?`<p class="italic text-muted text-sm">Aucune.</p>`:
+        G.trade_routes.map(r=>`<div class="table-row">· ${r.direction==="import"?"Import":"Export"} <strong>${fmt(r.quantity)} ${RESOURCE_LABELS[r.resource]}</strong> ${r.direction==="import"?"depuis":"vers"} ${r.partner||"—"} à <span class="font-mono">${r.price_per_unit} or/u</span>${r.recurring?" (récurrent)":""}</div>`).join("")}
+      <div class="text-xs text-muted mt-1">Navires marchands : ${G.ships.filter(s=>s.kind==="commerce").reduce((a,s)=>a+s.count,0)}</div>
+    </div>
+
+    ${lr?`<div class="brass-divider">✦</div>
+    <h3 class="overline mb-2">Compte-rendu du tour № ${lr.turn}</h3>
+    <div class="grid-3 text-xs">
+      <div><p class="bold mb-1">Avant</p>${RESOURCE_KEYS.map(k=>`<div class="table-row"><span>${RESOURCE_LABELS[k]}</span><span class="font-mono">${fmt(lr.before?.[k]??0)}</span></div>`).join("")}</div>
+      <div><p class="bold mb-1">Variation</p>${RESOURCE_KEYS.map(k=>{const d=lr.delta?.[k]??0;return `<div class="table-row"><span>${RESOURCE_LABELS[k]}</span><span class="font-mono ${d>0?"text-success":d<0?"text-danger":""}">${d>0?"+":""}${fmt(d)}</span></div>`;}).join("")}</div>
+      <div><p class="bold mb-1">Après</p>${RESOURCE_KEYS.map(k=>`<div class="table-row"><span>${RESOURCE_LABELS[k]}</span><span class="font-mono">${fmt(lr.after?.[k]??0)}</span></div>`).join("")}</div>
+    </div>`:""}
+
+    <footer style="text-align:center;padding-top:1.5rem;margin-top:1.5rem;border-top:1px solid var(--border)">
+      <div class="overline">Scellé de l'Amirauté</div>
+      <p class="italic text-muted text-xs mt-1">${terres.length} province(s) terrestre(s) · ${mers.length} territoire(s) maritime(s)</p>
+    </footer>`;
+}
+
+// =============================================================================
+// UI HELPERS
+// =============================================================================
+function showTab(name,btn) {
+  document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
+  document.querySelectorAll(".tabs-nav .tab-btn").forEach(b=>{if(b.closest(".tabs-nav")===btn.closest(".tabs-nav"))b.classList.remove("active");});
+  document.getElementById("tab-"+name).classList.add("active");
+  btn.classList.add("active");
+}
+
+function showEmpireTab(dom,btn) {
+  ["terre","mer"].forEach(d=>{
+    document.getElementById("tiles-"+d).classList.toggle("hidden",d!==dom);
+  });
+  document.querySelectorAll(".tabs-nav").forEach(nav=>{
+    if(nav.contains(btn)) nav.querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("active",b===btn));
+  });
+}
+
+function showBldTab(family,btn) {
+  ["infrastructure","economie","militaire","defense"].forEach(f=>{
+    document.getElementById("bld-"+f).classList.toggle("hidden",f!==family);
+  });
+  btn.closest(".tabs-nav").querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("active",b===btn));
+}
+
+function showMilTab(tab,btn) {
+  ["armee","marine"].forEach(t=>document.getElementById("mil-"+t).classList.toggle("hidden",t!==tab));
+  btn.closest(".tabs-nav").querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("active",b===btn));
+}
+
+function openModal(id) { document.getElementById(id).classList.add("open"); }
+function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+
+// Close modal on overlay click
+document.querySelectorAll(".modal-overlay").forEach(o=>{
+  o.addEventListener("click",e=>{ if(e.target===o) o.classList.remove("open"); });
+});
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") document.querySelectorAll(".modal-overlay.open").forEach(o=>o.classList.remove("open")); });
+
+function openRenameModal() {
+  document.getElementById("rename-input").value=G.name;
+  openModal("modal-rename");
+}
+function saveRename() {
+  const name=document.getElementById("rename-input").value.trim();
+  G.name=name||"Mon Empire"; saveGame(); preview=getPreview(); render();
+  closeModal("modal-rename"); toast("Nom mis à jour.");
+}
+
+function populateTileSelects(domain) {
+  const sel=document.getElementById("tile-resource");
+  const sel2=document.getElementById("tile-resource2");
+  const grp2=document.getElementById("tile-resource2-group");
+
+  // Slot 1
+  sel.innerHTML=`<option value="random">Aléatoire selon probabilités</option>`;
+  // Exclure coffre et terra_incognita du choix manuel (uniquement via aléatoire)
+  const EXCLUDE_MANUAL=["capitale_ennemie","coffre","terra_incognita"];
+  Object.entries(TILE_RESOURCES).filter(([k,i])=>i.domain===domain&&!EXCLUDE_MANUAL.includes(k)).forEach(([k,i])=>{
+    const o=document.createElement("option"); o.value=k; o.textContent=i.label; sel.appendChild(o);
+  });
+  if(domain==="terre") {
+    const oCap=document.createElement("option"); oCap.value="capitale_ennemie"; oCap.textContent="👑 Capitale ennemie conquise"; sel.appendChild(oCap);
+  }
+
+  // Slot 2 — obligatoire pour terres (pas d'"Aucune"), caché pour mer
+  if(domain==="terre") {
+    sel2.innerHTML=`<option value="random">Aléatoire selon probabilités</option>`;
+    Object.entries(TILE_RESOURCES).filter(([k,i])=>i.domain==="terre"&&!EXCLUDE_MANUAL.includes(k)).forEach(([k,i])=>{
+      const o=document.createElement("option"); o.value=k; o.textContent=i.label; sel2.appendChild(o);
+    });
+    grp2.style.display="";
+  } else {
+    grp2.style.display="none";
+    sel2.innerHTML=""; // vider pour mer
+  }
+}
+
+function openAddTileModal() {
+  const domain=document.getElementById("tile-domain").value;
+  populateTileSelects(domain);
+  document.getElementById("tile-name").value="";
+  openModal("modal-add-tile");
+}
+
+document.getElementById("tile-domain").addEventListener("change",function(){
+  populateTileSelects(this.value);
+});
+
+document.getElementById("tile-resource").addEventListener("change",function(){
+  const grp2=document.getElementById("tile-resource2-group");
+  const sel2=document.getElementById("tile-resource2");
+  if(this.value==="capitale_ennemie") {
+    // Slot 2 désactivé et caché
+    grp2.style.display="none";
+    sel2.value="";
+  } else if(document.getElementById("tile-domain").value==="terre") {
+    // Rétablir le slot 2 si on revient sur une ressource normale
+    grp2.style.display="";
+  }
+});
+
+function addTile() {
+  const domain=document.getElementById("tile-domain").value;
+  const resource=document.getElementById("tile-resource").value;
+  // Slot 2 : obligatoire pour terre sauf si slot 1 = capitale_ennemie
+  const resource2=(domain==="terre"&&resource!=="capitale_ennemie")
+    ?(document.getElementById("tile-resource2").value||"random"):null;
+  const name=document.getElementById("tile-name").value.trim();
+  actionAddTile(domain,resource,resource2,name);
+  closeModal("modal-add-tile");
+}
+
+function openTradeModal() {
+  document.getElementById("trade-partner").value="";
+  document.getElementById("trade-qty").value="10";
+  document.getElementById("trade-price").value="1";
+  document.getElementById("trade-ships").value="1";
+  document.getElementById("trade-recurring").checked=true;
+  document.getElementById("trade-notes").value="";
+  openModal("modal-trade");
+}
+
+function createTrade() {
+  const data={
+    partner:document.getElementById("trade-partner").value.trim(),
+    direction:document.getElementById("trade-direction").value,
+    resource:document.getElementById("trade-resource").value,
+    quantity:parseInt(document.getElementById("trade-qty").value)||0,
+    price_per_unit:parseInt(document.getElementById("trade-price").value)||0,
+    recurring:document.getElementById("trade-recurring").checked,
+    merchant_ships_required:parseInt(document.getElementById("trade-ships").value)||1,
+    notes:document.getElementById("trade-notes").value.trim(),
+  };
+  actionCreateTrade(data);
+  closeModal("modal-trade");
+}
+
+function openAttackModal() {
+  document.getElementById("attack-target").value="";
+  document.getElementById("attack-direction").value="";
+  document.getElementById("attack-troops").value="";
+  document.getElementById("attack-ships").value="";
+  document.getElementById("attack-notes").value="";
+  openModal("modal-attack");
+}
+
+function declareAttack() {
+  const target=document.getElementById("attack-target").value.trim();
+  if(!target) { toast("Indiquez une cible","error"); return; }
+  const data={
+    target,
+    kind:document.getElementById("attack-kind").value,
+    direction:document.getElementById("attack-direction").value.trim(),
+    troops:document.getElementById("attack-troops").value.trim(),
+    ships:document.getElementById("attack-ships").value.trim(),
+    notes:document.getElementById("attack-notes").value.trim(),
+  };
+  actionDeclareAttack(data);
+  closeModal("modal-attack");
+}
+
+function toggleCapital(active) {
+  G.capital_active = !!active;
+  saveGame(); preview = getPreview(); render();
+  toast(active ? "Capitale activée." : "Capitale désactivée — production et capacité retirées.");
+}
+
+function toggleFreePopGold(active) {
+  G.free_pop_gold_active = !!active;
+  saveGame(); preview = getPreview(); render();
+  toast(active ? "Production de la pop. libre activée !" : "Production de la pop. libre désactivée.");
+}
+
+function endTurn() {
+  document.getElementById("confirm-title").textContent = "Clôturer le tour ?";
+  document.getElementById("confirm-msg").textContent = `Tour № ${G.turn} → Tour № ${G.turn + 1}. Les ressources seront mises à jour selon la projection affichée. Cette action est irréversible.`;
+  document.getElementById("confirm-ok").textContent = "⚔ Valider le tour";
+  document.getElementById("confirm-ok").className = "btn btn-seal";
+  document.getElementById("confirm-ok").onclick = () => { closeModal("modal-confirm"); actionEndTurn(); };
+  openModal("modal-confirm");
+}
+
+function confirmReset() {
+  document.getElementById("confirm-title").textContent = "Réinitialiser l'empire ?";
+  document.getElementById("confirm-msg").textContent = "Toute votre progression sera effacée. Cette action est irréversible.";
+  document.getElementById("confirm-ok").textContent = "↺ Recommencer";
+  document.getElementById("confirm-ok").className = "btn btn-danger";
+  document.getElementById("confirm-ok").onclick = () => { closeModal("modal-confirm"); actionReset(); };
+  openModal("modal-confirm");
+}
+
+
+// =============================================================================
+// EVENTS SYSTEM
+// =============================================================================
+
+// Events are stored in G.events — free-tagged items skip upkeep in computeTurnChanges
+// Free buildings/usines/troops/ships stored as separate arrays with _free flag
+
+function initEventsState() {
+  G.events = G.events || [];
+  G.free_buildings = G.free_buildings || [];   // {id, type}
+  G.free_usines    = G.free_usines    || [];   // {id, type, batches_per_turn}
+  G.free_troops    = G.free_troops    || [];   // {id, branch, tier, packs}
+  G.free_ships     = G.free_ships     || [];   // {id, kind, tier, count}
+}
+
+// ── Rendering ─────────────────────────────────────────────────────────────────
+function renderEvents() {
+  initEventsState();
+  const log = document.getElementById("events-log");
+  if(!G.events.length) {
+    log.innerHTML = `<div class="card"><div class="card-body" style="text-align:center;padding:2.5rem">
+      <div style="font-size:2rem;margin-bottom:0.5rem">✨</div>
+      <p class="bold" style="font-size:1.1rem">Aucun événement enregistré</p>
+      <p class="text-sm text-muted mt-1">Les récompenses du MJ apparaîtront ici.</p>
+    </div></div>`;
+    return;
+  }
+  log.innerHTML = G.events.slice().reverse().map(ev => {
+    const tags = ev.rewards.map(r => {
+      const cls = r.free ? "evt-reward-tag free-tag" : "evt-reward-tag";
+      const freeLabel = r.free ? " · Sans entretien" : "";
+      return `<span class="${cls}">${r.label}${freeLabel}</span>`;
+    }).join("");
+    const d = new Date(ev.timestamp);
+    const dateStr = d.toLocaleDateString("fr-FR") + " · Tour " + ev.turn;
+    return `<div class="event-card">
+      <div class="evt-header">
+        <div>
+          <div class="evt-title">✨ ${ev.description || "Événement"}</div>
+          <div class="evt-meta">${dateStr}</div>
+        </div>
+        <button class="btn btn-ghost btn-icon btn-sm text-danger" onclick="deleteEvent('${ev.id}')">🗑</button>
+      </div>
+      <div class="evt-rewards">${tags}</div>
+    </div>`;
+  }).join("");
+}
+
+function deleteEvent(id) {
+  initEventsState();
+  const ev = G.events.find(e => e.id === id);
+  if(!ev) return;
+  const ei = ev.entity_ids || {};
+
+  // Remove resources that were given (only what this event added)
+  if(ei.resources) {
+    for(const [k,v] of Object.entries(ei.resources)) {
+      G.resources[k] = Math.max(0, (G.resources[k]||0) - v);
+    }
+  }
+  // Remove buildings
+  for(const bid of (ei.buildings||[])) G.buildings = G.buildings.filter(b=>b.id!==bid);
+  for(const bid of (ei.free_buildings||[])) G.free_buildings = G.free_buildings.filter(b=>b.id!==bid);
+  // Remove usines
+  for(const uid_ of (ei.usines||[])) G.usines = G.usines.filter(u=>u.id!==uid_);
+  for(const uid_ of (ei.free_usines||[])) G.free_usines = G.free_usines.filter(u=>u.id!==uid_);
+  // Remove troops (subtract packs, remove group if empty)
+  for(const tid of (ei.troops||[])) {
+    const g = G.troops.find(t=>t.id===tid);
+    if(g) { g.packs -= (ei._troop_qty||0); if(g.packs<=0) G.troops = G.troops.filter(t=>t.id!==tid); }
+  }
+  for(const tid of (ei.free_troops||[])) {
+    const g = G.free_troops.find(t=>t.id===tid);
+    if(g) { g.packs -= (ei._troop_qty||0); if(g.packs<=0) G.free_troops = G.free_troops.filter(t=>t.id!==tid); }
+  }
+  // Remove ships (subtract count, remove group if empty)
+  for(const sid of (ei.ships||[])) {
+    const g = G.ships.find(s=>s.id===sid);
+    if(g) { g.count -= (ei._ship_qty||0); if(g.count<=0) G.ships = G.ships.filter(s=>s.id!==sid); }
+  }
+  for(const sid of (ei.free_ships||[])) {
+    const g = G.free_ships.find(s=>s.id===sid);
+    if(g) { g.count -= (ei._ship_qty||0); if(g.count<=0) G.free_ships = G.free_ships.filter(s=>s.id!==sid); }
+  }
+  // Remove tiles
+  for(const tid of (ei.tiles||[])) G.tiles = G.tiles.filter(t=>t.id!==tid);
+  // Remove pop bonus
+  if(ei._pop_bonus) G.pop_bonus = Math.max(0, (G.pop_bonus||0) - ei._pop_bonus);
+
+  G.events = G.events.filter(e => e.id !== id);
+  saveGame(); preview = getPreview(); render();
+  toast("Événement annulé et retiré.");
+}
+
+// ── Modal open ─────────────────────────────────────────────────────────────────
+function openEventModal() {
+  // Populate building select
+  const bldSel = document.getElementById("evt-bld-type");
+  bldSel.innerHTML = Object.entries(UTILITY_BUILDINGS).map(([k,v]) =>
+    `<option value="${k}">${v.label}</option>`).join("");
+
+  // Populate usine select
+  const usineSel = document.getElementById("evt-usine-type");
+  usineSel.innerHTML = Object.entries(USINES).map(([k,v]) =>
+    `<option value="${k}">${v.label}</option>`).join("");
+
+  // Populate case resource select
+  updateEvtCaseResources();
+  document.getElementById("evt-case-domain").onchange = updateEvtCaseResources;
+
+  // Populate resource grid
+  const grid = document.getElementById("evt-res-grid");
+  grid.innerHTML = RESOURCE_KEYS.map(k => `
+    <div class="evt-res-input">
+      <label>${RESOURCE_ICON[k] || ""} ${RESOURCE_LABELS[k]}</label>
+      <input type="number" id="evt-res-${k}" value="0" />
+    </div>`).join("");
+
+  // Reset
+  document.getElementById("evt-desc").value = "";
+  document.getElementById("evt-bld-free").checked = false;
+  document.getElementById("evt-usine-free").checked = false;
+  document.getElementById("evt-trp-free").checked = false;
+  document.getElementById("evt-usine-batches").value = "1";
+  document.getElementById("evt-trp-qty").value = "1";
+  document.getElementById("evt-case-primary").checked = false;
+  document.getElementById("evt-case-name").value = "";
+  document.getElementById("evt-pop-amount").value = "50";
+  setEvtType("ressources", document.querySelector(".evt-type-btn[data-type=ressources]"));
+
+  openModal("modal-event");
+}
+
+function updateEvtCaseResources() {
+  const domain = document.getElementById("evt-case-domain").value;
+  const sel = document.getElementById("evt-case-resource");
+  sel.innerHTML = `<option value="random">Aléatoire</option>` +
+    Object.entries(TILE_RESOURCES).filter(([k,i]) => i.domain === domain && k !== 'capitale_ennemie')
+      .map(([k,i]) => `<option value="${k}">${i.label}</option>`).join("");
+}
+
+let _evtType = "ressources";
+function setEvtType(type, btn) {
+  _evtType = type;
+  document.querySelectorAll(".evt-type-btn").forEach(b => b.classList.remove("active"));
+  if(btn) btn.classList.add("active");
+  document.querySelectorAll(".evt-panel").forEach(p => p.classList.add("hidden"));
+  const panel = document.getElementById("evt-panel-" + type);
+  if(panel) panel.classList.remove("hidden");
+}
+
+// ── Apply event ────────────────────────────────────────────────────────────────
+function applyEvent() {
+  initEventsState();
+  const desc = document.getElementById("evt-desc").value.trim() || "Événement";
+  const rewards = [];
+  // entity_ids: track what was created so deleteEvent can undo it cleanly
+  const entity_ids = { buildings:[], free_buildings:[], usines:[], free_usines:[],
+                       troops:[], free_troops:[], ships:[], free_ships:[], tiles:[],
+                       resources:{} };
+
+  if(_evtType === "ressources") {
+    const added = {};
+    for(const k of RESOURCE_KEYS) {
+      const val = parseInt(document.getElementById("evt-res-" + k)?.value || 0);
+      if(val !== 0) {
+        G.resources[k] = Math.max(0, (G.resources[k]||0) + val);
+        added[k] = val;
+      }
+    }
+    if(!Object.keys(added).length) { toast("Aucune ressource saisie","error"); return; }
+    entity_ids.resources = added;
+    Object.entries(added).forEach(([k,v]) =>
+      rewards.push({label: `${v>0?"+":""}${fmt(v)} ${RESOURCE_LABELS[k]}`, free: false}));
+  }
+
+  else if(_evtType === "batiment") {
+    const type = document.getElementById("evt-bld-type").value;
+    const free = document.getElementById("evt-bld-free").checked;
+    const info = UTILITY_BUILDINGS[type];
+    const bld = {id: uid(), type, level:1};
+    if(free) { G.free_buildings.push(bld); entity_ids.free_buildings.push(bld.id); }
+    else      { G.buildings.push(bld);      entity_ids.buildings.push(bld.id); }
+    rewards.push({label: info?.label || type, free});
+  }
+
+  else if(_evtType === "usine") {
+    const type = document.getElementById("evt-usine-type").value;
+    const free = document.getElementById("evt-usine-free").checked;
+    const batches = Math.max(1, parseInt(document.getElementById("evt-usine-batches").value)||1);
+    const info = USINES[type];
+    const usine = {id: uid(), type, batches_per_turn: batches};
+    if(free) { G.free_usines.push(usine); entity_ids.free_usines.push(usine.id); }
+    else      { G.usines.push(usine);      entity_ids.usines.push(usine.id); }
+    rewards.push({label: info?.label || type, free});
+  }
+
+  else if(_evtType === "troupe") {
+    const kind = document.getElementById("evt-trp-kind").value;
+    const tier = parseInt(document.getElementById("evt-trp-tier").value);
+    const qty  = Math.max(1, parseInt(document.getElementById("evt-trp-qty").value)||1);
+    const free = document.getElementById("evt-trp-free").checked;
+    const isTroop = kind === "infanterie" || kind === "marine";
+    if(isTroop) {
+      const newId = uid();
+      const trp = {id: newId, branch: kind, tier, packs: qty};
+      if(free) {
+        const ex = G.free_troops.find(t=>t.branch===kind&&t.tier===tier);
+        if(ex) { ex.packs+=qty; entity_ids.free_troops.push(ex.id); }
+        else   { G.free_troops.push(trp); entity_ids.free_troops.push(newId); }
+      } else {
+        const ex = G.troops.find(t=>t.branch===kind&&t.tier===tier);
+        if(ex) { ex.packs+=qty; entity_ids.troops.push(ex.id); }
+        else   { G.troops.push(trp); entity_ids.troops.push(newId); }
+      }
+      // store qty so we can subtract it on delete
+      entity_ids._troop_qty = qty;
+      const tiers = kind==="infanterie"?TROOP_TIERS_INFANTERIE:TROOP_TIERS_MARINE;
+      rewards.push({label: `${qty} paquet(s) ${kind} ${tiers[tier]?.label||""}`, free});
+    } else {
+      const shipTier = (kind==="galion"||kind==="commerce")?1:tier;
+      const newId = uid();
+      const shp = {id: newId, kind, tier: shipTier, count: qty};
+      if(free) {
+        const ex = G.free_ships.find(s=>s.kind===kind&&s.tier===shipTier);
+        if(ex) { ex.count+=qty; entity_ids.free_ships.push(ex.id); }
+        else   { G.free_ships.push(shp); entity_ids.free_ships.push(newId); }
+      } else {
+        const ex = G.ships.find(s=>s.kind===kind&&s.tier===shipTier);
+        if(ex) { ex.count+=qty; entity_ids.ships.push(ex.id); }
+        else   { G.ships.push(shp); entity_ids.ships.push(newId); }
+      }
+      entity_ids._ship_qty = qty;
+      const specLabel = kind==="galion"?GALION.label:kind==="commerce"?MERCHANT_SHIP.label:(SHIP_TIERS[tier]?.label||kind);
+      rewards.push({label: `×${qty} ${specLabel}`, free});
+    }
+  }
+
+  else if(_evtType === "case") {
+    const domain = document.getElementById("evt-case-domain").value;
+    const resource = document.getElementById("evt-case-resource").value;
+    const hasPrimary = document.getElementById("evt-case-primary").checked;
+    const name = document.getElementById("evt-case-name").value.trim();
+    const res = resource === "random" ? randomResource(domain) : resource;
+    const n = G.tiles.filter(t=>t.domain===domain).length;
+    const tileName = name || (domain==="mer"?`Île ${n+1}`:`Province ${n+1}`);
+    const tileId = uid();
+    G.tiles.push({id:tileId, name:tileName, domain, resource:res, has_primary:hasPrimary, has_fortress:false});
+    entity_ids.tiles.push(tileId);
+    const info = TILE_RESOURCES[res]||{};
+    rewards.push({label:`${tileName} (${info.label||res}${hasPrimary?" + bât.":""})`, free:false});
+  }
+
+  else if(_evtType === "population") {
+    const amount = Math.max(1, parseInt(document.getElementById("evt-pop-amount").value)||50);
+    G.pop_bonus = (G.pop_bonus||0) + amount;
+    entity_ids._pop_bonus = amount;
+    rewards.push({label:`+${amount} habitants (capacité)`, free:false});
+  }
+
+  G.events.push({id:uid(), description:desc, rewards, entity_ids, turn:G.turn, timestamp:new Date().toISOString()});
+  saveGame(); preview = getPreview(); render();
+  closeModal("modal-event");
+  toast("Événement appliqué !");
+}
+
+// ── Patch computeTurnChanges to skip upkeep for free items ─────────────────────
+// We override popOccupied and computeTurnChanges to include free_ arrays
+const _origPopOccupied = popOccupied;
+popOccupied = function() {
+  initEventsState();
+  let occ = _origPopOccupied();
+  // free troops and ships still occupy population (they are real people)
+  for(const tg of G.free_troops) occ += tg.packs * TROOP_POP_PER_PACK;
+  for(const sg of G.free_ships) {
+    const crew = sg.kind==="guerre"?(SHIP_TIERS[sg.tier]||SHIP_TIERS[1]).crew
+                :sg.kind==="galion"?GALION.crew:MERCHANT_SHIP.crew;
+    occ += sg.count * crew;
+  }
+  for(const u of G.free_usines) { const i=USINES[u.type]; if(i) occ += i.pop; }
+  return occ;
+};
+
+// Patch computeTurnChanges to add free usine production (but skip upkeep for all free items)
+const _origComputeTurn = computeTurnChanges;
+computeTurnChanges = function() {
+  initEventsState();
+  const result = _origComputeTurn();
+  // Free usines: produce but no consume cost (gift from MJ)
+  for(const u of G.free_usines) {
+    const info = USINES[u.type]; if(!info) continue;
+    const batches = u.batches_per_turn === 0 ? 0 : Math.max(1, u.batches_per_turn||1);
+    if(!batches) continue; // pause explicite
+    const uCh = {};
+    for(const[k,v] of Object.entries(info.produce)) uCh[k]=(uCh[k]||0)+v*batches;
+    for(const[k,v] of Object.entries(uCh)) result.delta[k]=(result.delta[k]||0)+v;
+    result.breakdown.push({label:`${info.label} (cadeau ×${batches})`, changes:{...uCh}});
+  }
+  // Note: free buildings, troops, ships have NO upkeep — intentionally not added
+  return result;
+};
+
+// Render free items in military panel (they appear alongside normal ones)
+const _origRenderMilitary = renderMilitary;
+renderMilitary = function() {
+  _origRenderMilitary();
+  initEventsState();
+  // Append free troops to forces card
+  if(G.free_troops.length || G.free_ships.length) {
+    const armeeCard = document.querySelector("#mil-armee .card:last-child .card-body");
+    const marineCard = document.querySelector("#mil-marine .card:last-child .card-body");
+    if(G.free_troops.length && armeeCard) {
+      const div = document.createElement("div");
+      div.innerHTML = `<div class="brass-divider" style="margin:0.5rem 0;font-size:0.65rem">Troupes événement (sans entretien)</div>` +
+        G.free_troops.map(t => {
+          const tiers = t.branch==="infanterie"?TROOP_TIERS_INFANTERIE:TROOP_TIERS_MARINE;
+          const spec = tiers[t.tier];
+          return `<div class="table-row">
+            <div><span class="bold" style="text-transform:capitalize">${t.branch}</span>
+            <span class="badge badge-sea" style="margin-left:0.5rem">${spec?.label} · ✨</span></div>
+            <span class="font-mono text-sm">${t.packs*10} soldats (${t.packs} paquets)</span>
+          </div>`;
+        }).join("");
+      armeeCard.appendChild(div);
+    }
+    if(G.free_ships.length && marineCard) {
+      const div = document.createElement("div");
+      div.innerHTML = `<div class="brass-divider" style="margin:0.5rem 0;font-size:0.65rem">Navires événement (sans entretien)</div>` +
+        G.free_ships.map(s => {
+          const spec = s.kind==="guerre"?(SHIP_TIERS[s.tier]||SHIP_TIERS[1]):s.kind==="galion"?GALION:MERCHANT_SHIP;
+          const ico = s.kind==="galion"?"⚓":s.kind==="commerce"?"⛵":"🚢";
+          return `<div class="table-row">
+            <div class="flex items-center gap-sm">${ico} <span class="bold text-sm">${spec.label}</span>
+            <span class="badge badge-sea">✨</span></div>
+            <span class="font-mono text-sm">×${s.count}</span>
+          </div>`;
+        }).join("");
+      marineCard.appendChild(div);
+    }
+  }
+};
+
+// Also show free buildings in buildings panel
+const _origRenderBuildings = renderBuildings;
+renderBuildings = function() {
+  _origRenderBuildings();
+  initEventsState();
+  if(!G.free_buildings.length) return;
+  // Append a "cadeaux" section to the currently visible family
+  const visible = document.querySelector(".tab-panel.active [id^=bld-]:not(.hidden)");
+  if(!visible) return;
+  const freeInFamily = G.free_buildings.filter(b => {
+    for(const[fam,types] of Object.entries(BLD_FAMILIES)) {
+      if(types.includes(b.type) && visible.id === "bld-"+fam) return true;
+    }
+    return false;
+  });
+  if(!freeInFamily.length) return;
+  const div = document.createElement("div");
+  div.className = "card card-sea";
+  div.style.gridColumn = "1/-1";
+  div.innerHTML = `<div class="card-body">
+    <div class="overline mb-2">✨ Bâtiments reçus en événement (sans entretien)</div>
+    <div style="display:flex;flex-wrap:wrap;gap:0.5rem">
+      ${freeInFamily.map(b => `<span class="badge badge-sea">${UTILITY_BUILDINGS[b.type]?.label||b.type}</span>`).join("")}
+    </div>
+  </div>`;
+  visible.appendChild(div);
+};
+
+// Patch render() to also call renderEvents
+const _origRender = render;
+render = function() {
+  _origRender();
+  renderEvents();
+};
+
+
+// =============================================================================
+// DÉMOLITION AVEC/SANS REMBOURSEMENT
+// =============================================================================
+
+let _demolishFn = null;   // action sans remboursement
+let _refundFn   = null;   // action avec remboursement
+
+function openDemolishModal({title, subtitle, refund, warning, onDestroy, onRefund}) {
+  document.getElementById("demolish-title").textContent = title || "Démolir ?";
+  document.getElementById("demolish-subtitle").textContent = subtitle || "";
+  document.getElementById("demolish-warning").textContent = warning || "";
+
+  const refundBlock = document.getElementById("demolish-refund-block");
+  const refundLines = document.getElementById("demolish-refund-lines");
+  const btnRefund   = document.getElementById("demolish-btn-refund");
+
+  if(refund && Object.keys(refund).length) {
+    refundLines.innerHTML = Object.entries(refund)
+      .map(([k,v]) => `<span class="text-success font-mono">+${fmt(v)} ${RESOURCE_LABELS[k]||k}</span>`)
+      .join("  ");
+    refundBlock.style.display = "";
+    btnRefund.style.display   = "";
+  } else {
+    refundBlock.style.display = "none";
+    btnRefund.style.display   = "none";
+  }
+
+  _demolishFn = onDestroy;
+  _refundFn   = onRefund || onDestroy; // si pas de remboursement, même action
+  openModal("modal-demolish");
+}
+
+function _demolishNoRefund() {
+  closeModal("modal-demolish");
+  if(_demolishFn) _demolishFn(false);
+}
+
+function _demolishWithRefund() {
+  closeModal("modal-demolish");
+  if(_refundFn) _refundFn(true);
+}
+
+// ── Bâtiment ─────────────────────────────────────────────────────────────────
+function confirmDemolish(id) {
+  const b = G.buildings.find(x=>x.id===id); if(!b) return;
+  const info = UTILITY_BUILDINGS[b.type]||{};
+  const cost = info.cost||{};
+  // Remboursement = coût de construction intégral
+  const refund = Object.fromEntries(Object.entries(cost).map(([k,v])=>[k,v]));
+  openDemolishModal({
+    title: `Démolir : ${info.label||b.type}`,
+    subtitle: "Choisissez le mode de démolition.",
+    refund,
+    warning: "La destruction définitive ne rembourse rien. L'annulation rembourse le coût intégral.",
+    onDestroy: (withRefund) => {
+      run(()=>{
+        G.buildings = G.buildings.filter(x=>x.id!==id);
+        if(withRefund) { for(const[k,v] of Object.entries(refund)) G.resources[k]=(G.resources[k]||0)+v; }
+      });
+      toast(withRefund ? `${info.label} annulée — remboursement intégral.` : `${info.label} détruite.`);
+    },
+  });
+}
+
+// ── Usine ─────────────────────────────────────────────────────────────────────
+function confirmDemolishUsine(id) {
+  const u = G.usines.find(x=>x.id===id); if(!u) return;
+  const info = USINES[u.type]||{};
+  const cost = info.cost||{};
+  const refund = Object.fromEntries(Object.entries(cost).map(([k,v])=>[k,v]));
+  openDemolishModal({
+    title: `Fermer : ${info.label||u.type}`,
+    subtitle: "Choisissez le mode de fermeture.",
+    refund,
+    warning: "La destruction définitive ne rembourse rien. L'annulation rembourse le coût intégral.",
+    onDestroy: (withRefund) => {
+      run(()=>{
+        G.usines = G.usines.filter(x=>x.id!==id);
+        if(withRefund) { for(const[k,v] of Object.entries(refund)) G.resources[k]=(G.resources[k]||0)+v; }
+      });
+      toast(withRefund ? `${info.label} annulée — remboursement intégral.` : `${info.label} fermée.`);
+    },
+  });
+}
+
+// ── Troupe ────────────────────────────────────────────────────────────────────
+function confirmDisbandTroop(id, packs) {
+  const g = G.troops.find(t=>t.id===id); if(!g) return;
+  const tiers = g.branch==="infanterie"?TROOP_TIERS_INFANTERIE:TROOP_TIERS_MARINE;
+  const spec = tiers[g.tier]||{};
+  const label = `${g.branch} Niv.${g.tier}`;
+  // Remboursement = coût de recrutement intégral × nb de packs
+  const refund = Object.fromEntries(Object.entries(spec.recruit_cost||{}).map(([k,v])=>[k,v*packs]));
+  openDemolishModal({
+    title: `Démobiliser ${packs} pack(s) — ${label}`,
+    subtitle: `Démobilisation de ${packs*10} soldats.`,
+    refund,
+    warning: "La dissolution définitive ne rembourse rien. L'annulation rembourse le coût de recrutement intégral.",
+    onDestroy: (withRefund) => {
+      run(()=>{
+        const grp=G.troops.find(t=>t.id===id); if(!grp) error("Groupe introuvable");
+        grp.packs-=packs;
+        if(grp.packs<=0) G.troops=G.troops.filter(t=>t.id!==id);
+        if(withRefund) { for(const[k,v] of Object.entries(refund)) G.resources[k]=(G.resources[k]||0)+v; }
+      });
+      toast(withRefund ? `${label} démobilisé — remboursement intégral.` : `${label} dissous.`);
+    },
+  });
+}
+
+// ── Navire ────────────────────────────────────────────────────────────────────
+function confirmDisbandShip(id, count) {
+  const g = G.ships.find(s=>s.id===id); if(!g) return;
+  const spec = g.kind==="guerre"?(SHIP_TIERS[g.tier]||SHIP_TIERS[1]):g.kind==="galion"?GALION:MERCHANT_SHIP;
+  const label = spec.label||g.kind;
+  const refund = Object.fromEntries(Object.entries(spec.cost||{}).map(([k,v])=>[k,v*count]));
+  openDemolishModal({
+    title: `Désarmer ×${count} ${label}`,
+    subtitle: "Désarmement de navire(s).",
+    refund,
+    warning: "Le désarmement définitif ne rembourse rien. L'annulation rembourse coût de construction intégral.",
+    onDestroy: (withRefund) => {
+      run(()=>{
+        const grp=G.ships.find(s=>s.id===id); if(!grp) error("Groupe introuvable");
+        grp.count-=count;
+        if(grp.count<=0) G.ships=G.ships.filter(s=>s.id!==id);
+        if(withRefund) { for(const[k,v] of Object.entries(refund)) G.resources[k]=(G.resources[k]||0)+v; }
+      });
+      toast(withRefund ? `${label} annulé — remboursement intégral.` : `${label} désarmé.`);
+    },
+  });
+}
+
+
+// =============================================================================
+// CONSEILLER D'EMPIRE — Moteur de règles hors-ligne
+// =============================================================================
+
+let _conseilMode = "expansion";
+
+function setConseilMode(mode, btn) {
+  _conseilMode = mode;
+  document.querySelectorAll(".conseil-mode-btn").forEach(b => b.classList.remove("active"));
+  if(btn) btn.classList.add("active");
+}
+
+function updateConseilOptions() {}
+
+// ── Helpers d'analyse ────────────────────────────────────────────────────────
+function hasBuilding(type) { return G.buildings.some(b=>b.type===type); }
+function hasBuildingPrefix(prefix) { return G.buildings.some(b=>b.type.startsWith(prefix)); }
+function countBuildingType(type) { return G.buildings.filter(b=>b.type===type).length; }
+function primaryCountByRes(res) { return G.tiles.filter(t=>t.resource===res&&t.has_primary).length + G.tiles.filter(t=>t.resource2===res&&t.has_primary2).length; }
+function totalTroops() { return G.troops.reduce((s,t)=>s+t.packs*10,0); }
+function totalShips() { return G.ships.reduce((s,sg)=>s+sg.count,0); }
+function orPerTurn() { return preview?.delta?.or||0; }
+function stock(res) { return G.resources[res]||0; }
+function popFree() { return Math.max(0, popCapacity()-popOccupied()); }
+function tilesWithoutPrimary() { return G.tiles.filter(t=>t.domain!=="capitale"&&t.resource&&t.resource!=="capitale_ennemie"&&t.resource!=="coffre"&&t.resource!=="terra_incognita"&&t.resource!=="rien"&&!t.has_primary).length; }
+function tiles2WithoutPrimary() { return G.tiles.filter(t=>t.domain==="terre"&&t.resource2&&!t.has_primary2).length; }
+
+// ── Generateur de conseil ────────────────────────────────────────────────────
+function genererConseils() {
+  const resultZone = document.getElementById("conseil-result");
+  const contentEl  = document.getElementById("conseil-content");
+  resultZone.style.display = "";
+
+  const noExpansion  = document.getElementById("conseil-no-expansion")?.checked;
+  const prepareWar   = document.getElementById("conseil-prepare-war")?.checked;
+  const landReachable= document.getElementById("conseil-land-reachable")?.checked ?? true;
+  const seaReachable = document.getElementById("conseil-sea-reachable")?.checked ?? true;
+  const anyExpansion = (landReachable||seaReachable) && !noExpansion;
+
+  const p       = getPreview();
+  const or      = stock("or");
+  const orGain  = orPerTurn();
+  const orNext  = Math.max(0, or + orGain);
+  const ble     = stock("ble");
+  const bleGain = p.delta?.ble||0;
+  const free    = popFree();
+  const cap     = popCapacity();
+  const occ     = popOccupied();
+
+  // Affordability helpers (stock ou prochain tour)
+  const afford  = (n) => or>=n || orNext>=n;
+  const afford2 = (n) => or>=n; // strict immédiat
+
+  // {prio, section, ico, text}  section: "now"|"soon"
+  const urgents = [];
+  const bientot = [];
+  const addU = (ico, text) => urgents.push({ico, text});
+  const addB = (ico, text) => bientot.push({ico, text});
+
+  // ══════════════════════════════════════════════════════════════
+  // A) ALERTES CRITIQUES (toujours en premier)
+  // ══════════════════════════════════════════════════════════════
+
+  // Blé
+  const capitalCap2 = (G.capital_active!==false?100:0) + G.buildings.reduce((s,b)=>s+(UTILITY_BUILDINGS[b.type]?.capital_pop_bonus||0),0);
+  const eaters = Math.max(0, cap - capitalCap2);
+  const bleNet = ble + bleGain;
+  if(bleNet < 0) {
+    addU("🌾",`Déficit blé CRITIQUE (${fmt(bleNet)} projeté) — Construire des bâtiments primaires sur cases blé ou conquérir des terres agricoles.`);
+  } else if(bleGain < eaters * 0.5 && eaters > 30) {
+    const manque = Math.ceil((eaters - bleGain)/Math.max(1, 100));
+    addU("🌾",`Blé insuffisant : +${fmt(bleGain)}/tour pour ${eaters} bouches — Il faut ~${manque} case(s) blé supplémentaire(s) avec bâtiment.`);
+  } else if(bleNet < 200 && eaters > 20) {
+    addB("🌾",`Stock blé bas (${fmt(ble)}) — Prévoir +${fmt(eaters - bleGain)} blé/tour avant de recruter davantage.`);
+  }
+
+  // Or
+  if(or + orGain < 0) {
+    addU("🪙",`Trésorerie en déficit (${fmt(or+orGain)} projeté) — Dissoudre des troupes ou construire une Banque.`);
+  } else if(or < 150 && orGain < 80) {
+    addU("🪙",`Trésorerie critique (${fmt(or)} or, +${fmt(orGain)}/tour) — Geler tout recrutement et investissement non urgent.`);
+  } else if(or < 300 && orGain < 150 && !hasBuildingPrefix("banque_")) {
+    addB("🪙",`Revenus d'or faibles (+${fmt(orGain)}/tour) — Construire une Banque Niv. I dès que possible (500 or).`);
+  }
+
+  // Pop saturée
+  if(free < 10 && occ > 50) {
+    addU("👥",`Population saturée (${free} hab. libres / ${cap} cap.) — Construire une Maison (200 or + 50 bois) pour +10 hab.`);
+  }
+
+  // Slots primaires vides
+  const nbSansPrimary = tilesWithoutPrimary() + tiles2WithoutPrimary();
+  if(nbSansPrimary > 0 && afford(200) && free >= 5) {
+    addU("🔨",`${nbSansPrimary} slot(s) sans bâtiment primaire — Double la production pour 200 or/slot. ROI immédiat.`);
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // B) EXPANSION — chemin complet avec militaire
+  // ══════════════════════════════════════════════════════════════
+  if((_conseilMode==="expansion"||_conseilMode==="mixte") && anyExpansion) {
+    const terres   = G.tiles.filter(t=>t.domain==="terre").length;
+    const mers     = G.tiles.filter(t=>t.domain==="mer").length;
+    const troops   = totalTroops();
+    const ships    = totalShips();
+    const hasBas1  = hasBuilding("base_militaire_1");
+    const hasBas2  = hasBuilding("base_militaire_2");
+    const hasNav1  = hasBuilding("port_militaire_1");
+    const hasNav2  = hasBuilding("port_militaire_2");
+
+    // Terrestre
+    if(landReachable) {
+      if(!hasBas1) {
+        addU("⚔",`Expansion terrestre impossible sans Base militaire — Construire Base Niv. I (200 or) MAINTENANT.`);
+      } else if(troops === 0) {
+        if(afford(100) && free>=10)
+          addU("⚔",`Base militaire prête mais AUCUN soldat — Recruter 1 pack infanterie Niv. I (100 or, 10 hab.) avant d'attaquer.`);
+        else
+          addU("⚔",`Pas de soldats et manque de ressources (${fmt(or)} or, ${free} hab. libres) — Économiser avant de recruter.`);
+      } else if(troops < 20) {
+        const maxPacks = Math.min(2, Math.floor(Math.min(free/10, or/100)));
+        if(maxPacks>0) addB("⚔",`Armée légère (${troops} soldats) — Renforcer avec ${maxPacks} pack(s) (${maxPacks*100} or) avant d'attaquer pour de meilleures chances.`);
+        if(afford(200)) addB("🗺",`Conquête terrestre possible avec ${troops} soldats (200 or) — Risque modéré, chances correctes.`);
+      } else if(troops < 50) {
+        if(afford2(200)) addU("🗺",`Conquérir une province terrestre (200 or) — ${troops} soldats, bonnes chances. ${terres} provinces actuelles.`);
+        else { const t=Math.ceil((200-or)/Math.max(1,orGain)); addB("🗺",`Prêt militairement (${troops} soldats) — Manque ${fmt(200-or)} or. ~${t} tour(s) d'attente.`); }
+        // Suggestion amélioration
+        if(hasBas1&&!hasBas2&&afford(500)) addB("⚔",`Améliorer Base Niv. II (500 or) pour débloquer infanterie Niv. II (plus puissante).`);
+      } else {
+        if(afford2(200)) addU("🗺",`Conquérir une province (200 or) — Armée solide (${troops} soldats), excellentes chances.`);
+        if(hasBas1&&!hasBas2&&afford(500)) addB("⚔",`Améliorer Base Niv. II (500 or) — infanterie Niv. II disponible.`);
+      }
+    }
+
+    // Maritime
+    if(seaReachable) {
+      if(!hasNav1) {
+        addB("⚓",`Pour conquérir en mer : construire Port militaire Niv. I (200 or) — débloque marins et navires de guerre.`);
+      } else if(ships===0) {
+        if(afford(300)&&free>=20) addB("🚢",`Port militaire prêt mais aucun navire — Construire navire Niv. I (300 or, 20 équipiers).`);
+        else addB("🚢",`Construire un navire dès que possible (300 or, 20 pop libres — actuellement ${fmt(or)} or, ${free} hab.)`);
+      } else if(ships<3) {
+        addB("⛵",`Flotte légère (${ships} navire(s)) — ${afford(300)&&free>=20?"Construire un navire supplémentaire (300 or) pour renforcer la flotte.":"Roll MJ disponible avec flotte actuelle."}`);
+      } else {
+        addB("⛵",`Flotte opérationnelle (${ships} navires) — Prêt pour conquête maritime.`);
+      }
+    }
+
+  } else if(!anyExpansion||noExpansion) {
+    addB("🗺",`Expansion ${noExpansion?"bloquée ce tour (MJ)":"— aucun territoire atteignable"} — Focus développement intérieur.`);
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // C) DÉVELOPPEMENT ÉCONOMIQUE
+  // ══════════════════════════════════════════════════════════════
+  if(_conseilMode==="developpement"||_conseilMode==="mixte"||noExpansion||!anyExpansion) {
+    // Banques
+    const bankLvl = hasBuilding("banque_3")?3:hasBuilding("banque_2")?2:hasBuilding("banque_1")?1:0;
+    if(bankLvl===0 && afford(500)) addU("🏛",`Construire Banque Niv. I (500 or) — +100 or/tour (entretien : 20 bois/tour).`);
+    else if(bankLvl===1 && afford2(1000) && orGain>80) addB("🏛",`Améliorer Banque Niv. II (1000 or) — +200 or/tour supplémentaires vs Niv. I (entretien : 20 bois + 5 fer/tour).`);
+    else if(bankLvl===2 && afford2(2000) && orGain>200) addB("🏛",`Améliorer Banque Niv. III (2000 or) — +500 or/tour total.`);
+
+    // Hôtel des impôts
+    if(!hasBuilding("hotel_impots") && afford(500) && cap>=200) {
+      const bonus=Math.floor(cap/100)*50;
+      if(bonus>=50) addB("🏛",`Hôtel des impôts (500 or) — +${bonus} or/tour avec ${cap} habitants (entretien : 5 bois/tour).`);
+    }
+
+    // Maison si pop manque
+    if(free < 30 && afford(200) && stock("bois")>=50) {
+      addB("🏠",`Pop. limite (${free} libres) — Maison (200 or + 50 bois) pour +10 hab., débloque recrutement.`);
+    }
+
+    // Chaînes d'usines : analyse prérequis + produits
+    const usineCandidates = [];
+    for(const[key,info] of Object.entries(USINES)) {
+      if(G.usines.some(u=>u.type===key)) continue;
+      const prereqOk = info.prereq.every(([res,n])=>primaryCountByRes(res)>=n);
+      const prereqManquants = info.prereq.filter(([res,n])=>primaryCountByRes(res)<n);
+      const hasOr = stock("or")>=info.cost.or;
+      const hasPop = free>=info.pop;
+      if(prereqOk && hasOr && hasPop) {
+        const prod=Object.entries(info.produce).map(([k,v])=>`+${v} ${RESOURCE_LABELS[k]}`).join(", ");
+        const intlVal=Object.entries(info.produce).reduce((s,[k,v])=>(INTERNATIONAL_PRICES[k]||0)*v/100+s,0);
+        usineCandidates.push({key,info,prod,intlVal,ready:true});
+      } else if(prereqOk && !hasOr) {
+        const toursWait=Math.ceil((info.cost.or-or)/Math.max(1,orGain));
+        usineCandidates.push({key,info,ready:false,reason:`manque ${fmt(info.cost.or-or)} or (~${toursWait} tours)`});
+      } else if(prereqManquants.length) {
+        usineCandidates.push({key,info,ready:false,reason:`prérequis : ${prereqManquants.map(([r,n])=>`${n}× ${RESOURCE_LABELS[r]||r} primaire`).join(", ")}`});
+      }
+    }
+    // Recommander la meilleure usine prête (valeur internationale la plus haute)
+    const bestReady = usineCandidates.filter(c=>c.ready).sort((a,b)=>b.intlVal-a.intlVal)[0];
+    if(bestReady) {
+      addB("⚙",`Construire ${bestReady.info.label} (${bestReady.info.cost.or} or, ${bestReady.info.pop} hab.) → ${bestReady.prod}/tour.`);
+    }
+    // Prochaine usine déblocable
+    const nextUnlock = usineCandidates.filter(c=>!c.ready&&c.reason&&c.reason.includes("tours"))[0];
+    if(nextUnlock && !bestReady) {
+      addB("⚙",`${nextUnlock.info.label} bientôt constructible — ${nextUnlock.reason}.`);
+    }
+
+    // Port de commerce + stratégie commerciale
+    if(!hasBuilding("port_commerce") && afford(200)) {
+      addB("⛵",`Port de commerce (200 or) — Débloque les routes commerciales et navires marchands.`);
+    } else if(hasBuilding("port_commerce")) {
+      // Identifier les surplus exploitables
+      const exportables = Object.entries(INTERNATIONAL_PRICES)
+        .filter(([res])=>stock(res)>500||(p.delta[res]||0)>50)
+        .sort(([,a],[,b])=>b-a);
+      if(exportables.length && G.trade_routes.length===0) {
+        const [bestRes, bestPrice] = exportables[0];
+        addB("💹",`Surplus de ${RESOURCE_LABELS[bestRes]} détecté (+${fmt(p.delta[bestRes]||0)}/tour) — Exporter via route commerciale (${bestPrice} or/100 unités).`);
+      }
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // D) PRÉPARATION MILITAIRE
+  // ══════════════════════════════════════════════════════════════
+  if(_conseilMode==="guerre"||prepareWar) {
+    const hasBas1=hasBuilding("base_militaire_1"),hasBas2=hasBuilding("base_militaire_2"),hasBas3=hasBuilding("base_militaire_3");
+    const hasNav1=hasBuilding("port_militaire_1"),hasNav2=hasBuilding("port_militaire_2");
+    const troops=totalTroops(), ships=totalShips();
+
+    if(!hasBas1) {
+      addU("⚔",`Aucune Base militaire — Construire Base Niv. I (200 or) : prérequis absolu.`);
+    } else if(!hasBas2 && afford(500)) {
+      addB("⚔",`Améliorer Base Niv. II (500 or) — débloque infanterie Niv. II (+60% puissance/pack).`);
+    } else if(hasBas2&&!hasBas3&&afford2(1000)) {
+      addB("⚔",`Améliorer Base Niv. III (1000 or) — débloque infanterie d'élite (Niv. III, ×2.5 puissance).`);
+    }
+
+    if(!hasNav1) {
+      addB("⚓",`Construire Port militaire Niv. I (200 or) — débloque marins et navires de guerre.`);
+    } else if(!hasNav2&&afford(500)) {
+      addB("⚓",`Améliorer Port Niv. II (500 or) — navires de guerre Niv. II disponibles.`);
+    }
+
+    if(hasBas1 && free>=10 && afford(100)) {
+      // Choisir le meilleur tier dispo
+      const bestTier = hasBas3?3:hasBas2?2:1;
+      const tierSpec = TROOP_TIERS_INFANTERIE[bestTier];
+      const maxPacks = Math.min(5, Math.floor(Math.min(free/10, or/tierSpec.recruit_cost.or)));
+      if(maxPacks>0) addU("⚔",`Recruter ${maxPacks} pack(s) infanterie Niv. ${bestTier} (${maxPacks*tierSpec.recruit_cost.or} or, ${maxPacks*10} hab.) — ${maxPacks*10} soldats Niv. ${bestTier}.`);
+    }
+    if(hasNav1&&afford(300)&&free>=20) {
+      const bestShipTier=hasBuilding("port_militaire_3")?3:hasBuilding("port_militaire_2")?2:1;
+      const shipSpec=SHIP_TIERS[bestShipTier];
+      addB("🚢",`Construire navire de guerre Niv. ${bestShipTier} (${shipSpec.cost.or} or, ${shipSpec.crew} équipiers) — puissance ×${shipSpec.power}.`);
+    }
+    if(troops===0&&!hasBas1) addU("⚠",`Empire sans défense — Base militaire (200 or) en priorité absolue.`);
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // E) CONSEILS TRANSVERSAUX
+  // ══════════════════════════════════════════════════════════════
+  if(!G.free_pop_gold_active && free>30) {
+    addB("👥",`${free} habitants libres inactifs — Activer "+1 or/hab." dans Ressources pour +${free} or/tour.`);
+  }
+  if(G.trade_routes.length>0) {
+    const netOr=G.trade_routes.reduce((s,r)=>{
+      if(r.direction==="export") return s+r.quantity*r.price_per_unit;
+      return s-r.quantity*r.price_per_unit;
+    },0);
+    if(netOr<0) addB("💹",`Tes routes commerciales te coûtent ${fmt(Math.abs(netOr))} or/tour net — Revoir les contrats déficitaires.`);
+  }
+  // Usines à cadence 0 oubliées
+  const usinesPaused=G.usines.filter(u=>u.batches_per_turn===0);
+  if(usinesPaused.length) addB("⚙",`${usinesPaused.length} usine(s) en pause (cadence 0) — ${usinesPaused.map(u=>USINES[u.type]?.label||u.type).join(", ")} — Vérifier si intentionnel.`);
+
+  // ══════════════════════════════════════════════════════════════
+  // RENDU — deux sections : Urgent + Bientôt
+  // ══════════════════════════════════════════════════════════════
+  const modeLabel={expansion:"Expansion",developpement:"Développement",guerre:"Guerre",mixte:"Équilibre"};
+
+  function renderRows(items, limit) {
+    return items.slice(0,limit).map((c,i,arr)=>`
+      <div style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.5rem 0;${i<arr.length-1?"border-bottom:1px dotted var(--border);":""}">
+        <span style="font-size:1rem;flex-shrink:0;line-height:1.4">${c.ico}</span>
+        <span style="font-size:0.875rem;line-height:1.55">${c.text}</span>
+      </div>`).join("");
+  }
+
+  const urgHtml = urgents.length
+    ? `<div style="margin-bottom:1rem">
+        <div style="font-family:monospace;font-size:0.65rem;letter-spacing:0.1em;color:var(--crimson);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.4rem">
+          <span style="background:var(--crimson);color:#fff;padding:0.1rem 0.4rem;border-radius:2px">🔴 À FAIRE CE TOUR</span>
+          <span style="opacity:0.6">${urgents.length} action(s)</span>
+        </div>
+        ${renderRows(urgents, 5)}
+      </div>`
+    : `<div style="margin-bottom:0.75rem;padding:0.5rem;background:rgba(45,106,45,0.08);border:1px solid var(--success);border-radius:2px">
+        <span style="color:var(--success);font-size:0.85rem">✅ Aucune urgence ce tour — empire stable.</span>
+      </div>`;
+
+  const bientotHtml = bientot.length
+    ? `<div>
+        <div style="font-family:monospace;font-size:0.65rem;letter-spacing:0.1em;color:var(--gold);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.4rem">
+          <span style="background:rgba(139,105,20,0.15);color:var(--gold);padding:0.1rem 0.4rem;border-radius:2px;border:1px solid var(--gold-light)">🟡 PROCHAINEMENT</span>
+          <span style="opacity:0.6">${bientot.length} piste(s)</span>
+        </div>
+        ${renderRows(bientot, 6)}
+      </div>`
+    : "";
+
+  contentEl.innerHTML = `
+    <div class="overline mb-2" style="color:var(--gold)">
+      Tour ${G.turn} · Stratégie : ${modeLabel[_conseilMode]||_conseilMode}
+      ${noExpansion?"<span class='badge badge-danger' style='margin-left:0.4rem'>Expansion bloquée</span>":""}
+      ${!landReachable?"<span class='badge badge-muted' style='margin-left:0.4rem'>Terre inaccessible</span>":""}
+      ${!seaReachable?"<span class='badge badge-muted' style='margin-left:0.4rem'>Mer inaccessible</span>":""}
+    </div>
+    ${urgHtml}
+    ${bientotHtml}
+    <div class="text-xs text-muted mt-2" style="padding-top:0.4rem;border-top:1px solid var(--border)">
+      ${urgents.length} urgent(s) · ${bientot.length} piste(s) · ${new Date().toLocaleTimeString("fr-FR")}
+    </div>`;
+}
+
+// =============================================================================
+// INIT
+// =============================================================================
+window.addEventListener("DOMContentLoaded",()=>{
+  loadGame();
+  preview=getPreview();
+  render();
+  // Petit délai pour laisser l'animation de splash se jouer
+  setTimeout(()=>{ document.getElementById("loading").style.display="none"; }, 1200);
+});
+</script>
+
+<!-- ── FOOTER SIGNATURE ── -->
+<footer id="sig-footer">
+  <div class="sig-inner">
+    <div class="sig-divider">
+      <span class="sig-ornament">⚓</span>
+    </div>
+    <div class="sig-text">
+      <span class="sig-label">Conçu &amp; développé par</span>
+      <span class="sig-name" id="sig-name"></span>
+    </div>
+    <div class="sig-wave">
+      <svg viewBox="0 0 200 30" xmlns="http://www.w3.org/2000/svg">
+        <path id="sig-wave-path" d="M0,15 Q25,5 50,15 Q75,25 100,15 Q125,5 150,15 Q175,25 200,15" fill="none" stroke="var(--border)" stroke-width="1.5"/>
+      </svg>
+    </div>
+  </div>
+</footer>
+
+<style>
+/* ── Splash screen amélioré ── */
+#loading {
+  background: var(--parchment);
+  flex-direction: column; gap: 1.25rem;
+}
+.splash-compass {
+  font-size: 3rem;
+  animation: compassSpin 1.2s cubic-bezier(0.4,0,0.2,1) forwards;
+}
+@keyframes compassSpin {
+  0%   { transform: rotate(-180deg) scale(0.4); opacity: 0; }
+  60%  { transform: rotate(15deg) scale(1.1); opacity: 1; }
+  80%  { transform: rotate(-5deg) scale(0.97); }
+  100% { transform: rotate(0deg) scale(1); opacity: 1; }
+}
+.splash-title {
+  font-family: 'Palatino Linotype', Palatino, Georgia, serif;
+  font-size: 1.3rem; color: var(--gold); letter-spacing: 0.12em;
+  animation: fadeUp 0.6s 0.3s ease both;
+}
+.splash-sub {
+  font-family: 'Courier New', monospace; font-size: 0.65rem;
+  letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted);
+  animation: fadeUp 0.6s 0.5s ease both;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.splash-credit {
+  font-family: 'Palatino Linotype', Palatino, Georgia, serif;
+  font-size: 0.8rem; font-style: italic; color: var(--muted);
+  letter-spacing: 0.08em;
+  animation: fadeUp 0.6s 0.8s ease both;
+}
+
+/* ── Footer signature ── */
+#sig-footer {
+  padding: 2.5rem 0 3rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.sig-inner { display: inline-flex; flex-direction: column; align-items: center; gap: 0.6rem; }
+.sig-divider { position: relative; width: 120px; }
+.sig-ornament {
+  font-size: 1.1rem; display: block; text-align: center; color: var(--border);
+  animation: floatAnchor 3s ease-in-out infinite;
+}
+@keyframes floatAnchor {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+.sig-label {
+  font-family: 'Courier New', monospace;
+  font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--muted); display: block;
+}
+.sig-name {
+  display: block;
+  font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  font-size: 1.6rem; font-weight: 700; font-style: italic;
+  color: var(--gold);
+  letter-spacing: 0.04em;
+  /* écriture animée via SVG clip */
+  background: linear-gradient(90deg, var(--gold-light), var(--gold), var(--sea));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 1px 2px rgba(139,105,20,0.3));
+}
+.sig-wave { width: 200px; opacity: 0.5; margin-top: 0.2rem; }
+#sig-wave-path {
+  stroke-dasharray: 300;
+  stroke-dashoffset: 300;
+  animation: drawWave 2s 1.5s ease forwards;
+}
+@keyframes drawWave {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Typewriter pour le nom */
+@keyframes typewriter {
+  from { width: 0; }
+  to   { width: 100%; }
+}
+@keyframes cursorBlink {
+  0%,100% { border-color: var(--gold); }
+  50%     { border-color: transparent; }
+}
+.sig-name-typed {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid var(--gold);
+  width: 0;
+  animation:
+    typewriter 0.9s steps(6,end) 0.8s forwards,
+    cursorBlink 0.7s step-end 0.8s 5;
+}
+
+@media print { #sig-footer { display: none; } }
+</style>
+
+<script>
+// Splash amélioré
+(function(){
+  const loading = document.getElementById("loading");
+  loading.innerHTML = `
+    <div class="splash-compass">⚓</div>
+    <div class="splash-title">Carnet d'Amirauté</div>
+    <div class="splash-sub">Application de comptabilité d'Empire</div>
+    <div class="splash-credit">Fait par Mschap</div>
+  `;
+})();
+
+// Signature typewriter
+(function(){
+  const el = document.getElementById("sig-name");
+  const name = "Mschap";
+  el.innerHTML = `<span class="sig-name-typed">${name}</span>`;
+})();
+</script>
+</body>
+</html>
