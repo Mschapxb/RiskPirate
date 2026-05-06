@@ -392,11 +392,22 @@ input:checked + .slider:before { transform: translateX(18px); }
     <div class="flex items-center justify-between mb-2 flex-wrap gap">
       <div>
         <h2 style="font-size:1.7rem;color:var(--gold)">Routes commerciales</h2>
-        <p class="text-sm text-muted mt-1">Navires marchands : <strong id="merchant-count">0</strong>. Chaque route récurrente s'applique à chaque tour.</p>
+        <p class="text-sm text-muted mt-1">Navires marchands : <strong id="merchant-count">0</strong> total · <strong id="merchant-used">0</strong> engagés · <strong id="merchant-free">0</strong> disponibles. Chaque route récurrente s'applique à chaque tour.</p>
       </div>
-      <button class="btn btn-primary" onclick="openTradeModal()">+ Nouveau contrat</button>
+      <button class="btn btn-primary" onclick="openTradeModal()">⛵ Nouveau contrat</button>
     </div>
     <div class="grid-2" id="trade-list"></div>
+
+    <hr style="margin:1.5rem 0;border-color:var(--border)">
+
+    <div class="flex items-center justify-between mb-2 flex-wrap gap">
+      <div>
+        <h2 style="font-size:1.4rem;color:var(--gold)">🤝 Échanges entre joueurs</h2>
+        <p class="text-sm text-muted mt-1">Troc direct entre empires — une ressource contre une autre, ponctuel ou récurrent.</p>
+      </div>
+      <button class="btn btn-primary" onclick="openPlayerTradeModal()">🤝 Nouvel échange</button>
+    </div>
+    <div class="grid-2" id="player-trade-list"></div>
   </div>
 
   <!-- ATTAQUES -->
@@ -591,7 +602,41 @@ input:checked + .slider:before { transform: translateX(18px); }
   </div>
 </div>
 
-<div class="modal-overlay" id="modal-attack">
+<div class="modal-overlay" id="modal-player-trade">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><div class="modal-title">🤝 Échange entre joueurs</div></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="overline">Partenaire (autre empire)</label><input id="pt-partner" placeholder="Ex : Empire de Carthage" /></div>
+      <div style="background:var(--parchment-dark);border-radius:6px;padding:0.85rem;margin-bottom:0.75rem">
+        <p class="overline" style="margin-bottom:0.5rem">Ce que je <span style="color:var(--danger)">donne</span></p>
+        <div class="form-row">
+          <div class="form-group" style="margin-bottom:0"><label class="overline" style="font-size:0.6rem">Ressource</label><select id="pt-give-res"></select></div>
+          <div class="form-group" style="margin-bottom:0"><label class="overline" style="font-size:0.6rem">Quantité / tour</label><input type="number" id="pt-give-qty" value="10" min="1" /></div>
+        </div>
+      </div>
+      <div style="text-align:center;font-size:1.4rem;margin:-0.25rem 0 0.25rem">⇅</div>
+      <div style="background:var(--parchment-dark);border-radius:6px;padding:0.85rem;margin-bottom:0.75rem">
+        <p class="overline" style="margin-bottom:0.5rem">Ce que je <span style="color:var(--success,#3a7a3a)">reçois</span></p>
+        <div class="form-row">
+          <div class="form-group" style="margin-bottom:0"><label class="overline" style="font-size:0.6rem">Ressource</label><select id="pt-recv-res"></select></div>
+          <div class="form-group" style="margin-bottom:0"><label class="overline" style="font-size:0.6rem">Quantité / tour</label><input type="number" id="pt-recv-qty" value="10" min="1" /></div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.4rem">
+          <label class="switch"><input type="checkbox" id="pt-recurring" checked><span class="slider"></span></label>
+          <span class="text-sm">Récurrent (chaque tour)</span>
+        </div>
+        <div class="form-group"><label class="overline">Navires requis</label><input type="number" id="pt-ships" value="1" min="1" /></div>
+      </div>
+      <div class="form-group"><label class="overline">Notes</label><input id="pt-notes" placeholder="Conditions, durée, contexte…" /></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-player-trade')">Annuler</button>
+      <button class="btn btn-primary" onclick="createPlayerTrade()">Signer l'accord</button>
+    </div>
+  </div>
+</div>
   <div class="modal">
     <div class="modal-header"><div class="modal-title">Déclaration d'offensive</div></div>
     <div class="modal-body">
@@ -1009,7 +1054,7 @@ function newNation() {
     resources:{or:600,fer:600,ble:600,bois:600,sucre:0,tabac:0,cacao:0,nacre:0,sel:0,acier:0,planches:0,rhum:0,cigares:0,chocolat:0,pain:0,conserves:0,bijoux:0},
     population_total:100,
     tiles:[{id:uid(),name:"Capitale",domain:"capitale",resource:null,has_primary:false,has_fortress:false}],
-    buildings:[],usines:[],troops:[],ships:[],trade_routes:[],attacks:[],
+    buildings:[],usines:[],troops:[],ships:[],trade_routes:[],player_trades:[],attacks:[],
     free_pop_gold_active:true,
     pop_bonus:0,
     capital_active:true,
@@ -1072,6 +1117,7 @@ function migrateState(d) {
   d.free_usines     = d.free_usines     || [];
   d.free_troops     = d.free_troops     || [];
   d.free_ships      = d.free_ships      || [];
+  d.player_trades   = d.player_trades   || [];
   d.attacks_archive = d.attacks_archive || [];
   d.turn_log        = d.turn_log        || [];
   d.history         = d.history         || [];
@@ -1314,6 +1360,18 @@ function computeTurnChanges() {
   if(Object.values(tradeCh).some(v=>v!==0)) {
     for(const[k,v] of Object.entries(tradeCh)) delta[k]=(delta[k]||0)+v;
     breakdown.push({label:"Commerce (récurrent)",changes:Object.fromEntries(Object.entries(tradeCh).filter(([,v])=>v!==0))});
+  }
+
+  // 9b) Échanges entre joueurs (récurrents)
+  const ptCh=emptyRes();
+  for(const pt of (G.player_trades||[])) {
+    if(!pt.recurring) continue;
+    if(RESOURCE_KEYS.includes(pt.give_res))  ptCh[pt.give_res] =(ptCh[pt.give_res] ||0)-pt.give_qty;
+    if(RESOURCE_KEYS.includes(pt.recv_res))  ptCh[pt.recv_res] =(ptCh[pt.recv_res] ||0)+pt.recv_qty;
+  }
+  if(Object.values(ptCh).some(v=>v!==0)) {
+    for(const[k,v] of Object.entries(ptCh)) delta[k]=(delta[k]||0)+v;
+    breakdown.push({label:"Échanges joueurs (récurrent)",changes:Object.fromEntries(Object.entries(ptCh).filter(([,v])=>v!==0))});
   }
 
   // 11) Population libre → 1 or / habitant libre / tour (bêta, activable)
@@ -1677,6 +1735,12 @@ function actionCreateTrade(data) {
   run(()=>{
     if(!RESOURCE_KEYS.includes(data.resource)) error("Ressource inconnue");
     if(data.quantity<=0||data.price_per_unit<0) error("Quantité ou prix invalide");
+    // Vérifier qu'il y a assez de navires marchands disponibles
+    const totalMerchants = G.ships.filter(s=>s.kind==="commerce").reduce((a,s)=>a+s.count,0);
+    const usedMerchants  = G.trade_routes.reduce((a,r)=>a+(r.merchant_ships_required||1),0);
+    const freeMerchants  = totalMerchants - usedMerchants;
+    const needed = data.merchant_ships_required||1;
+    if(freeMerchants < needed) error(`Navires marchands insuffisants — ${freeMerchants} disponible(s), ${needed} requis. Recrutez d'abord des navires marchands.`);
     G.trade_routes.push({id:uid(),...data});
   });
   toast("Contrat signé !");
@@ -2552,8 +2616,15 @@ function renderMilitary() {
 }
 
 function renderCommerce() {
-  const merchantCount=G.ships.filter(s=>s.kind==="commerce").reduce((a,s)=>a+s.count,0);
-  document.getElementById("merchant-count").textContent=merchantCount;
+  const totalMerchants = G.ships.filter(s=>s.kind==="commerce").reduce((a,s)=>a+s.count,0);
+  const usedMerchants  = G.trade_routes.reduce((a,r)=>a+(r.merchant_ships_required||1),0)
+                       + (G.player_trades||[]).reduce((a,pt)=>a+(pt.merchant_ships_required||1),0);
+  const freeMerchants  = totalMerchants - usedMerchants;
+  document.getElementById("merchant-count").textContent = totalMerchants;
+  document.getElementById("merchant-used").textContent  = usedMerchants;
+  const freeEl = document.getElementById("merchant-free");
+  freeEl.textContent = freeMerchants;
+  freeEl.style.color = freeMerchants<=0 ? "var(--danger)" : "var(--success,#3a7a3a)";
 
   // populate trade resource select
   const trSel=document.getElementById("trade-resource");
@@ -2561,32 +2632,61 @@ function renderCommerce() {
     RESOURCE_KEYS.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=RESOURCE_LABELS[k];trSel.appendChild(o);});
   }
 
+  // Routes commerciales
   const tl=document.getElementById("trade-list");
   if(!G.trade_routes.length) {
     tl.innerHTML=`<p class="italic text-muted text-sm col-span-full">Aucune route commerciale active.</p>`;
-    return;
+  } else {
+    tl.innerHTML=G.trade_routes.map(r=>{
+      const ico=r.direction==="import"?"⬇":"⬆";
+      const costLine=r.direction==="import"
+        ?`Coût : <span class="text-danger">−${fmt(r.quantity*r.price_per_unit)} or</span> · Gain : <span class="text-success">+${fmt(r.quantity)} ${RESOURCE_LABELS[r.resource]}</span>`
+        :`Recette : <span class="text-success">+${fmt(r.quantity*r.price_per_unit)} or</span> · Sortie : <span class="text-danger">−${fmt(r.quantity)} ${RESOURCE_LABELS[r.resource]}</span>`;
+      return `<div class="card"><div class="card-body">
+        <div class="flex items-start justify-between gap">
+          <div class="flex-1">
+            <div class="flex items-center gap-sm mb-1">
+              ${ico} <span class="badge ${r.direction==="import"?"badge-success":"badge-danger"}">${r.direction}</span>
+              ${r.recurring?`<span class="badge badge-gold">Récurrent</span>`:""}
+              <span class="badge badge-muted">⛵ ×${r.merchant_ships_required||1}</span>
+            </div>
+            <div style="font-size:1.1rem;font-weight:700">${r.partner||"Partenaire inconnu"}</div>
+            <p class="text-sm text-muted mt-1">${r.quantity} <strong>${RESOURCE_LABELS[r.resource]}</strong> à ${r.price_per_unit} or/u</p>
+            <p class="text-xs mt-1">${costLine}</p>
+            ${r.notes?`<p class="text-xs italic text-muted mt-1">« ${r.notes} »</p>`:""}
+          </div>
+          <button class="btn btn-ghost btn-icon text-danger" onclick="actionDeleteTrade('${r.id}')">🗑</button>
+        </div>
+      </div></div>`;
+    }).join("");
   }
-  tl.innerHTML=G.trade_routes.map(r=>{
-    const ico=r.direction==="import"?"⬇":"⬆";
-    const costLine=r.direction==="import"
-      ?`Coût : <span class="text-danger">−${fmt(r.quantity*r.price_per_unit)} or</span> · Gain : <span class="text-success">+${fmt(r.quantity)} ${RESOURCE_LABELS[r.resource]}</span>`
-      :`Recette : <span class="text-success">+${fmt(r.quantity*r.price_per_unit)} or</span> · Sortie : <span class="text-danger">−${fmt(r.quantity)} ${RESOURCE_LABELS[r.resource]}</span>`;
-    return `<div class="card"><div class="card-body">
+
+  // Échanges joueurs
+  const ptl=document.getElementById("player-trade-list");
+  const pts=G.player_trades||[];
+  if(!pts.length) {
+    ptl.innerHTML=`<p class="italic text-muted text-sm col-span-full">Aucun échange entre joueurs actif.</p>`;
+  } else {
+    ptl.innerHTML=pts.map(pt=>`<div class="card"><div class="card-body">
       <div class="flex items-start justify-between gap">
         <div class="flex-1">
           <div class="flex items-center gap-sm mb-1">
-            ${ico} <span class="badge ${r.direction==="import"?"badge-success":"badge-danger"}">${r.direction}</span>
-            ${r.recurring?`<span class="badge badge-gold">Récurrent</span>`:""}
+            <span class="badge badge-gold">🤝 Troc</span>
+            ${pt.recurring?`<span class="badge badge-gold">Récurrent</span>`:`<span class="badge badge-muted">Ponctuel</span>`}
+            <span class="badge badge-muted">⛵ ×${pt.merchant_ships_required||1}</span>
           </div>
-          <div style="font-size:1.1rem;font-weight:700">${r.partner||"Partenaire inconnu"}</div>
-          <p class="text-sm text-muted mt-1">${r.quantity} <strong>${RESOURCE_LABELS[r.resource]}</strong> à ${r.price_per_unit} or/u</p>
-          <p class="text-xs mt-1">${costLine}</p>
-          ${r.notes?`<p class="text-xs italic text-muted mt-1">« ${r.notes} »</p>`:""}
+          <div style="font-size:1.05rem;font-weight:700">${pt.partner||"Partenaire inconnu"}</div>
+          <p class="text-sm mt-1">
+            <span class="text-danger">−${fmt(pt.give_qty)} ${RESOURCE_LABELS[pt.give_res]||pt.give_res}</span>
+            &nbsp;⇄&nbsp;
+            <span class="text-success">+${fmt(pt.recv_qty)} ${RESOURCE_LABELS[pt.recv_res]||pt.recv_res}</span>
+          </p>
+          ${pt.notes?`<p class="text-xs italic text-muted mt-1">« ${pt.notes} »</p>`:""}
         </div>
-        <button class="btn btn-ghost btn-icon text-danger" onclick="actionDeleteTrade('${r.id}')">🗑</button>
+        <button class="btn btn-ghost btn-icon text-danger" onclick="actionDeletePlayerTrade('${pt.id}')">🗑</button>
       </div>
-    </div></div>`;
-  }).join("");
+    </div></div>`).join("");
+  }
 }
 
 function renderAttacks() {
@@ -2953,6 +3053,26 @@ function openTradeModal() {
   openModal("modal-trade");
 }
 
+function openPlayerTradeModal() {
+  document.getElementById("pt-partner").value="";
+  document.getElementById("pt-give-qty").value="10";
+  document.getElementById("pt-recv-qty").value="10";
+  document.getElementById("pt-ships").value="1";
+  document.getElementById("pt-recurring").checked=true;
+  document.getElementById("pt-notes").value="";
+  // Populate selects si vide
+  ["pt-give-res","pt-recv-res"].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel.children.length) {
+      RESOURCE_KEYS.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=RESOURCE_LABELS[k];sel.appendChild(o);});
+    }
+  });
+  // Par défaut give=bois, recv=or
+  document.getElementById("pt-give-res").value="bois";
+  document.getElementById("pt-recv-res").value="or";
+  openModal("modal-player-trade");
+}
+
 function createTrade() {
   const data={
     partner:document.getElementById("trade-partner").value.trim(),
@@ -2966,6 +3086,45 @@ function createTrade() {
   };
   actionCreateTrade(data);
   closeModal("modal-trade");
+}
+
+function createPlayerTrade() {
+  const data={
+    partner:  document.getElementById("pt-partner").value.trim(),
+    give_res: document.getElementById("pt-give-res").value,
+    give_qty: parseInt(document.getElementById("pt-give-qty").value)||0,
+    recv_res: document.getElementById("pt-recv-res").value,
+    recv_qty: parseInt(document.getElementById("pt-recv-qty").value)||0,
+    merchant_ships_required: parseInt(document.getElementById("pt-ships").value)||1,
+    recurring:document.getElementById("pt-recurring").checked,
+    notes:    document.getElementById("pt-notes").value.trim(),
+  };
+  actionCreatePlayerTrade(data);
+  closeModal("modal-player-trade");
+}
+
+function actionCreatePlayerTrade(data) {
+  run(()=>{
+    if(!RESOURCE_KEYS.includes(data.give_res)) error("Ressource donnée invalide");
+    if(!RESOURCE_KEYS.includes(data.recv_res)) error("Ressource reçue invalide");
+    if(data.give_qty<=0||data.recv_qty<=0) error("Les quantités doivent être supérieures à 0");
+    if(data.give_res===data.recv_res) error("Les deux ressources de l'échange doivent être différentes");
+    // Vérifier navires marchands disponibles (communs aux routes + échanges joueurs)
+    const totalMerchants = G.ships.filter(s=>s.kind==="commerce").reduce((a,s)=>a+s.count,0);
+    const usedByRoutes   = G.trade_routes.reduce((a,r)=>a+(r.merchant_ships_required||1),0);
+    const usedByPT       = (G.player_trades||[]).reduce((a,pt)=>a+(pt.merchant_ships_required||1),0);
+    const free = totalMerchants - usedByRoutes - usedByPT;
+    const needed = data.merchant_ships_required||1;
+    if(free < needed) error(`Navires marchands insuffisants — ${free} disponible(s), ${needed} requis.`);
+    G.player_trades = G.player_trades||[];
+    G.player_trades.push({id:uid(),...data});
+  });
+  toast("Accord de troc signé !");
+}
+
+function actionDeletePlayerTrade(id) {
+  run(()=>{ G.player_trades=(G.player_trades||[]).filter(pt=>pt.id!==id); });
+  toast("Accord de troc rompu.");
 }
 
 function openAttackModal() {
