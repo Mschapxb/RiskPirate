@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Carnet d'Amirauté — App de comptabilité par Mschap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
 /* ── Variables ── */
 :root {
@@ -343,8 +346,10 @@ input:checked + .slider:before { transform: translateX(18px); }
       <div class="grid-2 text-sm">
         <div class="table-row"><span>Conquête terrestre</span><span class="font-mono">200 or</span></div>
         <div class="table-row"><span>Bâtiment primaire</span><span class="font-mono">200 or</span></div>
-        <div class="table-row"><span>Pop. case brute</span><span class="font-mono">5 hab.</span></div>
-        <div class="table-row"><span>Pop. avec bâtiment</span><span class="font-mono">10 hab.</span></div>
+        <div class="table-row"><span>Pop. case terrestre brute</span><span class="font-mono">20 hab.</span></div>
+        <div class="table-row"><span>Pop. terrestre avec bâtiment</span><span class="font-mono">40 hab.</span></div>
+        <div class="table-row"><span>Pop. case marine brute</span><span class="font-mono">5 hab.</span></div>
+        <div class="table-row"><span>Pop. marine avec bâtiment</span><span class="font-mono">10 hab.</span></div>
       </div>
     </div></div>
   </div>
@@ -382,9 +387,11 @@ input:checked + .slider:before { transform: translateX(18px); }
     <div class="tabs-nav" style="margin-bottom:1rem">
       <button class="tab-btn active" onclick="showMilTab('armee',this)">⚔ Armée de terre</button>
       <button class="tab-btn" onclick="showMilTab('marine',this)">⚓ Marine</button>
+      <button class="tab-btn" onclick="showMilTab('training',this)">🏕️ Entraînement</button>
     </div>
     <div id="mil-armee" class="space-y"></div>
     <div id="mil-marine" class="space-y hidden"></div>
+    <div id="mil-training" class="space-y hidden"></div>
   </div>
 
   <!-- COMMERCE -->
@@ -568,26 +575,34 @@ input:checked + .slider:before { transform: translateX(18px); }
 
 <div class="modal-overlay" id="modal-trade">
   <div class="modal">
-    <div class="modal-header"><div class="modal-title">Signer un contrat commercial</div></div>
+    <div class="modal-header"><div class="modal-title">Signer un contrat d'exportation</div></div>
     <div class="modal-body">
       <div class="form-group"><label class="overline">Partenaire</label><input id="trade-partner" placeholder="Ex : Royaume d'Albion" /></div>
       <div class="form-row">
-        <div class="form-group"><label class="overline">Direction</label>
-          <select id="trade-direction">
-            <option value="import">Importer (entrée)</option>
-            <option value="export">Exporter (sortie)</option>
+        <div class="form-group"><label class="overline">Marchandise exportée</label>
+          <select id="trade-resource" onchange="onTradeResChange()">
+            <optgroup label="Matières premières">
+              <option value="cacao">Cacao 🍫</option>
+              <option value="tabac">Tabac 🚬</option>
+              <option value="sucre">Sucre 🍬</option>
+              <option value="sel">Sel 🌊</option>
+              <option value="nacre">Nacre 💎</option>
+            </optgroup>
+            <optgroup label="Produits raffinés">
+              <option value="rhum">Rhum 🍺</option>
+              <option value="cigares">Cigares 🚬</option>
+              <option value="chocolat">Chocolat 🍫</option>
+              <option value="bijoux">Bijoux ✨</option>
+            </optgroup>
           </select>
         </div>
-        <div class="form-group"><label class="overline">Ressource</label>
-          <select id="trade-resource"></select>
-        </div>
-      </div>
-      <div class="form-row">
         <div class="form-group"><label class="overline">Quantité / tour</label><input type="number" id="trade-qty" value="10" min="1" /></div>
-        <div class="form-group"><label class="overline">Prix unitaire (or)</label><input type="number" id="trade-price" value="1" min="0" /></div>
       </div>
       <div class="form-row">
+        <div class="form-group"><label class="overline">Prix unitaire (or) <span class="text-muted text-xs">— cours international fixe</span></label><input type="number" id="trade-price" value="1" min="0" step="0.01" readonly style="opacity:0.7;cursor:not-allowed;background:var(--parchment-dark)" /></div>
         <div class="form-group"><label class="overline">Navires requis</label><input type="number" id="trade-ships" value="1" min="1" /></div>
+      </div>
+      <div class="form-row">
         <div class="form-group" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.4rem">
           <label class="switch"><input type="checkbox" id="trade-recurring" checked><span class="slider"></span></label>
           <span class="text-sm">Récurrent (chaque tour)</span>
@@ -972,8 +987,10 @@ const CAPITAL_PRODUCTION = {or:200,ble:100,bois:100,fer:100};
 const CAPITAL_BASE_DEFENSE = 5;
 const TILE_CONQUEST_COST_LAND = 200;
 const PRIMARY_BUILD_COST = {or:200};
-const PRIMARY_POP = 10;
-const TILE_RAW_POP = 5;
+const PRIMARY_POP = 40;
+const TILE_RAW_POP = 20;
+const SEA_PRIMARY_POP = 10;
+const SEA_RAW_POP = 5;
 const CAPITAL_BASE_POP = 100;
 const CAPITAL_FOOD_EXEMPT = 100;
 const POP_PER_LAND_TILE = 50;
@@ -982,52 +999,53 @@ const ATTACK_COST = {terre:200,mer:0,joueur:0};
 
 const UTILITY_BUILDINGS = {
   maison:{label:"Maison",cost:{or:200,bois:50},upkeep:{bois:10},pop_required:0,provides_pop:10,effect:"Loge 10 habitants",unique:false},
-  banque_1:{label:"Banque (Niv. I)",cost:{or:500},upkeep:{bois:25},pop_required:5,or_per_turn:100,effect:"+100 or par tour",unique:true},
-  banque_2:{label:"Banque (Niv. II)",cost:{or:1000},upkeep:{bois:25},pop_required:5,or_per_turn:300,effect:"+300 or par tour",requires:"banque_1",upgrades_from:"banque_1",unique:true},
-  banque_3:{label:"Banque (Niv. III)",cost:{or:2000},upkeep:{bois:25},pop_required:5,or_per_turn:500,effect:"+500 or par tour",requires:"banque_2",upgrades_from:"banque_2",unique:true},
-  hotel_impots:{label:"Hôtel des impôts",cost:{or:500},upkeep:{bois:25},pop_required:5,effect:"+50 or par tranche de 100 hab.",unique:true},
-  taverne:{label:"Taverne",cost:{or:300},upkeep:{bois:10},pop_required:5,effect:"Débloque events de baroudeurs",unique:true},
-  port_commerce:{label:"Port de commerce",cost:{or:200},upkeep:{bois:25},pop_required:5,effect:"Permet les navires de commerce",unique:true},
-  port_militaire_1:{label:"Port militaire (Niv. I)",cost:{or:200},upkeep:{bois:25},pop_required:5,effect:"Recrute marins et navires de guerre",unique:true},
-  port_militaire_2:{label:"Port militaire (Niv. II)",cost:{or:500},upkeep:{bois:25},pop_required:5,effect:"Améliore la flotte de guerre",requires:"port_militaire_1",upgrades_from:"port_militaire_1",unique:true},
-  port_militaire_3:{label:"Port militaire (Niv. III)",cost:{or:1000},upkeep:{bois:25},pop_required:5,effect:"Permet l'élite de la flotte",requires:"port_militaire_2",upgrades_from:"port_militaire_2",unique:true},
-  base_militaire_1:{label:"Base militaire (Niv. I)",cost:{or:200},upkeep:{bois:25},pop_required:5,effect:"Recrute de l'infanterie",unique:true},
-  base_militaire_2:{label:"Base militaire (Niv. II)",cost:{or:500},upkeep:{bois:25},pop_required:5,effect:"Améliore l'armée de terre",requires:"base_militaire_1",upgrades_from:"base_militaire_1",unique:true},
-  base_militaire_3:{label:"Base militaire (Niv. III)",cost:{or:1000},upkeep:{bois:25},pop_required:5,effect:"Permet l'infanterie d'élite",requires:"base_militaire_2",upgrades_from:"base_militaire_2",unique:true},
+  banque_1:{label:"Banque (Niv. I)",cost:{or:500},upkeep:{bois:35},pop_required:20,or_per_turn:100,effect:"+100 or par tour",unique:true},
+  banque_2:{label:"Banque (Niv. II)",cost:{or:1000},upkeep:{bois:35},pop_required:20,or_per_turn:300,effect:"+300 or par tour",requires:"banque_1",upgrades_from:"banque_1",unique:true},
+  banque_3:{label:"Banque (Niv. III)",cost:{or:2000},upkeep:{bois:35},pop_required:20,or_per_turn:500,effect:"+500 or par tour",requires:"banque_2",upgrades_from:"banque_2",unique:true},
+  hotel_impots:{label:"Hôtel des impôts",cost:{or:500},upkeep:{bois:35},pop_required:20,effect:"+50 or par tranche de 100 hab.",unique:true},
+  taverne:{label:"Taverne",cost:{or:300},upkeep:{bois:10},pop_required:20,effect:"Débloque events de baroudeurs",unique:true},
+  port_commerce:{label:"Port de commerce",cost:{or:200},upkeep:{bois:35},pop_required:20,effect:"Permet les navires de commerce",unique:true},
+  port_militaire_1:{label:"Port militaire (Niv. I)",cost:{or:200},upkeep:{bois:35},pop_required:20,effect:"Recrute marins et navires de guerre",unique:true},
+  port_militaire_2:{label:"Port militaire (Niv. II)",cost:{or:500},upkeep:{bois:35},pop_required:20,effect:"Améliore la flotte de guerre",requires:"port_militaire_1",upgrades_from:"port_militaire_1",unique:true},
+  port_militaire_3:{label:"Port militaire (Niv. III)",cost:{or:1000},upkeep:{bois:35},pop_required:20,effect:"Permet l'élite de la flotte",requires:"port_militaire_2",upgrades_from:"port_militaire_2",unique:true},
+  base_militaire_1:{label:"Base militaire (Niv. I)",cost:{or:200},upkeep:{bois:35},pop_required:20,effect:"Recrute de l'infanterie",unique:true},
+  base_militaire_2:{label:"Base militaire (Niv. II)",cost:{or:500},upkeep:{bois:35},pop_required:20,effect:"Améliore l'armée de terre",requires:"base_militaire_1",upgrades_from:"base_militaire_1",unique:true},
+  base_militaire_3:{label:"Base militaire (Niv. III)",cost:{or:1000},upkeep:{bois:35},pop_required:20,effect:"Permet l'infanterie d'élite",requires:"base_militaire_2",upgrades_from:"base_militaire_2",unique:true},
   forteresse_cap_1:{label:"Forteresse capitale (I)",cost:{or:300},upkeep:{bois:10},pop_required:3,defense_attack_pts:3,effect:"+3 pts d'attaque à briser, léger bonus défense",unique:true},
   forteresse_cap_2:{label:"Forteresse capitale (II)",cost:{or:1000},upkeep:{fer:10},pop_required:5,defense_attack_pts:5,capital_pop_bonus:200,effect:"+5 pts, capitale loge 300 hab., bonus défense",requires:"forteresse_cap_1",upgrades_from:"forteresse_cap_1",unique:true},
   forteresse_cap_3:{label:"Forteresse capitale (III)",cost:{or:1500},upkeep:{acier:10},pop_required:10,defense_attack_pts:8,capital_pop_bonus:400,effect:"+8 pts, capitale loge 500 hab., énorme bonus défense",requires:"forteresse_cap_2",upgrades_from:"forteresse_cap_2",unique:true},
   forteresse_prov_1:{label:"Forteresse province (I)",cost:{or:200},upkeep:{bois:30},pop_required:3,defense_attack_pts:2,effect:"Province : +2 pts d'attaque",unique:false},
   forteresse_prov_2:{label:"Forteresse province (II)",cost:{or:1000},upkeep:{fer:30},pop_required:5,defense_attack_pts:5,effect:"+5 pts, gros bonus défense",requires:"forteresse_prov_1",upgrades_from:"forteresse_prov_1",unique:false},
+  camp_entrainement:{label:"Camp d'entraînement",cost:{or:400,bois:100},upkeep:{bois:35},pop_required:20,effect:"Débloque l'entraînement des unités (+1 rang par tour · 20T max)",unique:true},
 };
 const BLD_FAMILIES = {
   infrastructure:["maison","taverne","hotel_impots","port_commerce"],
   economie:["banque_1","banque_2","banque_3"],
-  militaire:["base_militaire_1","base_militaire_2","base_militaire_3","port_militaire_1","port_militaire_2","port_militaire_3"],
+  militaire:["base_militaire_1","base_militaire_2","base_militaire_3","port_militaire_1","port_militaire_2","port_militaire_3","camp_entrainement"],
   defense:["forteresse_cap_1","forteresse_cap_2","forteresse_cap_3","forteresse_prov_1","forteresse_prov_2"],
 };
 
 const TROOP_TIERS_INFANTERIE = {
-  1:{label:"Niveau I",   recruit_cost:{or:100},  upkeep:{or:30, fer:30, ble:30},   power:1.0},
-  2:{label:"Niveau II",  recruit_cost:{or:200},  upkeep:{or:60, fer:60, ble:60},   power:1.6},
-  3:{label:"Niveau III", recruit_cost:{or:300},  upkeep:{or:120,acier:60,ble:120}, power:2.5},
+  1:{label:"Niveau I",   recruit_cost:{or:100},  upkeep:{or:30, fer:30, ble:20},   power:1.0},
+  2:{label:"Niveau II",  recruit_cost:{or:200},  upkeep:{or:60, fer:60, ble:50},   power:1.6},
+  3:{label:"Niveau III", recruit_cost:{or:300},  upkeep:{or:120,acier:60,ble:110}, power:2.5},
 };
 const TROOP_TIERS_MARINE = {
-  1:{label:"Niveau I",   recruit_cost:{or:100},  upkeep:{or:30, fer:30, ble:30},   power:1.0},
-  2:{label:"Niveau II",  recruit_cost:{or:200},  upkeep:{or:60, fer:60, ble:60},   power:1.6},
-  3:{label:"Niveau III", recruit_cost:{or:300},  upkeep:{or:120,fer:120,ble:120},  power:2.5},
+  1:{label:"Niveau I",   recruit_cost:{or:100},  upkeep:{or:30, fer:30, ble:20},   power:1.0},
+  2:{label:"Niveau II",  recruit_cost:{or:200},  upkeep:{or:60, fer:60, ble:50},   power:1.6},
+  3:{label:"Niveau III", recruit_cost:{or:300},  upkeep:{or:120,fer:120,ble:110},  power:2.5},
 };
 const INFANTRY_BUILDING_REQ = {1:"base_militaire_1",2:"base_militaire_2",3:"base_militaire_3"};
 const MARINE_BUILDING_REQ = {1:"port_militaire_1",2:"port_militaire_2",3:"port_militaire_3"};
 const TROOP_POP_PER_PACK = 10;
 
 const SHIP_TIERS = {
-  1:{label:"Navire Niv. I",cost:{or:300},upkeep:{bois:20},crew:20,power:1.0,requires:"port_militaire_1"},
-  2:{label:"Navire Niv. II",cost:{or:600},upkeep:{planches:20},crew:20,power:1.8,requires:"port_militaire_2"},
-  3:{label:"Navire Niv. III",cost:{or:1200},upkeep:{planches:30},crew:20,power:3.0,requires:"port_militaire_3"},
+  1:{label:"Navire Niv. I",cost:{or:300},upkeep:{bois:30},crew:20,power:1.0,requires:"port_militaire_1"},
+  2:{label:"Navire Niv. II",cost:{or:600},upkeep:{bois:60},crew:20,power:1.8,requires:"port_militaire_2"},
+  3:{label:"Navire Niv. III",cost:{or:1200},upkeep:{planches:60},crew:20,power:3.0,requires:"port_militaire_3"},
 };
 const GALION = {label:"Galion légendaire",cost:{or:1500},upkeep:{planches:100},crew:150,power:5.0,max_per_nation:3,requires:"port_militaire_3"};
-const MERCHANT_SHIP = {label:"Navire marchand",cost:{or:300},upkeep:{bois:10},crew:10,requires:"port_commerce"};
+const MERCHANT_SHIP = {label:"Navire marchand",cost:{or:300},upkeep:{bois:30},crew:10,requires:"port_commerce"};
 
 const USINES = {
   rhum:{label:"Distillerie de Rhum",cost:{or:1000},pop:20,prereq:[["sucre",3]],consume:{sucre:600},produce:{rhum:100}},
@@ -1056,7 +1074,7 @@ function newNation() {
     resources:{or:600,fer:600,ble:600,bois:600,sucre:0,tabac:0,cacao:0,nacre:0,sel:0,acier:0,planches:0,rhum:0,cigares:0,chocolat:0,pain:0,conserves:0,bijoux:0},
     population_total:100,
     tiles:[{id:uid(),name:"Capitale",domain:"capitale",resource:null,has_primary:false,has_fortress:false}],
-    buildings:[],usines:[],troops:[],ships:[],trade_routes:[],player_trades:[],attacks:[],
+    buildings:[],usines:[],troops:[],ships:[],trade_routes:[],player_trades:[],training_units:[],attacks:[],
     free_pop_gold_active:true,
     pop_bonus:0,
     capital_active:true,
@@ -1120,6 +1138,7 @@ function migrateState(d) {
   d.free_troops     = d.free_troops     || [];
   d.free_ships      = d.free_ships      || [];
   d.player_trades   = d.player_trades   || [];
+  d.training_units  = d.training_units  || [];  // [{id, troop_id, branch, tier, packs, rank, turns_trained}]
   d.attacks_archive = d.attacks_archive || [];
   d.turn_log        = d.turn_log        || [];
   d.history         = d.history         || [];
@@ -1180,12 +1199,14 @@ function popOccupied() {
     if(t.domain==="capitale") continue;
     if(t.resource==="capitale_ennemie") continue; // pas de pop employée
     const noPopRes = ["coffre","terra_incognita","rien","capitale_ennemie","tresor_terre"];
+    const rawPop  = t.domain==="mer" ? SEA_RAW_POP     : TILE_RAW_POP;
+    const primPop = t.domain==="mer" ? SEA_PRIMARY_POP : PRIMARY_POP;
     // Slot 1 — pas de pop si resource vide ou non productive, ou slot désactivé
     if(!t.slot1_disabled) {
-      if(t.has_primary && t.resource && !noPopRes.includes(t.resource)) occ+=PRIMARY_POP;
-      else if(t.resource && !noPopRes.includes(t.resource)) occ+=TILE_RAW_POP;
+      if(t.has_primary && t.resource && !noPopRes.includes(t.resource)) occ+=primPop;
+      else if(t.resource && !noPopRes.includes(t.resource)) occ+=rawPop;
     }
-    // Slot 2 (terre uniquement) — pas de pop si resource vide ou non productive, ou slot désactivé
+    // Slot 2 (terre uniquement)
     if(t.domain==="terre"&&t.resource2&&!noPopRes.includes(t.resource2)&&!t.slot2_disabled) {
       if(t.has_primary2) occ+=PRIMARY_POP;
       else occ+=TILE_RAW_POP;
@@ -1420,18 +1441,39 @@ function showErrorModal(message) {
 
 function copyErrorToClipboard() {
   const msg = document.getElementById("error-msg-display").textContent;
-  navigator.clipboard.writeText(msg).then(() => {
-    document.getElementById("copy-error-btn").textContent = "✅ Copié !";
-    setTimeout(() => { document.getElementById("copy-error-btn").textContent = "📋 Copier le message"; }, 2000);
-  }).catch(() => {
-    // Fallback : sélectionner le texte manuellement
+  const btn = document.getElementById("copy-error-btn");
+  // Tentative clipboard API
+  if(navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(msg).then(() => {
+      btn.textContent = "✅ Copié !";
+      setTimeout(() => { btn.textContent = "📋 Copier le message"; }, 2000);
+    }).catch(() => fallbackCopy(msg, btn));
+  } else {
+    fallbackCopy(msg, btn);
+  }
+}
+
+function fallbackCopy(text, btn) {
+  // Créer un textarea temporaire hors écran
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.cssText = "position:fixed;left:-9999px;top:-9999px;opacity:0";
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  try {
+    document.execCommand("copy");
+    btn.textContent = "✅ Copié !";
+  } catch(e) {
+    // Dernier recours : sélectionner le texte dans la modale
     const el = document.getElementById("error-msg-display");
     const range = document.createRange();
     range.selectNode(el);
     window.getSelection().removeAllRanges();
     window.getSelection().addRange(range);
-    document.getElementById("copy-error-btn").textContent = "✅ Sélectionné !";
-  });
+    btn.textContent = "✅ Sélectionné !";
+  }
+  document.body.removeChild(ta);
+  setTimeout(() => { btn.textContent = "📋 Copier le message"; }, 2000);
 }
 
 function formatError(e, context) {
@@ -1661,7 +1703,13 @@ function actionRecruit(branch,tier,packs) {
     const tiers=branch==="infanterie"?TROOP_TIERS_INFANTERIE:TROOP_TIERS_MARINE;
     const spec=tiers[tier];
     const reqBld=branch==="infanterie"?INFANTRY_BUILDING_REQ[tier]:MARINE_BUILDING_REQ[tier];
-    if(!G.buildings.some(b=>b.type===reqBld)) error(`Prérequis : ${UTILITY_BUILDINGS[reqBld]?.label||reqBld}`);
+    // Accepter le bâtiment requis OU n'importe quel niveau supérieur de la même chaîne
+    const reqFamily = branch==="infanterie"
+      ? ["base_militaire_1","base_militaire_2","base_militaire_3"]
+      : ["port_militaire_1","port_militaire_2","port_militaire_3"];
+    const reqIdx = reqFamily.indexOf(reqBld);
+    const hasReq = reqFamily.slice(reqIdx).some(bld=>G.buildings.some(b=>b.type===bld));
+    if(!hasReq) error(`Prérequis : ${UTILITY_BUILDINGS[reqBld]?.label||reqBld}`);
     const cost=Object.fromEntries(Object.entries(spec.recruit_cost).map(([k,v])=>[k,v*packs]));
     const err=canAfford(G.resources,cost); if(err) error(err);
     const free=popCapacity()-popOccupied();
@@ -1703,7 +1751,17 @@ function actionBuildShip(kind,tier,count) {
     } else {
       spec=MERCHANT_SHIP; required=spec.requires; shipTier=1;
     }
-    if(!G.buildings.some(b=>b.type===required)) error(`Prérequis : ${UTILITY_BUILDINGS[required]?.label||required}`);
+    if(kind==="guerre") {
+      // Accepter port_militaire_N OU tout niveau supérieur
+      const portFamily=["port_militaire_1","port_militaire_2","port_militaire_3"];
+      const reqIdx=portFamily.indexOf(required);
+      const hasPort=reqIdx>=0
+        ? portFamily.slice(reqIdx).some(bld=>G.buildings.some(b=>b.type===bld))
+        : G.buildings.some(b=>b.type===required);
+      if(!hasPort) error(`Prérequis : ${UTILITY_BUILDINGS[required]?.label||required}`);
+    } else {
+      if(!G.buildings.some(b=>b.type===required)) error(`Prérequis : ${UTILITY_BUILDINGS[required]?.label||required}`);
+    }
     const cost=Object.fromEntries(Object.entries(spec.cost).map(([k,v])=>[k,v*count]));
     const err=canAfford(G.resources,cost); if(err) error(err);
     const free=popCapacity()-popOccupied();
@@ -1733,19 +1791,22 @@ function actionDisbandShip(id,count) {
   toast("Navire désarmé.");
 }
 
+const TRADE_EXPORTABLE = ["cacao","tabac","sucre","sel","nacre","rhum","cigares","chocolat","bijoux"];
+
 function actionCreateTrade(data) {
   run(()=>{
-    if(!RESOURCE_KEYS.includes(data.resource)) error("Ressource inconnue");
+    if(!TRADE_EXPORTABLE.includes(data.resource)) error("Ressource non exportable. Seuls les matières premières coloniales et produits raffinés sont acceptés.");
+    if(data.direction && data.direction !== "export") error("Seul l'export est autorisé pour les routes commerciales.");
     if(data.quantity<=0||data.price_per_unit<0) error("Quantité ou prix invalide");
-    // Vérifier qu'il y a assez de navires marchands disponibles
     const totalMerchants = G.ships.filter(s=>s.kind==="commerce").reduce((a,s)=>a+s.count,0);
-    const usedMerchants  = G.trade_routes.reduce((a,r)=>a+(r.merchant_ships_required||1),0);
-    const freeMerchants  = totalMerchants - usedMerchants;
+    const usedByRoutes   = G.trade_routes.reduce((a,r)=>a+(r.merchant_ships_required||1),0);
+    const usedByPT       = (G.player_trades||[]).reduce((a,pt)=>a+(pt.merchant_ships_required||1),0);
+    const free = totalMerchants - usedByRoutes - usedByPT;
     const needed = data.merchant_ships_required||1;
-    if(freeMerchants < needed) error(`Navires marchands insuffisants — ${freeMerchants} disponible(s), ${needed} requis. Recrutez d'abord des navires marchands.`);
-    G.trade_routes.push({id:uid(),...data});
+    if(free < needed) error(`Navires marchands insuffisants — ${free} disponible(s), ${needed} requis.`);
+    G.trade_routes.push({id:uid(),...data, direction:"export"});
   });
-  toast("Contrat signé !");
+  toast("Contrat d'exportation signé !");
 }
 
 function actionDeleteTrade(id) {
@@ -1821,36 +1882,120 @@ function actionDeleteAttack(id) {
 
 function actionEndTurn() {
   const ch=computeTurnChanges();
-  // (préemption supprimée)
   const before={...G.resources};
   const after={};
   const deficits={};
-  for(const k of RESOURCE_KEYS) {
-    const raw=(G.resources[k]||0)+(ch.delta[k]||0);
-    if(raw<0) {
-      // Déficit : on note ce qui manque, la ressource tombe à 0
-      deficits[k]=raw; // valeur négative
-      after[k]=0;
-    } else {
-      after[k]=raw;
+
+  // ── Pré-calcul des exports : stock d'abord, gain ensuite ──────────────────
+  // On calcule le gain brut (hors commerce) pour chaque ressource exportée
+  // puis on ajuste le delta commerce en fonction du stock disponible.
+
+  // Ressources exportées par les routes commerciales et échanges joueurs
+  const exportByRes = {}; // res → quantité totale à exporter ce tour
+
+  for(const r of G.trade_routes) {
+    if(!r.recurring) continue;
+    if(r.direction === "export") {
+      exportByRes[r.resource] = (exportByRes[r.resource]||0) + r.quantity;
     }
   }
-  // Résumé des déficits dans le rapport
-  ch.deficits=deficits;
-  G.resources=after;
+  for(const pt of (G.player_trades||[])) {
+    if(!pt.recurring) continue;
+    if(RESOURCE_KEYS.includes(pt.give_res)) {
+      exportByRes[pt.give_res] = (exportByRes[pt.give_res]||0) + pt.give_qty;
+    }
+  }
+
+  // Pour chaque ressource exportée, vérifier stock + gain hors export
+  for(const [res, qtyNeeded] of Object.entries(exportByRes)) {
+    const stock   = G.resources[res] || 0;
+    // Gain du tour SANS les exports (production + autres entrées)
+    const gainNet = (ch.delta[res]||0) + qtyNeeded; // on réajoute l'export qu'on va recalculer
+    const total   = stock + gainNet;
+
+    if(total >= qtyNeeded) {
+      // Suffisant — on laisse le delta tel quel
+    } else {
+      // Manque : on exporte ce qu'on peut, le reste génère un déficit ou on réduit le delta
+      // On ne change pas le delta ici — le déficit sera noté normalement
+      // mais on ajoute un log pour informer
+      ch.breakdown.push({
+        label:`⚠ Export partiel ${RESOURCE_LABELS[res]} (stock insuffisant)`,
+        changes:{[res]: -(Math.min(stock, qtyNeeded))}
+      });
+    }
+  }
+
+  // ── Application du delta ───────────────────────────────────────────────────
+  for(const k of RESOURCE_KEYS) {
+    const stock = G.resources[k] || 0;
+    const gain  = ch.delta[k] || 0;
+
+    if(exportByRes[k] && gain < 0) {
+      // Il y a un export sur cette ressource
+      const exportQty = exportByRes[k];
+      const gainHorsExport = gain + exportQty; // gain de production pur
+      const stockApresGain = stock + gainHorsExport;
+
+      let fromStock = 0, fromGain = 0;
+
+      if(stockApresGain >= exportQty) {
+        // On a assez : on prend sur le gain d'abord, puis stock si besoin
+        fromGain  = Math.min(gainHorsExport, exportQty);
+        fromStock = exportQty - fromGain;
+      } else {
+        // Stock + gain insuffisants : on exporte tout ce qu'on peut
+        fromGain  = Math.max(0, gainHorsExport);
+        fromStock = Math.min(stock, exportQty - fromGain);
+      }
+
+      const raw = stock + gainHorsExport - fromStock;
+      after[k]  = Math.max(0, raw);
+      if(raw < 0) deficits[k] = raw;
+    } else {
+      const raw = stock + gain;
+      if(raw < 0) { deficits[k] = raw; after[k] = 0; }
+      else after[k] = raw;
+    }
+  }
+
+  // ── Progression entraînement (+1 rang par tour (max rang 20 — Champion)) ─
+  G.training_units = G.training_units || [];
+  const levelUps = [];
+  // Construire la liste valide des clés de paquets actuels
+  const validPacketKeys = new Set();
+  for(const t of G.troops) {
+    for(let i=0;i<t.packs;i++) validPacketKeys.add(t.branch+"|"+t.tier+"|"+t.id+"|"+i);
+  }
+  for(const tu of G.training_units) {
+    // Supprimer si la troupe/paquet n'existe plus
+    if(!validPacketKeys.has(tu.troop_key)) { tu._remove=true; continue; }
+    tu.turns_trained = (tu.turns_trained||0) + 1;
+    if((tu.rank||0) < 20 && tu.turns_trained <= 20) {
+      tu.rank = (tu.rank||0) + 1;
+      levelUps.push(tu);
+    }
+  }
+  G.training_units = G.training_units.filter(tu=>!tu._remove);
+  ch.deficits = deficits;
+  G.resources = after;
   G.turn++;
-  const report={turn:G.turn-1,timestamp:new Date().toISOString(),before,delta:ch.delta,after,breakdown:ch.breakdown,pop_occupied:ch.pop_occupied,deficits:ch.deficits||{},turn_log:[...(G.turn_log||[])]};
+  const report={turn:G.turn-1,timestamp:new Date().toISOString(),before,delta:ch.delta,after,breakdown:ch.breakdown,pop_occupied:ch.pop_occupied,deficits:deficits,turn_log:[...(G.turn_log||[])]};
   G.last_turn_report=report;
   G.history=[...G.history,report].slice(-30);
-  G.turn_log=[]; // réinitialiser le journal pour le nouveau tour
+  G.turn_log=[];
   saveGame();
   preview=getPreview();
   render();
-  const hasDeficit = Object.values(ch.deficits||{}).some(v=>v<0);
+  if(levelUps.length) {
+    const names = levelUps.map(tu=>`${tu.branch==="infanterie"?"Infanterie":"Marin"} Niv.${tu.tier} → Rang ${tu.rank}`).join(", ");
+    setTimeout(()=>toast(`⚔️ Progression : ${names}`, "success"), 400);
+  }
+  const hasDeficit = Object.values(deficits).some(v=>v<0);
   if(hasDeficit) {
-    const dlist = Object.entries(ch.deficits).filter(([,v])=>v<0)
+    const dlist = Object.entries(deficits).filter(([,v])=>v<0)
       .map(([k,v])=>`${RESOURCE_LABELS[k]} (${fmt(v)})`).join(", ");
-    toast(`Tour ${G.turn-1} clôturé — Déficit absorbé : ${dlist}`, "error");
+    toast(`Tour ${G.turn-1} clôturé — Déficit : ${dlist}`, "error");
   } else {
     toast(`Tour ${G.turn-1} clôturé !`);
   }
@@ -2099,11 +2244,12 @@ function renderResources() {
     G.tiles.filter(t=>t.domain!=="capitale").forEach(t=>{
       const r1=t.resource; const r2=t.resource2;
       if(r1&&!noPopRes.includes(r1)) {
-        const p=t.slot1_disabled?0:(t.has_primary?PRIMARY_POP:TILE_RAW_POP);
+        const _pp=t.domain==="mer"?SEA_PRIMARY_POP:PRIMARY_POP, _rp=t.domain==="mer"?SEA_RAW_POP:TILE_RAW_POP;
+        const p=t.slot1_disabled?0:(t.has_primary?_pp:_rp);
         rows.push({cat:"🗺 Cases",label:`${t.name} — ${TILE_RESOURCES[r1]?.label||r1}${t.has_primary?" (bât.)":""}`,pop:p,off:t.slot1_disabled});
       }
       if(t.domain==="terre"&&r2&&!noPopRes.includes(r2)) {
-        const p=t.slot2_disabled?0:(t.has_primary2?PRIMARY_POP:TILE_RAW_POP);
+        const p=t.slot2_disabled?0:(t.has_primary2?PRIMARY_POP:TILE_RAW_POP); // slot2 = terre uniquement
         rows.push({cat:"🗺 Cases",label:`${t.name} — ${TILE_RESOURCES[r2]?.label||r2} (slot 2)${t.has_primary2?" (bât.)":""}`,pop:p,off:t.slot2_disabled});
       }
     });
@@ -2324,7 +2470,8 @@ function renderEmpire() {
         </div>`;
       }
       const noPopRes2=["coffre","terra_incognita","rien","capitale_ennemie","tresor_terre"];
-      const popSlot1=t.slot1_disabled?0:(t.has_primary&&t.resource&&!noPopRes2.includes(t.resource)?PRIMARY_POP:(t.resource&&!noPopRes2.includes(t.resource)?TILE_RAW_POP:0));
+      const _tPrimPop=t.domain==="mer"?SEA_PRIMARY_POP:PRIMARY_POP, _tRawPop=t.domain==="mer"?SEA_RAW_POP:TILE_RAW_POP;
+      const popSlot1=t.slot1_disabled?0:(t.has_primary&&t.resource&&!noPopRes2.includes(t.resource)?_tPrimPop:(t.resource&&!noPopRes2.includes(t.resource)?_tRawPop:0));
       const popSlot2=hasSlot2&&!t.slot2_disabled&&!noPopRes2.includes(t.resource2)?(t.has_primary2?PRIMARY_POP:TILE_RAW_POP):0;
       return `<div class="card"><div class="card-body">
         <div class="flex items-start justify-between gap">
@@ -2350,8 +2497,8 @@ function renderEmpire() {
         <div class="text-xs text-muted space-y-sm" style="${t.slot1_disabled?"opacity:0.4":""}">
           <div class="table-row"><span>Rendement S1</span><span class="font-mono">${t.slot1_disabled?"⏸ 0":"+"+fmt(currentYield)} ${resLabel}</span></div>
           ${!t.has_primary&&yi&&!t.slot1_disabled?`<div class="table-row"><span>Avec bâtiment</span><span class="font-mono">+${fmt(yi.primary)} ${resLabel}</span></div>`:""}
-          <div class="table-row"><span>Pop. slot 1</span><span class="font-mono">${popSlot1} hab.</span></div>
-          ${hasSlot2?`<div class="table-row"><span>Pop. slot 2</span><span class="font-mono">${popSlot2} hab.</span></div>`:""}
+          <div class="table-row"><span>Pop. slot 1</span><span class="font-mono">${popSlot1} hab. ${t.has_primary?"(avec bât.)":"(brut)"}</span></div>
+          ${hasSlot2?`<div class="table-row"><span>Pop. slot 2</span><span class="font-mono">${popSlot2} hab. ${t.has_primary2?"(avec bât.)":"(brut)"}</span></div>`:""}
         </div>`:`
         <div class="flex flex-wrap gap-sm mb-1">
           ${slot1Btn}
@@ -2376,25 +2523,21 @@ function renderBuildings() {
       const info=UTILITY_BUILDINGS[key];
       const count=(ownedMap[key]||[]).length;
       const prereqOk=!info.requires||ownedTypes.has(info.requires);
-      // Bloquer si un niveau supérieur quelconque de la même chaîne existe déjà
-      // On remonte toute la chaîne upgrades_from pour vérifier
-      const isSupersededBy = (startKey) => {
-        // Chercher tous les bâtiments qui upgradent depuis startKey ou depuis un descendant
-        for(const [k,v] of Object.entries(UTILITY_BUILDINGS)) {
-          if(!ownedTypes.has(k)) continue;
-          // Remonter la chaîne de ce bâtiment construit pour voir s'il est un supérieur de startKey
-          let cur = v;
-          while(cur && cur.upgrades_from) {
-            if(cur.upgrades_from === startKey) return true;
-            cur = UTILITY_BUILDINGS[cur.upgrades_from];
+
+      // Superseded = n'importe quel descendant dans la chaîne est déjà construit
+      // (couvre le cas Niv.I quand Niv.III existe, Niv.II ayant été retiré lors de l'upgrade)
+      const anyDescendantBuilt = (function checkDescendants(k) {
+        for(const [dk, dv] of Object.entries(UTILITY_BUILDINGS)) {
+          if(dv.upgrades_from === k) {
+            if(ownedTypes.has(dk) || checkDescendants(dk)) return true;
           }
         }
         return false;
-      };
-      const hasHigherLevel = isSupersededBy(key);
-      const alreadyBuilt = info.unique && count>0; // ce niveau est déjà construit
-      const superseded = info.unique && hasHigherLevel; // un niveau sup existe → ce niveau est obsolète
-      const alreadyUnique = (alreadyBuilt && !info.upgrades_from) || superseded;
+      })(key);
+
+      const alreadyBuilt = info.unique && count > 0;
+      const superseded = info.unique && anyDescendantBuilt;
+      // Constructible : prérequis OK, pas déjà construit à ce niveau, pas obsolète
       const buildable = prereqOk && !alreadyBuilt && !superseded;
       const reqLabel=info.requires?UTILITY_BUILDINGS[info.requires]?.label:"";
       const last=(ownedMap[key]||[]).slice(-1)[0];
@@ -2556,22 +2699,74 @@ function renderMilitary() {
     </div></div>
     <div class="card"><div class="card-body">
       <h3 class="mb-2" style="font-size:1.1rem;font-weight:700">Forces actuelles</h3>
-      ${!G.troops.length?`<p class="italic text-muted text-sm">Aucune troupe recrutée.</p>`:
-        G.troops.map(t=>{
-          const tiers=t.branch==="infanterie"?TROOP_TIERS_INFANTERIE:TROOP_TIERS_MARINE;
-          const spec=tiers[t.tier];
-          return `<div class="table-row">
-            <div><span class="bold" style="text-transform:capitalize">${t.branch}</span>
-            <span class="badge badge-gold" style="margin-left:0.5rem">${spec?.label}</span></div>
-            <div class="flex items-center gap-sm">
-              <span class="font-mono text-sm">${t.packs*10} soldats (${t.packs} paquets)</span>
-              <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDisbandTroop('${t.id}',1)" title="Démobiliser 1 paquet">−</button>
+      ${!G.troops.length ? `<p class="italic text-muted text-sm">Aucune troupe recrutée.</p>` : (()=>{
+        // Construire la map des rangs par troop_key
+        const tuMap = {};
+        for(const tu of (G.training_units||[])) tuMap[tu.troop_key] = tu;
+
+        // Exploser chaque troupe paquet par paquet
+        const packets = [];
+        for(const t of G.troops) {
+          const tiers = t.branch==="infanterie" ? TROOP_TIERS_INFANTERIE : TROOP_TIERS_MARINE;
+          const spec  = tiers[t.tier];
+          for(let i=0; i<t.packs; i++) {
+            const key = t.branch+"|"+t.tier+"|"+t.id+"|"+i;
+            const tu  = tuMap[key];
+            packets.push({t, spec, packIdx:i+1, key, rank: tu?(tu.rank||0):0, inTraining:!!tu});
+          }
+        }
+
+        // Séparer : entraînés (rang > 0) vs recrues
+        const veterans = packets.filter(p=>p.rank>0);
+        const recrues  = packets.filter(p=>p.rank===0);
+
+        const renderPack = p => {
+          const ico = p.t.branch==="infanterie"?"⚔️":"⚓";
+          const rankNames = ["Recrue","Conscrit","Milicien","Guerrier","Éclaireur","Archer","Lancier","Vétéran","Fantassin d'élite","Sous-officier","Sergent","Sergent-chef","Adjudant","Lieutenant","Capitaine-lieutenant","Capitaine","Capitaine de renom","Capitaine aguerri","Capitaine légendaire","Champion","Champion Suprême"];
+          const rankLabel = rankNames[p.rank] || "Recrue";
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 0.5rem;border-bottom:1px solid var(--border);${p.rank>0?"background:rgba(201,162,39,0.05);border-left:3px solid var(--gold)":""}">
+            <div>
+              <div class="flex items-center gap-sm">
+                <span>${ico}</span>
+                <span style="font-weight:700;font-size:0.85rem;text-transform:capitalize">${p.t.branch}</span>
+                <span class="badge badge-gold" style="font-size:0.6rem">${p.spec?.label}</span>
+                <span class="text-xs text-muted">Paquet ${p.packIdx} · 10 sold.</span>
+                ${p.inTraining?`<span class="badge" style="background:rgba(26,107,122,0.15);border-color:var(--teal);color:var(--teal-bright);font-size:0.55rem">🏕️ EN CAMP</span>`:""}
+              </div>
+              ${p.rank>0?`<div class="flex items-center gap-sm mt-1">${rankStars(p.rank)}<span class="text-xs" style="color:var(--gold-dim);font-style:italic;font-weight:600">${rankLabel}</span><span class="text-xs text-muted">(rang ${p.rank})</span></div>`:`<span class="text-xs text-muted italic">${rankLabel}</span>`}
             </div>
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDisbandTroop('${p.t.id}',1)" title="Démobiliser 1 paquet">−</button>
           </div>`;
-        }).join("")}
+        };
+
+        let html = "";
+        if(veterans.length) {
+          html += `<div class="overline" style="font-size:0.6rem;margin:0.4rem 0 0.2rem;color:var(--gold)">⭐ Vétérans (${veterans.length} paquet${veterans.length>1?"s":""})</div>
+            <div style="border:1px solid var(--gold-dim);border-radius:4px;overflow:hidden;margin-bottom:0.6rem">${veterans.map(renderPack).join("")}</div>`;
+        }
+        if(recrues.length) {
+          html += `<div class="overline" style="font-size:0.6rem;margin:0.4rem 0 0.2rem">${veterans.length?"🆕 Recrues":"Troupes"} (${recrues.length} paquet${recrues.length>1?"s":""})</div>
+            <div style="border:1px solid var(--border);border-radius:4px;overflow:hidden">${recrues.map(renderPack).join("")}</div>`;
+        }
+        return html;
+      })()}
     </div></div>`;
 
-  // Marine
+  // ── Camp d'entraînement ──────────────────────────────────
+  const hasCamp = G.buildings.some(b=>b.type==="camp_entrainement");
+  const trainingEl = document.getElementById("mil-training");
+  if(!hasCamp) {
+    trainingEl.innerHTML = `
+      <div class="card" style="border-style:dashed;opacity:0.6">
+        <div class="card-body text-center text-muted" style="padding:1.5rem">
+          <div style="font-size:2rem;margin-bottom:0.5rem">⚔️</div>
+          <p class="text-sm">Construisez un <strong>Camp d'entraînement</strong> (onglet Bâtiments) pour accéder à l'entraînement des unités.</p>
+        </div>
+      </div>`;
+  } else {
+    renderTrainingCamp(trainingEl);
+  }
+
   const tierOptionsShip=Object.entries(SHIP_TIERS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
   const mm=document.getElementById("mil-marine");
   mm.innerHTML=`
@@ -2628,11 +2823,7 @@ function renderCommerce() {
   freeEl.textContent = freeMerchants;
   freeEl.style.color = freeMerchants<=0 ? "var(--danger)" : "var(--success,#3a7a3a)";
 
-  // populate trade resource select
-  const trSel=document.getElementById("trade-resource");
-  if(!trSel.children.length) {
-    RESOURCE_KEYS.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=RESOURCE_LABELS[k];trSel.appendChild(o);});
-  }
+  // (select trade-resource est statique dans le HTML — pas besoin de populate)
 
   // Routes commerciales
   const tl=document.getElementById("trade-list");
@@ -2941,7 +3132,7 @@ function showBldTab(family,btn) {
 }
 
 function showMilTab(tab,btn) {
-  ["armee","marine"].forEach(t=>document.getElementById("mil-"+t).classList.toggle("hidden",t!==tab));
+  ["armee","marine","training"].forEach(t=>document.getElementById("mil-"+t).classList.toggle("hidden",t!==tab));
   btn.closest(".tabs-nav").querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("active",b===btn));
 }
 
@@ -3045,10 +3236,114 @@ function addTile() {
   closeModal("modal-add-tile");
 }
 
+function onTradeResChange() {
+  const res = document.getElementById("trade-resource").value;
+  const pricesPer100 = INTERNATIONAL_PRICES[res];
+  if(pricesPer100 !== undefined) document.getElementById("trade-price").value = pricesPer100 / 100;
+}
+
+function toggleTraining(key, branch, tier, checked) {
+  run(()=>{
+    if(!G.buildings.some(b=>b.type==="camp_entrainement")) error("Camp d'entraînement requis.");
+    G.training_units = G.training_units || [];
+    if(checked) {
+      if(G.training_units.some(tu=>tu.troop_key===key)) return;
+      G.training_units.push({id:uid(), troop_key:key, branch, tier:parseInt(tier), rank:0, turns_trained:0});
+    } else {
+      G.training_units = G.training_units.filter(tu=>tu.troop_key!==key);
+    }
+  });
+  render();
+}
+
+function renderTrainingCamp(el) {
+  const tus = G.training_units || [];
+  const tuMap = {};
+  for(const tu of tus) tuMap[tu.troop_key] = tu;
+
+  // Exploser chaque troupe paquet par paquet — clé unique = branch|tier|troop_id|pack_index
+  const packets = [];
+  for(const t of G.troops) {
+    for(let i = 0; i < t.packs; i++) {
+      const key = t.branch + "|" + t.tier + "|" + t.id + "|" + i;
+      packets.push({key, branch:t.branch, tier:t.tier, packIdx:i+1, troopId:t.id});
+    }
+  }
+
+  const rankNames = ["Recrue","Conscrit","Milicien","Guerrier","Éclaireur","Archer","Lancier","Vétéran","Fantassin d'élite","Sous-officier","Sergent","Sergent-chef","Adjudant","Lieutenant","Capitaine-lieutenant","Capitaine","Capitaine de renom","Capitaine aguerri","Capitaine légendaire","Champion","Champion Suprême"];
+
+  const rows = packets.map(p=>{
+    const isIn  = !!tuMap[p.key];
+    const tu    = tuMap[p.key];
+    const tiers = p.branch==="infanterie" ? TROOP_TIERS_INFANTERIE : TROOP_TIERS_MARINE;
+    const spec  = tiers[p.tier];
+    const rank  = tu ? (tu.rank||0) : 0;
+    const prog  = tu ? (tu.turns_trained||0) % 10 : 0;
+    const nextIn = 10 - prog;
+    const ico   = p.branch==="infanterie" ? "⚔️" : "⚓";
+
+    return `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.45rem 0.5rem;border-bottom:1px solid var(--border);${isIn?"background:rgba(201,162,39,0.06);border-left:3px solid var(--gold);padding-left:0.5rem":""}">
+      <input type="checkbox" ${isIn?"checked":""} style="width:15px;height:15px;flex-shrink:0;cursor:pointer"
+        onchange="toggleTraining('${p.key}','${p.branch}',${p.tier},this.checked)"/>
+      <div style="flex:1;min-width:0">
+        <div class="flex items-center gap-sm" style="flex-wrap:wrap">
+          <span>${ico}</span>
+          <span style="font-weight:700;font-size:0.85rem;text-transform:capitalize">${p.branch}</span>
+          <span class="badge badge-gold" style="font-size:0.6rem">${spec?.label}</span>
+          <span class="text-xs text-muted">Paquet ${p.packIdx} · 10 sold.</span>
+        </div>
+        ${isIn ? `<div class="flex items-center gap-sm mt-1" style="flex-wrap:wrap">
+          ${rankStars(rank)}
+          <span class="text-xs" style="color:var(--gold-dim);font-style:italic;font-weight:600">${rankNames[rank]||"Recrue"}</span>
+          <div style="display:flex;align-items:center;gap:0.3rem">
+            <div style="width:80px;height:3px;background:var(--parchment-mid);border-radius:2px;overflow:hidden">
+              <div style="width:${Math.min(tu.turns_trained||0,20)*5}%;height:100%;background:linear-gradient(90deg,var(--gold-dim),var(--gold));border-radius:2px"></div>
+            </div>
+            <span class="text-xs text-muted">${Math.min(tu.turns_trained||0,20)}/20</span>
+          </div>
+          ${rank>=20?`<span class="text-xs" style="color:var(--gold)">★ Champion Suprême — Max</span>`:""}
+        </div>` : `<span class="text-xs text-muted italic">Non inscrit</span>`}
+      </div>
+    </div>`;
+  }).join("");
+
+  el.innerHTML = `
+    <div class="card card-gold">
+      <div class="card-body" style="padding:0.75rem">
+        <div class="flex items-start justify-between mb-2">
+          <h3 style="font-size:1.05rem;font-weight:700">🏕️ Camp d'entraînement</h3>
+          <span class="badge badge-gold">${tus.length} paquet${tus.length>1?"s":""} en formation</span>
+        </div>
+        <p class="text-sm text-muted mb-2">Chaque paquet de 10 soldats s'entraîne indépendamment. <strong>+1 rang par tour (max rang 20 — Champion)</strong> (max : Capitaine).</p>
+        <div style="border:1px solid var(--border);border-radius:4px;overflow:hidden">
+          ${!packets.length
+            ? `<p class="italic text-muted text-sm" style="padding:1rem">Aucune troupe recrutée.</p>`
+            : rows}
+        </div>
+      </div>
+    </div>`;
+}
+
+function updateTrainTierOptions(branch) {
+  const sel = document.getElementById("train-tier");
+  if(!sel) return;
+  const tiers = branch === "infanterie" ? TROOP_TIERS_INFANTERIE : TROOP_TIERS_MARINE;
+  sel.innerHTML = Object.entries(tiers).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
+}
+
+function rankStars(rank) {
+  if(!rank) return '<span class="text-muted text-xs">Recrue</span>';
+  // 5 étoiles max visuellement — chaque étoile = 4 rangs
+  const stars = Math.ceil(rank / 4);
+  const full  = "★".repeat(stars);
+  const empty = "☆".repeat(5 - stars);
+  return `<span style="color:#c9a227;letter-spacing:0.05em;font-size:0.75rem">${full}</span><span style="color:var(--muted);font-size:0.75rem">${empty}</span>`;
+}
+
 function openTradeModal() {
-  document.getElementById("trade-partner").value="";
-  document.getElementById("trade-qty").value="10";
-  document.getElementById("trade-price").value="1";
+  document.getElementById("trade-qty").value="100";
+  document.getElementById("trade-resource").value="cacao";
+  document.getElementById("trade-price").value = (INTERNATIONAL_PRICES["cacao"]||100) / 100;
   document.getElementById("trade-ships").value="1";
   document.getElementById("trade-recurring").checked=true;
   document.getElementById("trade-notes").value="";
@@ -3077,14 +3372,14 @@ function openPlayerTradeModal() {
 
 function createTrade() {
   const data={
-    partner:document.getElementById("trade-partner").value.trim(),
-    direction:document.getElementById("trade-direction").value,
-    resource:document.getElementById("trade-resource").value,
-    quantity:parseInt(document.getElementById("trade-qty").value)||0,
-    price_per_unit:parseInt(document.getElementById("trade-price").value)||0,
-    recurring:document.getElementById("trade-recurring").checked,
-    merchant_ships_required:parseInt(document.getElementById("trade-ships").value)||1,
-    notes:document.getElementById("trade-notes").value.trim(),
+    partner:   document.getElementById("trade-partner").value.trim(),
+    direction: "export",
+    resource:  document.getElementById("trade-resource").value,
+    quantity:  parseInt(document.getElementById("trade-qty").value)||0,
+    price_per_unit: parseFloat(document.getElementById("trade-price").value)||0,
+    recurring: document.getElementById("trade-recurring").checked,
+    merchant_ships_required: parseInt(document.getElementById("trade-ships").value)||1,
+    notes:     document.getElementById("trade-notes").value.trim(),
   };
   actionCreateTrade(data);
   closeModal("modal-trade");
@@ -3860,6 +4155,22 @@ function updateConseilOptions() {}
 // ── Helpers d'analyse ────────────────────────────────────────────────────────
 function hasBuilding(type) { return G.buildings.some(b=>b.type===type); }
 function hasBuildingPrefix(prefix) { return G.buildings.some(b=>b.type.startsWith(prefix)); }
+// Retourne true si le bâtiment requis OU un niveau supérieur de la même famille est construit
+const _UPGRADE_FAMILIES = [
+  ["base_militaire_1","base_militaire_2","base_militaire_3"],
+  ["port_militaire_1","port_militaire_2","port_militaire_3"],
+  ["banque_1","banque_2","banque_3"],
+  ["forteresse_cap_1","forteresse_cap_2","forteresse_cap_3"],
+  ["forteresse_prov_1","forteresse_prov_2"],
+];
+function hasBuildingOrHigher(type) {
+  for(const family of _UPGRADE_FAMILIES) {
+    const idx = family.indexOf(type);
+    if(idx === -1) continue;
+    return family.slice(idx).some(bld=>G.buildings.some(b=>b.type===bld));
+  }
+  return hasBuilding(type);
+}
 function countBuildingType(type) { return G.buildings.filter(b=>b.type===type).length; }
 function primaryCountByRes(res) { return G.tiles.filter(t=>t.resource===res&&t.has_primary).length + G.tiles.filter(t=>t.resource2===res&&t.has_primary2).length; }
 function totalTroops() { return G.troops.reduce((s,t)=>s+t.packs*10,0); }
@@ -3947,10 +4258,10 @@ function genererConseils() {
     const mers     = G.tiles.filter(t=>t.domain==="mer").length;
     const troops   = totalTroops();
     const ships    = totalShips();
-    const hasBas1  = hasBuilding("base_militaire_1");
-    const hasBas2  = hasBuilding("base_militaire_2");
-    const hasNav1  = hasBuilding("port_militaire_1");
-    const hasNav2  = hasBuilding("port_militaire_2");
+    const hasBas1  = hasBuildingOrHigher("base_militaire_1");
+    const hasBas2  = hasBuildingOrHigher("base_militaire_2");
+    const hasNav1  = hasBuildingOrHigher("port_militaire_1");
+    const hasNav2  = hasBuildingOrHigher("port_militaire_2");
 
     // Terrestre
     if(landReachable) {
@@ -4064,8 +4375,8 @@ function genererConseils() {
   // D) PRÉPARATION MILITAIRE
   // ══════════════════════════════════════════════════════════════
   if(_conseilMode==="guerre"||prepareWar) {
-    const hasBas1=hasBuilding("base_militaire_1"),hasBas2=hasBuilding("base_militaire_2"),hasBas3=hasBuilding("base_militaire_3");
-    const hasNav1=hasBuilding("port_militaire_1"),hasNav2=hasBuilding("port_militaire_2");
+    const hasBas1=hasBuildingOrHigher("base_militaire_1"),hasBas2=hasBuildingOrHigher("base_militaire_2"),hasBas3=hasBuildingOrHigher("base_militaire_3");
+    const hasNav1=hasBuildingOrHigher("port_militaire_1"),hasNav2=hasBuildingOrHigher("port_militaire_2");
     const troops=totalTroops(), ships=totalShips();
 
     if(!hasBas1) {
@@ -4090,7 +4401,7 @@ function genererConseils() {
       if(maxPacks>0) addU("⚔",`Recruter ${maxPacks} pack(s) infanterie Niv. ${bestTier} (${maxPacks*tierSpec.recruit_cost.or} or, ${maxPacks*10} hab.) — ${maxPacks*10} soldats Niv. ${bestTier}.`);
     }
     if(hasNav1&&afford(300)&&free>=20) {
-      const bestShipTier=hasBuilding("port_militaire_3")?3:hasBuilding("port_militaire_2")?2:1;
+      const bestShipTier=hasBuildingOrHigher("port_militaire_3")?3:hasBuildingOrHigher("port_militaire_2")?2:1;
       const shipSpec=SHIP_TIERS[bestShipTier];
       addB("🚢",`Construire navire de guerre Niv. ${bestShipTier} (${shipSpec.cost.or} or, ${shipSpec.crew} équipiers) — puissance ×${shipSpec.power}.`);
     }
@@ -4403,11 +4714,20 @@ function simDelta(sim) {
     for(const[k,v] of Object.entries(spec.upkeep)) d[k]=(d[k]||0)-v*sg.count;
   }
 
-  // Commerce
+  // Commerce — export uniquement
   for(const r of sim.trade_routes||[]) {
     if(!r.recurring) continue;
-    if(r.direction==="import"){d[r.resource]=(d[r.resource]||0)+r.quantity;d.or=(d.or||0)-r.quantity*r.price_per_unit;}
-    else{d[r.resource]=(d[r.resource]||0)-r.quantity;d.or=(d.or||0)+r.quantity*r.price_per_unit;}
+    if(r.direction==="export") {
+      d[r.resource]=(d[r.resource]||0)-r.quantity;
+      d.or=(d.or||0)+r.quantity*r.price_per_unit;
+    }
+  }
+
+  // Échanges joueurs
+  for(const pt of sim.player_trades||[]) {
+    if(!pt.recurring) continue;
+    if(RESOURCE_KEYS.includes(pt.give_res)) d[pt.give_res]=(d[pt.give_res]||0)-pt.give_qty;
+    if(RESOURCE_KEYS.includes(pt.recv_res)) d[pt.recv_res]=(d[pt.recv_res]||0)+pt.recv_qty;
   }
 
   // Nourriture
@@ -4419,11 +4739,24 @@ function simDelta(sim) {
 
   // Pop libre → or
   if(sim.free_pop_gold_active) {
-    const occ=(sim.troops||[]).reduce((s,t)=>s+t.packs*TROOP_POP_PER_PACK,0)+(sim.ships||[]).reduce((s,sg)=>{
-      const sp=sg.kind==="guerre"?(SHIP_TIERS[sg.tier]||SHIP_TIERS[1]).crew:sg.kind==="galion"?GALION.crew:MERCHANT_SHIP.crew;
-      return s+sg.count*sp;
-    },0);
-    const free=Math.max(0,totalCap-occ);
+    const noPopRes = ["coffre","terra_incognita","rien","capitale_ennemie","tresor_terre"];
+    let occSim = 0;
+    for(const t of sim.tiles||[]) {
+      if(t.domain==="capitale") continue;
+      const rawP  = t.domain==="mer" ? SEA_RAW_POP     : TILE_RAW_POP;
+      const primP = t.domain==="mer" ? SEA_PRIMARY_POP : PRIMARY_POP;
+      if(!t.slot1_disabled && t.resource && !noPopRes.includes(t.resource))
+        occSim += t.has_primary ? primP : rawP;
+      if(t.domain==="terre" && t.resource2 && !noPopRes.includes(t.resource2) && !t.slot2_disabled)
+        occSim += t.has_primary2 ? PRIMARY_POP : TILE_RAW_POP;
+    }
+    for(const b of sim.buildings||[]) occSim += (UTILITY_BUILDINGS[b.type]?.pop_required||0);
+    for(const tg of sim.troops||[]) occSim += tg.packs * TROOP_POP_PER_PACK;
+    for(const sg of sim.ships||[]) {
+      const sp = sg.kind==="guerre"?(SHIP_TIERS[sg.tier]||SHIP_TIERS[1]).crew:sg.kind==="galion"?GALION.crew:MERCHANT_SHIP.crew;
+      occSim += sg.count * sp;
+    }
+    const free = Math.max(0, totalCap - occSim);
     if(free>0) d.or=(d.or||0)+free;
   }
 
@@ -4459,14 +4792,35 @@ function buildLongTermePlan() {
   const hasHotel = G.buildings.some(b=>b.type==="hotel_impots");
   const hasPort  = G.buildings.some(b=>b.type==="port_commerce");
   const hasFort  = G.buildings.some(b=>b.type.startsWith("forteresse_cap_"));
+  const hasCamp  = G.buildings.some(b=>b.type==="camp_entrainement");
   const troops   = G.troops.reduce((s,t)=>s+t.packs*10,0);
   const ships    = G.ships.filter(s=>s.kind!=="commerce").reduce((a,s)=>a+s.count,0);
+  const marchands= G.ships.filter(s=>s.kind==="commerce").reduce((a,s)=>a+s.count,0);
   const nbTerres = G.tiles.filter(t=>t.domain==="terre").length;
   const nbMers   = G.tiles.filter(t=>t.domain==="mer").length;
-  const nbSlotsBruts = G.tiles.filter(t=>t.domain!=="capitale"&&t.resource&&t.resource!=="capitale_ennemie"&&!t.has_primary&&t.resource!=="coffre"&&t.resource!=="terra_incognita"&&t.resource!=="rien").length
-                      + G.tiles.filter(t=>t.domain==="terre"&&t.resource2&&!t.has_primary2).length;
+  // Trésor terrestre compte comme slot occupé sans production exploitable
+  const nbSlotsBruts = G.tiles.filter(t=>t.domain!=="capitale"&&t.resource&&!["capitale_ennemie","coffre","terra_incognita","rien","tresor_terre"].includes(t.resource)&&!t.has_primary&&!t.slot1_disabled).length
+                      + G.tiles.filter(t=>t.domain==="terre"&&t.resource2&&!["tresor_terre","coffre","rien"].includes(t.resource2)&&!t.has_primary2&&!t.slot2_disabled).length;
   const popCap   = popCapacity();
-  const popFree  = Math.max(0, popCap - popOccupied());
+  const popOcc   = popOccupied();
+  const popFree  = Math.max(0, popCap - popOcc);
+
+  // Pop nécessaire pour chaque type d'action — si popFree < seuil, le conseil est bloqué
+  const canAffordPop = (needed) => popFree >= needed;
+  // Alerte pop critique
+  const popCritique  = popFree < 20;
+  const popTres_low  = popFree < 10;
+  // Bois et pop consommés par les bâtiments — alerte si entretien lourd
+  const boisUpkeep = G.buildings.reduce((s,b)=>s+(UTILITY_BUILDINGS[b.type]?.upkeep?.bois||0),0)
+                   + G.ships.reduce((s,sg)=>s+(sg.kind==="guerre"&&sg.tier===1?30:sg.kind==="guerre"&&sg.tier===2?60:sg.kind==="commerce"?30:0)*sg.count,0);
+  const boisProd   = (simDelta(G).bois||0);
+  const boisSolde  = (G.resources.bois||0) + boisProd - boisUpkeep;
+  // Routes commerciales actives
+  const nbRoutes  = G.trade_routes.filter(r=>r.recurring).length;
+  const nbEchanges= (G.player_trades||[]).filter(pt=>pt.recurring).length;
+  // Unités en entraînement
+  const nbInTraining = (G.training_units||[]).length;
+  const nbVeterans   = (G.training_units||[]).filter(tu=>tu.rank>=15).length;
 
   // Identifier les usines déblocables
   const usinesDispos = Object.entries(USINES).filter(([key,info])=>{
@@ -4502,32 +4856,70 @@ function buildLongTermePlan() {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const t1 = [];
 
-  // Bâtiments primaires = TOUJOURS la priorité absolue si slots dispo et or suffisant
+  // ⚠ Alerte pop — priorité absolue si dépassement imminent
+  if(popCritique) {
+    const suggestMaison = !popTres_low && orNow >= 200;
+    const suggestExpand = landReachable && basLvl > 0 && orNow >= 200;
+    t1.push(act("high","👥",
+      `⚠ Population libre critique : ${popFree} hab. sur ${popCap} max. `+
+      `Impossible de construire des bâtiments (20 pop requis) ni de recruter.`+
+      (suggestExpand ? ` → Conquérir une province (+50 pop cap.) pour débloquer la croissance.` :
+       suggestMaison ? ` → Construire une Maison (+10 pop cap., 200 or).` : ` → Expansion requise.`)
+    ));
+  }
+
+  // Alerte bois — entretien lourd
+  if(boisSolde < 0) {
+    t1.push(act("high","🪵",`⚠ Déficit bois projeté (${boisSolde > -999 ? boisSolde : "<-999"}) — les bâtiments consomment ${boisUpkeep} bois/tour. Construire une Scierie ou réduire la flotte/base.`));
+  }
+
+  // Bâtiments primaires = TOUJOURS la priorité absolue
   if(nbSlotsBruts > 0 && orNow >= 200) {
     const nb = Math.min(nbSlotsBruts, Math.floor(orNow/200));
-    t1.push(act("high","🔨",`Construire ${nb} bâtiment(s) primaire(s) (${nb*200} or) — double la production de chaque slot, ROI immédiat.`));
+    // Les bâtiments primaires ne consomment pas de pop de la capacité
+    t1.push(act("high","🔨",`Construire ${nb} bâtiment(s) primaire(s) (${nb*200} or) — passe à 40 pop/slot terrestre, double la production.`));
   }
 
-  // Banque si aucune et budget OK — fondamental pour tout le reste
+  // Banque — nécessite 20 pop
   if(bankLvl===0 && orNow>=500) {
-    t1.push(act("high","🏛",`Banque Niv. I (500 or) — socle indispensable : +100 or/tour pour financer l'expansion et l'armée.`));
-  } else if(bankLvl===1 && orNow>=1000) {
-    t1.push(act("high","🏛",`Banque Niv. II (1000 or) — tripler les revenus bancaires (+300 or/tour au total).`));
+    if(canAffordPop(20))
+      t1.push(act("high","🏛",`Banque Niv. I (500 or, 20 pop, 35 bois/tour) — +100 or/tour, socle indispensable.`));
+    else
+      t1.push(act("high","🏛",`Banque Niv. I souhaitée mais pop insuffisante (${popFree}/20 hab. libres) — conquérir ou construire des maisons d'abord.`));
+  } else if(bankLvl===1 && orNow>=1000 && canAffordPop(20)) {
+    t1.push(act("high","🏛",`Banque Niv. II (1000 or) — +300 or/tour total.`));
   }
 
-  // Base militaire minimale — même en mode développement, défense obligatoire
+  // Base militaire — nécessite 20 pop
   if(basLvl===0 && orNow>=200) {
-    t1.push(act("high","⚔",`Base militaire Niv. I (200 or) — protection minimale obligatoire, prérequis expansion terrestre.`));
+    if(canAffordPop(20))
+      t1.push(act("high","⚔",`Base militaire Niv. I (200 or, 20 pop, 35 bois/tour) — protection obligatoire, prérequis infanterie.`));
+    else
+      t1.push(act("high","⚔",`Base militaire requise mais pop insuffisante (${popFree}/20) — expansion terrestre prioritaire.`));
   }
 
-  // Port commerce si on a des cases maritimes et pas encore de port
+  // Port commerce — nécessite 20 pop
   if(!hasPort && nbMers>0 && orNow>=200) {
-    t1.push(act("mid","⛵",`Port de commerce (200 or) — débloque les routes commerciales sur tes ${nbMers} île(s).`));
+    if(canAffordPop(20))
+      t1.push(act("mid","⛵",`Port de commerce (200 or, 20 pop, 35 bois/tour) — débloque routes d'export sur tes ${nbMers} île(s). Navire marchand : 30 bois/tour.`));
+    else
+      t1.push(act("mid","⛵",`Port de commerce désiré mais pop insuffisante (${popFree}/20).`));
   }
 
-  // Expansion ce tour si armée prête
+  // Camp d'entraînement — nécessite 20 pop
+  if(!hasCamp && troops>=20 && orNow>=400 && canAffordPop(20)) {
+    t1.push(act("mid","🏕️",`Camp d'entraînement (400 or + 100 bois, 35 bois/tour) — entraîne chaque paquet de 10 soldats individuellement, +1 rang/tour jusqu'à Champion Suprême.`));
+  }
+
+  // Commerce si port et ressources exportables
+  if(hasPort && nbRoutes===0 && marchands>0) {
+    const exportables = G.tiles.filter(t=>["cacao","tabac","sucre","sel","nacre","rhum","cigares","chocolat","bijoux"].includes(t.resource||t.resource2));
+    if(exportables.length > 0) t1.push(act("mid","🚢",`Ouvrir une route d'export (cacao/tabac/sucre/sel/nacre/produits raffinés) — 1 navire marchand par route.`));
+  }
+
+  // Expansion — nécessite troupes (pop déjà occupée par celles-ci)
   if(wantsExpansion && landReachable && basLvl>0 && troops>=10 && orNow>=200) {
-    t1.push(act("mid","🗺",`Conquérir une province terrestre (200 or) — ${nbTerres} provinces actuelles, +50 pop. cap.`));
+    t1.push(act("mid","🗺",`Conquérir une province terrestre (200 or) — ${nbTerres} provinces actuelles, +50 pop. cap., 2 slots (20 ou 40 pop chacun).`));
   } else if(wantsExpansion && landReachable && basLvl===0) {
     t1.push(act("mid","🗺",`Expansion possible dès que la Base militaire sera construite — planifier pour le tour suivant.`));
   }
@@ -4540,33 +4932,36 @@ function buildLongTermePlan() {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const t2 = [];
 
-  // Améliorer banque
   if(bankLvl===0 && orT1>=500) {
-    t2.push(act("high","🏛",`Banque Niv. I (500 or) — si pas encore fait, priorité absolue.`));
-  } else if(bankLvl<=1 && orT1>=1000) {
+    if(canAffordPop(20)) t2.push(act("high","🏛",`Banque Niv. I (500 or) — si pas encore fait, priorité absolue.`));
+    else t2.push(act("high","🏛",`Banque Niv. I bloquée par la pop (${popFree}/20) — conquérir d'abord.`));
+  } else if(bankLvl<=1 && orT1>=1000 && canAffordPop(20)) {
     t2.push(act("high","🏛",`Banque Niv. ${bankLvl+1} (${bankLvl===0?500:1000} or) — progression économique : ${bankLvl===0?"+100":"+300"} or/tour.`));
   }
 
-  // Hôtel des impôts — excellent si pop suffisante
-  if(!hasHotel && orT1>=500 && (popCap>=200||nbTerres>=3)) {
+  if(!hasHotel && orT1>=500 && (popCap>=200||nbTerres>=3) && canAffordPop(20)) {
     const bonus = Math.floor(popCap/100)*50;
-    t2.push(act("high","🏛",`Hôtel des impôts (500 or) — +${bonus} or/tour avec ta population actuelle. Coût amorti en ${Math.ceil(500/Math.max(1,bonus))} tours.`));
+    t2.push(act("high","🏛",`Hôtel des impôts (500 or, 20 pop, 35 bois/tour) — +${bonus} or/tour. ROI en ${Math.ceil(500/Math.max(1,bonus))} tours.`));
   }
 
-  // Expansion terrestre si pas fait au tour 1
   if(wantsExpansion && landReachable && orT1>=200) {
     t2.push(act("mid","🗺",`Conquérir une province terrestre (200 or) — viser ${nbTerres+1} provinces, +50 pop. cap. + 2 ressources.`));
   }
 
-  // Premier recrutement pour défense minimum
-  if(basLvl>0 && troops<20 && orT1>=100 && popFree>=10) {
-    const packs = Math.min(2, Math.floor(Math.min(popFree/10, orT1/100)));
-    if(packs>0) t2.push(act("mid","⚔",`Recruter ${packs} pack(s) d'infanterie Niv. ${basLvl} (${packs*100} or) — atteindre 20+ soldats pour défense et expansion.`));
+  if(basLvl>0 && troops<20 && orT1>=100 && popFree>=20) {
+    const packs = Math.min(2, Math.floor(Math.min(popFree/20, orT1/100)));
+    if(packs>0) t2.push(act("mid","⚔",`Recruter ${packs} paquet(s) d'infanterie Niv. ${basLvl} (${packs*100} or, ${packs*10} pop occupée) — atteindre 20+ soldats.`));
+  } else if(basLvl>0 && troops<20 && popFree<20) {
+    t2.push(act("mid","⚔",`Recrutement bloqué — pop libre insuffisante (${popFree} hab.). Chaque paquet de 10 soldats occupe 10 pop.`));
   }
 
-  // Expansion maritime si port militaire
+  // Camp si pas encore
+  if(!hasCamp && troops>=10 && orT1>=400) {
+    t2.push(act("mid","🏕️",`Camp d'entraînement (400 or + 100 bois) — entraîner dès maintenant pour avoir des vétérans en 5-20 tours.`));
+  }
+
   if(wantsExpansion && seaReachable && navLvl>0 && ships===0 && orT1>=300) {
-    t2.push(act("mid","🚢",`Construire un navire de guerre Niv. I (300 or) — ouvrir la voie à l'expansion maritime.`));
+    t2.push(act("mid","🚢",`Navire de guerre Niv. I (300 or, 30 bois/tour) — ouvrir la voie à l'expansion maritime.`));
   }
 
   if(!t2.length) t2.push(act("low","📊",`Stock projeté : ${fmt(orT1)} or — consolider les fondations avant d'investir.`));
@@ -4577,40 +4972,39 @@ function buildLongTermePlan() {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const t3 = [];
 
-  // Alerte blé si déficit projeté
   if(bleT3 < 0) {
-    t3.push(act("high","🌾",`⚠ Déficit blé projeté à T+3 (${fmt(bleT3)}) — ajouter cases blé ou bâtiments primaires avant d'agrandir l'armée.`));
+    t3.push(act("high","🌾",`⚠ Déficit blé projeté à T+3 (${fmt(bleT3)}) — les troupes et la pop consomment beaucoup. Infanterie Niv.I : 20 blé/tour. Ajouter cases blé.`));
   }
 
-  // Amélioration banque si pas encore max
   if(bankLvl<2 && orT2>=1000) {
     t3.push(act("high","🏛",`Banque Niv. ${Math.min(bankLvl+1,2)} (${bankLvl===0?500:1000} or) — compléter la montée économique.`));
   }
 
-  // Usine la plus rentable
   if(bestUsine && orT3>=1000) {
     const [key,info]=bestUsine;
     const prod=Object.entries(info.produce).map(([k,v])=>`+${v} ${RESOURCE_LABELS[k]}`).join(", ");
     const intlVal=Object.entries(info.produce).reduce((s,[k,v])=>(INTERNATIONAL_PRICES[k]||0)*v/100+s,0);
-    t3.push(act("mid","⚙",`${info.label} (${info.cost.or} or) → ${prod}/tour${intlVal>0?` (valeur marchande: ~${fmt(Math.round(intlVal))} or/cycle)`:""}. Meilleure usine disponible.`));
+    t3.push(act("mid","⚙",`${info.label} (${info.cost.or} or, 20 pop) → ${prod}/tour${intlVal>0?` (valeur export : ~${fmt(Math.round(intlVal))} or/cycle)`:""}.`));
   }
 
-  // Amélioration base militaire
   if(basLvl===1 && orT3>=500) {
-    t3.push(act("mid","⚔",`Base militaire Niv. II (500 or) — infanterie Niv. II disponible : ×1.6 puissance par pack.`));
+    t3.push(act("mid","⚔",`Base militaire Niv. II (500 or) — infanterie Niv. II : ×1.6 puissance, 50 blé/tour par paquet.`));
   }
 
-  // Expansion continue — 1 par tour idéalement
+  // Entraînement — conseil si camp construit mais peu d'unités entraînées
+  if(hasCamp && nbInTraining < G.troops.reduce((s,t)=>s+t.packs,0)) {
+    t3.push(act("mid","🏕️",`Inscrire plus de paquets au camp d'entraînement — ${nbInTraining} actuellement. Chaque tour = +1 rang jusqu'à Capitaine (rang 15) en 15 tours.`));
+  }
+
   if(wantsExpansion && !noExpansion) {
     if(landReachable && orT2>=200)
-      t3.push(act("mid","🗺",`+1 province terrestre (200 or) — viser ${nbTerres+2} provinces à ce stade pour soutenir la population.`));
+      t3.push(act("mid","🗺",`+1 province terrestre (200 or) — viser ${nbTerres+2} provinces. Pop par slot : 20 brut / 40 avec bât.`));
     if(seaReachable && orT2>=0)
-      t3.push(act("low","⛵",`+1 île maritime (roll MJ) — diversifier les ressources et augmenter la capacité.`));
+      t3.push(act("low","⛵",`+1 île maritime (roll MJ) — pop : 5 brut / 10 avec bât. Ressources : sel, nacre, poisson.`));
   }
 
-  // Port militaire si pas encore et objectif naval
   if(navLvl===0 && (wantsMil||seaReachable) && orT3>=200) {
-    t3.push(act("mid","⚓",`Port militaire Niv. I (200 or) — débloque marins et navires de guerre.`));
+    t3.push(act("mid","⚓",`Port militaire Niv. I (200 or, 20 pop, 35 bois/tour) — débloque marins et navires de guerre.`));
   }
 
   if(!t3.length) t3.push(act("low","📊",`Trajectoire saine — or projeté : ${fmt(orT3)}. Identifier la prochaine usine à débloquer.`));
@@ -4621,39 +5015,44 @@ function buildLongTermePlan() {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const t5 = [];
 
-  // Banque III si pas encore
   if(bankLvl<3 && orT5>=2000) {
-    t5.push(act("high","🏛",`Banque Niv. III (2000 or) — +500 or/tour total, revenu dominant. Financer toute l'armée et l'expansion.`));
+    t5.push(act("high","🏛",`Banque Niv. III (2000 or) — +500 or/tour total, revenu dominant.`));
   }
 
-  // Base III — élite militaire
   if(basLvl<3 && orT5>=1000) {
-    t5.push(act("mid","⚔",`Base militaire Niv. III (1000 or) — infanterie Niv. III : ×2.5 puissance, l'élite de l'armée terrestre.`));
+    t5.push(act("mid","⚔",`Base militaire Niv. III (1000 or) — infanterie Niv. III : ×2.5 puissance, 110 blé/tour par paquet.`));
   }
 
-  // Deuxième usine
   if(usinesDispos.length>1 && orT4>=1000) {
     const [key2,info2]=usinesDispos[1];
     const prod2=Object.entries(info2.produce).map(([k,v])=>`+${v} ${RESOURCE_LABELS[k]}`).join(", ");
     t5.push(act("mid","⚙",`2ème usine : ${info2.label} (${info2.cost.or} or) → ${prod2}/tour.`));
   }
 
-  // Forteresse capitale si pas encore
   if(!hasFort && orT5>=300) {
-    t5.push(act("mid","🏰",`Forteresse capitale Niv. I (300 or) — 3 pts défense. Protéger les acquis avant d'aller plus loin.`));
+    t5.push(act("mid","🏰",`Forteresse capitale Niv. I (300 or, 10 bois/tour) — 3 pts défense.`));
   }
 
-  // Flotte de guerre
+  // Vétérans — conseil si camp actif et unités presque Capitaine
+  if(hasCamp && nbInTraining>0) {
+    const maxRank = Math.max(...(G.training_units||[]).map(tu=>tu.rank||0), 0);
+    if(maxRank>=15) t5.push(act("mid","🏕️",`${nbVeterans > 0 ? nbVeterans+" paquet(s) vétéran(s) proches Champion Suprême" : "Unités en formation avancée"} — continuer l'entraînement, rang 20 (Champion Suprême) dans ${20-maxRank} tour${20-maxRank>1?"s":""}.`));
+    else t5.push(act("low","🏕️",`Camp d'entraînement actif (${nbInTraining} paquet${nbInTraining>1?"s":""}) — rang max actuel : ${maxRank}/20. Capitaine (rang 15) en ${Math.max(0,15-maxRank)} tour${15-maxRank>1?"s":""}.`));
+  }
+
   if(ships<3 && (wantsMil||seaReachable) && orT4>=300) {
-    t5.push(act("mid","🚢",`Objectif 3+ navires de guerre — Niv. ${navLvl>0?navLvl:1} (${navLvl>0?(SHIP_TIERS[navLvl]?.cost?.or||300):300} or/navire). Domination maritime.`));
+    t5.push(act("mid","🚢",`Objectif 3+ navires de guerre — Niv.I : 30 bois/tour · Niv.II : 60 bois/tour · Niv.III : 60 planches/tour.`));
   }
 
-  // Galion si conditions réunies
   if(navLvl>=3 && orT5>=1500) {
     t5.push(act("low","⚓",`Galion légendaire (1500 or, Port Niv. III requis) — puissance ×5.0, symbole de domination navale.`));
   }
 
-  // Bilan final
+  // Routes commerciales — conseil si exportables disponibles et pas encore utilisées
+  if(hasPort && marchands>0 && nbRoutes===0) {
+    t5.push(act("mid","🚢",`Aucune route d'export active — utiliser les navires marchands disponibles (${marchands}) pour exporter sucre/nacre/rhum/bijoux.`));
+  }
+
   const revFinal = snaps[4]?.delta?.or||0;
   const qualité = revFinal>800?"Empire prospère — objectif hégémonie régionale.":revFinal>400?"Économie solide — continuer à développer.":"Empire en croissance — les investissements actuels portent leurs fruits dans 3-4 tours.";
   t5.push(act("low","💹",`Revenus projetés à T+5 : +${fmt(revFinal)} or/tour — ${qualité}`));
@@ -4668,9 +5067,9 @@ function renderLongTermePlan(data, el) {
   const { plan, snaps, mode, orGain } = data;
   const modeLabel = {expansion:"Expansion",developpement:"Développement",guerre:"Guerre",mixte:"Équilibre"}[mode]||mode;
   const prioStyle = {
-    high:"background:rgba(139,26,26,0.1);color:var(--crimson);border:1px solid var(--crimson)",
-    mid: "background:rgba(139,105,20,0.1);color:var(--gold);border:1px solid var(--gold-light)",
-    low: "background:rgba(26,74,90,0.08);color:var(--sea);border:1px solid var(--sea)",
+    high:"background:rgba(231,76,60,0.12);color:var(--danger);border:1px solid rgba(192,57,43,0.5)",
+    mid: "background:rgba(201,146,42,0.12);color:var(--gold-light);border:1px solid var(--gold-dim)",
+    low: "background:rgba(26,107,122,0.1);color:var(--teal-bright);border:1px solid var(--teal)",
   };
   const prioIco = {high:"🔴",mid:"🟡",low:"🔵"};
 
@@ -4690,7 +5089,7 @@ function renderLongTermePlan(data, el) {
       </div>`).join("");
     return `
       <div style="margin-bottom:1rem">
-        <div style="font-family:monospace;font-size:0.68rem;letter-spacing:0.1em;color:var(--sea);font-weight:bold;margin-bottom:0.4rem;border-left:3px solid var(--sea);padding-left:0.5rem">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:0.68rem;letter-spacing:0.1em;color:var(--teal-bright);font-weight:bold;margin-bottom:0.4rem;border-left:3px solid var(--teal);padding-left:0.5rem">
           PLAN ${p.tour} · ${p.label.toUpperCase()}
         </div>
         ${rows}
@@ -4701,7 +5100,7 @@ function renderLongTermePlan(data, el) {
     <div class="overline mb-2" style="color:var(--sea)">📅 Plan long terme · Stratégie ${modeLabel} · ${plan.length} horizons</div>
 
     <!-- Projection or -->
-    <div style="background:rgba(26,74,90,0.06);border:1px solid var(--sea);border-radius:2px;padding:0.75rem;margin-bottom:1rem">
+    <div style="background:rgba(26,107,122,0.08);border:1px solid var(--teal);border-radius:4px;padding:0.75rem;margin-bottom:1rem">
       <div class="overline mb-1" style="font-size:0.6rem;color:var(--sea)">Projection or (simulation)</div>
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0.5rem">${orRow}</div>
     </div>
@@ -4746,8 +5145,9 @@ function renderPopulation() {
     const hasR2 = t.domain==="terre" && r2 && !noPopRes.includes(r2);
     if(!hasR1 && !hasR2) return ""; // aucun slot consomme de la pop
 
-    const pop1 = t.slot1_disabled?0:(t.has_primary?PRIMARY_POP:TILE_RAW_POP);
-    const pop2 = !hasR2||t.slot2_disabled?0:(t.has_primary2?PRIMARY_POP:TILE_RAW_POP);
+    const _cPrimPop=t.domain==="mer"?SEA_PRIMARY_POP:PRIMARY_POP, _cRawPop=t.domain==="mer"?SEA_RAW_POP:TILE_RAW_POP;
+    const pop1 = t.slot1_disabled?0:(t.has_primary?_cPrimPop:_cRawPop);
+    const pop2 = !hasR2||t.slot2_disabled?0:(t.has_primary2?PRIMARY_POP:TILE_RAW_POP); // slot2 = terre uniquement
     const total = (hasR1?pop1:0)+(hasR2?pop2:0);
 
     const slot1Html = hasR1 ? `
@@ -4862,21 +5262,544 @@ window.addEventListener("DOMContentLoaded",()=>{
 
 <!-- ── FOOTER SIGNATURE ── -->
 <footer id="sig-footer">
-  <div class="sig-inner">
-    <div class="sig-divider">
-      <span class="sig-ornament">⚓</span>
-    </div>
-    <div class="sig-text">
-      <span class="sig-label">Conçu &amp; développé par</span>
-      <span class="sig-name" id="sig-name"></span>
-    </div>
-    <div class="sig-wave">
-      <svg viewBox="0 0 200 30" xmlns="http://www.w3.org/2000/svg">
-        <path id="sig-wave-path" d="M0,15 Q25,5 50,15 Q75,25 100,15 Q125,5 150,15 Q175,25 200,15" fill="none" stroke="var(--border)" stroke-width="1.5"/>
-      </svg>
+  <!-- Scène maritime animée -->
+  <div id="sea-scene">
+    <svg id="sea-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 180" preserveAspectRatio="none">
+      <defs>
+        <!-- Dégradé ciel -->
+        <linearGradient id="sky-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#e8ddc4" stop-opacity="0"/>
+          <stop offset="100%" stop-color="#c8e8f0" stop-opacity="0.5"/>
+        </linearGradient>
+        <!-- Dégradé mer -->
+        <linearGradient id="sea-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="#1a4a5a"/>
+          <stop offset="60%"  stop-color="#0d3040"/>
+          <stop offset="100%" stop-color="#081820"/>
+        </linearGradient>
+        <!-- Dégradé reflets -->
+        <linearGradient id="foam-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"  stop-color="#4a9ab0" stop-opacity="0.6"/>
+          <stop offset="100%" stop-color="#1a4a5a" stop-opacity="0"/>
+        </linearGradient>
+        <!-- Clip vague de surface -->
+        <clipPath id="sea-clip">
+          <path d="M0,40 Q150,20 300,40 Q450,60 600,40 Q750,20 900,40 Q1050,60 1200,40 L1200,180 L0,180 Z"/>
+        </clipPath>
+      </defs>
+
+      <!-- Ciel bas (dégradé) -->
+      <rect width="1200" height="60" fill="url(#sky-grad)"/>
+
+      <!-- Étoiles / lueurs -->
+      <circle cx="120" cy="18" r="1" fill="#8b6914" opacity="0.4"/>
+      <circle cx="340" cy="12" r="1.2" fill="#8b6914" opacity="0.3"/>
+      <circle cx="680" cy="22" r="0.8" fill="#8b6914" opacity="0.35"/>
+      <circle cx="900" cy="8"  r="1"   fill="#8b6914" opacity="0.3"/>
+      <circle cx="1050" cy="20" r="1.5" fill="#c9a227" opacity="0.25"/>
+
+      <!-- Corps de la mer -->
+      <rect y="40" width="1200" height="140" fill="url(#sea-grad)"/>
+
+      <!-- Vague de fond (lente) -->
+      <path id="wave-back" fill="#2a6a7a" opacity="0.35"
+        d="M0,55 Q200,38 400,55 Q600,72 800,55 Q1000,38 1200,55 L1200,180 L0,180 Z"/>
+
+      <!-- Vague principale -->
+      <path id="wave-main" fill="#1e5a6a" opacity="0.7"
+        d="M0,62 Q150,44 300,62 Q450,80 600,62 Q750,44 900,62 Q1050,80 1200,62 L1200,180 L0,180 Z"/>
+
+      <!-- Vague avant (rapide) -->
+      <path id="wave-front" fill="#236878" opacity="0.8"
+        d="M0,70 Q100,56 200,70 Q300,84 400,70 Q500,56 600,70 Q700,84 800,70 Q900,56 1000,70 Q1100,84 1200,70 L1200,180 L0,180 Z"/>
+
+      <!-- Écume surface -->
+      <path id="wave-foam" fill="#6ab8cc" opacity="0.18"
+        d="M0,62 Q150,44 300,62 Q450,80 600,62 Q750,44 900,62 Q1050,80 1200,62 L1200,68 Q1050,86 900,68 Q750,50 600,68 Q450,86 300,68 Q150,50 0,68 Z"/>
+
+      <!-- Reflets lune/soleil sur l'eau -->
+      <ellipse id="moon-reflect" cx="600" cy="90" rx="80" ry="6" fill="#c9a227" opacity="0.08"/>
+
+      <!-- Groupe bateau (déplacé par JS) -->
+      <g id="boat-group">
+        <!-- Coque -->
+        <path d="M-38,0 Q-30,-8 30,-8 Q38,0 42,6 L-42,6 Z" fill="#3d2008"/>
+        <path d="M-42,6 Q0,14 42,6 L38,10 Q0,18 -38,10 Z" fill="#5a3010"/>
+        <!-- Pont -->
+        <rect x="-30" y="-10" width="60" height="4" rx="1" fill="#7a4a18"/>
+        <!-- Mât principal -->
+        <line x1="0" y1="-10" x2="0" y2="-70" stroke="#5a3010" stroke-width="2.5"/>
+        <!-- Voile principale -->
+        <path d="M0,-66 Q22,-48 20,-14 L2,-14 Z" fill="#f0e8cc" opacity="0.92"/>
+        <path d="M0,-66 Q-8,-48 -6,-14 L0,-14 Z" fill="#e8ddc4" opacity="0.7"/>
+        <!-- Raie dorée sur la voile -->
+        <line x1="0" y1="-60" x2="18" y2="-18" stroke="#c9a227" stroke-width="0.8" opacity="0.5"/>
+        <!-- Mât de misaine -->
+        <line x1="-18" y1="-10" x2="-18" y2="-44" stroke="#5a3010" stroke-width="1.8"/>
+        <path d="M-18,-42 Q-6,-32 -8,-14 L-18,-14 Z" fill="#f0e8cc" opacity="0.8"/>
+        <!-- Drapeau -->
+        <line x1="0" y1="-70" x2="0" y2="-76" stroke="#5a3010" stroke-width="1.2"/>
+        <path d="M0,-76 L12,-73 L0,-70 Z" fill="#8b1a1a"/>
+        <!-- Hublots -->
+        <circle cx="-15" cy="1" r="2.5" fill="#7a9aaa" opacity="0.7"/>
+        <circle cx="5"   cy="1" r="2.5" fill="#7a9aaa" opacity="0.7"/>
+        <circle cx="25"  cy="1" r="2.5" fill="#7a9aaa" opacity="0.7"/>
+        <!-- Reflet dans l'eau -->
+        <path d="M-28,8 Q0,22 28,8 Q14,28 0,32 Q-14,28 -28,8 Z" fill="#1a4a5a" opacity="0.3"/>
+      </g>
+
+      <!-- Vague de crête tout devant -->
+      <path id="wave-crest" fill="white" opacity="0.06"
+        d="M0,65 Q75,58 150,65 Q225,72 300,65 Q375,58 450,65 Q525,72 600,65 Q675,58 750,65 Q825,72 900,65 Q975,58 1050,65 Q1125,72 1200,65 L1200,70 Q1125,77 1050,70 Q975,63 900,70 Q825,77 750,70 Q675,63 600,70 Q525,77 450,70 Q375,63 300,70 Q225,77 150,70 Q75,63 0,70 Z"/>
+
+      <!-- Mouettes -->
+      <g id="gulls">
+        <path id="g1" d="M 200,30 Q207,25 214,30" fill="none" stroke="#8b6914" stroke-width="1.2" opacity="0.5"/>
+        <path id="g2" d="M 500,18 Q508,13 516,18" fill="none" stroke="#8b6914" stroke-width="1.2" opacity="0.4"/>
+        <path id="g3" d="M 850,26 Q857,21 864,26" fill="none" stroke="#8b6914" stroke-width="1"   opacity="0.35"/>
+      </g>
+
+      <!-- 🏴‍☠️ Bateau pirate (vient de droite, attaque) -->
+      <g id="pirate-boat" opacity="0">
+        <!-- Coque sombre -->
+        <path d="M-40,0 Q-32,-7 32,-7 Q40,0 44,6 L-44,6 Z" fill="#1a0808"/>
+        <path d="M-44,6 Q0,13 44,6 L40,10 Q0,17 -40,10 Z" fill="#2a1010"/>
+        <!-- Pont -->
+        <rect x="-32" y="-9" width="64" height="3" rx="1" fill="#3a1a1a"/>
+        <!-- Mât principal -->
+        <line x1="5" y1="-9" x2="5" y2="-72" stroke="#2a1010" stroke-width="2.5"/>
+        <!-- Voile noire -->
+        <path d="M5,-68 Q28,-50 26,-13 L6,-13 Z" fill="#1a1a1a" opacity="0.9"/>
+        <path d="M5,-68 Q-4,-50 -2,-13 L5,-13 Z" fill="#111" opacity="0.8"/>
+        <!-- Crâne sur la voile -->
+        <circle cx="16" cy="-42" r="4.5" fill="#e8ddc4"/>
+        <circle cx="14.5" cy="-43.5" r="1" fill="#1a1a1a"/>
+        <circle cx="17.5" cy="-43.5" r="1" fill="#1a1a1a"/>
+        <path d="M13,-40 Q16,-38 19,-40" fill="none" stroke="#1a1a1a" stroke-width="0.8"/>
+        <line x1="13" y1="-37" x2="13" y2="-35" stroke="#e8ddc4" stroke-width="1"/>
+        <line x1="16" y1="-37" x2="16" y2="-35" stroke="#e8ddc4" stroke-width="1"/>
+        <line x1="19" y1="-37" x2="19" y2="-35" stroke="#e8ddc4" stroke-width="1"/>
+        <!-- Drapeau 🏴‍☠️ -->
+        <line x1="5" y1="-72" x2="5" y2="-79" stroke="#2a1010" stroke-width="1.2"/>
+        <path d="M5,-79 L18,-75 L5,-71 Z" fill="#111"/>
+        <circle cx="11" cy="-75" r="1.5" fill="#e8ddc4"/>
+        <!-- Canon -->
+        <rect x="30" y="-4" width="16" height="5" rx="2" fill="#3a2010"/>
+        <!-- Mât misaine -->
+        <line x1="-20" y1="-9" x2="-20" y2="-48" stroke="#2a1010" stroke-width="1.8"/>
+        <path d="M-20,-46 Q-8,-35 -10,-13 L-20,-13 Z" fill="#1a1a1a" opacity="0.85"/>
+        <!-- Hublots rouges (canon) -->
+        <circle cx="-20" cy="2" r="2" fill="#8b1a1a" opacity="0.8"/>
+        <circle cx="-5"  cy="2" r="2" fill="#8b1a1a" opacity="0.8"/>
+        <circle cx="15"  cy="2" r="2" fill="#8b1a1a" opacity="0.8"/>
+      </g>
+
+      <!-- ⚔️ Boulet de canon -->
+      <circle id="cannonball" cx="-50" cy="50" r="3" fill="#333" opacity="0"/>
+
+      <!-- 🩸 Éclair de tir -->
+      <ellipse id="cannon-flash" cx="0" cy="0" rx="8" ry="4" fill="#ff6600" opacity="0"/>
+
+      <!-- ✝️ Bateau templier (voile blanche croix rouge) -->
+      <g id="templar-boat" opacity="0">
+        <path d="M-36,0 Q-28,-7 28,-7 Q36,0 40,5 L-40,5 Z" fill="#3d2c1a"/>
+        <path d="M-40,5 Q0,12 40,5 L36,9 Q0,15 -36,9 Z" fill="#5a3a20"/>
+        <rect x="-28" y="-8" width="56" height="3" rx="1" fill="#6a4a28"/>
+        <line x1="2" y1="-8" x2="2" y2="-68" stroke="#3d2c1a" stroke-width="2.5"/>
+        <!-- Voile blanche avec croix rouge -->
+        <path d="M2,-65 Q24,-48 22,-13 L4,-13 Z" fill="#f5f0e8" opacity="0.95"/>
+        <path d="M2,-65 Q-6,-48 -4,-13 L2,-13 Z" fill="#ede8dc" opacity="0.8"/>
+        <!-- Croix rouge templier -->
+        <rect x="10" y="-52" width="4" height="28" fill="#8b1a1a" opacity="0.9"/>
+        <rect x="4"  y="-44" width="16" height="4"  fill="#8b1a1a" opacity="0.9"/>
+        <!-- Drapeau blanc -->
+        <line x1="2" y1="-68" x2="2" y2="-74" stroke="#3d2c1a" stroke-width="1.2"/>
+        <path d="M2,-74 L14,-71 L2,-68 Z" fill="#f5f0e8"/>
+        <line x1="8" y1="-73" x2="8" y2="-70" stroke="#8b1a1a" stroke-width="1.5"/>
+        <line x1="6" y1="-72" x2="10" y2="-72" stroke="#8b1a1a" stroke-width="1.5"/>
+        <line x1="-16" y1="-8" x2="-16" y2="-44" stroke="#3d2c1a" stroke-width="1.8"/>
+        <path d="M-16,-42 Q-5,-32 -7,-13 L-16,-13 Z" fill="#f5f0e8" opacity="0.8"/>
+        <circle cx="-14" cy="1" r="2.2" fill="#7a9aaa" opacity="0.6"/>
+        <circle cx="4"   cy="1" r="2.2" fill="#7a9aaa" opacity="0.6"/>
+        <circle cx="22"  cy="1" r="2.2" fill="#7a9aaa" opacity="0.6"/>
+      </g>
+
+      <!-- 👻 Bateau fantôme (translucide, verdâtre) -->
+      <g id="ghost-boat" opacity="0">
+        <!-- Coque fantôme -->
+        <path d="M-38,0 Q-30,-7 30,-7 Q38,0 42,5 L-42,5 Z" fill="#1a3a2a" opacity="0.7"/>
+        <!-- Voiles fantôme déchirées -->
+        <line x1="0" y1="-8" x2="0" y2="-72" stroke="#2a5a3a" stroke-width="2" opacity="0.6"/>
+        <path d="M0,-68 Q20,-52 18,-16 L2,-16 Z" fill="#80ffcc" opacity="0.15"/>
+        <path d="M0,-68 Q-6,-52 -4,-16 L0,-16 Z" fill="#80ffcc" opacity="0.1"/>
+        <!-- Déchirures voile -->
+        <path d="M14,-50 L18,-44" stroke="#80ffcc" stroke-width="1" opacity="0.4"/>
+        <path d="M10,-34 L16,-30" stroke="#80ffcc" stroke-width="1" opacity="0.3"/>
+        <!-- Lueurs vertes sur la coque -->
+        <path d="M-38,0 Q-30,-7 30,-7 Q38,0 42,5 L-42,5 Z" fill="none" stroke="#00ff88" stroke-width="0.8" opacity="0.4"/>
+        <!-- Drapeau fantôme -->
+        <line x1="0" y1="-72" x2="0" y2="-78" stroke="#2a5a3a" stroke-width="1" opacity="0.6"/>
+        <path d="M0,-78 L11,-75 L0,-72 Z" fill="#00ff88" opacity="0.3"/>
+        <!-- Mât misaine -->
+        <line x1="-18" y1="-8" x2="-18" y2="-44" stroke="#2a5a3a" stroke-width="1.5" opacity="0.5"/>
+        <path d="M-18,-42 Q-6,-32 -8,-16 L-18,-16 Z" fill="#80ffcc" opacity="0.12"/>
+        <!-- Squelettes sur le pont (3 petits) -->
+        <g opacity="0.7">
+          <!-- Skel 1 -->
+          <circle cx="-18" cy="-10" r="2.5" fill="#e8ddc4"/>
+          <line x1="-18" y1="-7" x2="-18" y2="-1" stroke="#e8ddc4" stroke-width="1.2"/>
+          <line x1="-21" y1="-5" x2="-15" y2="-5" stroke="#e8ddc4" stroke-width="1"/>
+          <line x1="-18" y1="-1" x2="-21" y2="4" stroke="#e8ddc4" stroke-width="1"/>
+          <line x1="-18" y1="-1" x2="-15" y2="4" stroke="#e8ddc4" stroke-width="1"/>
+          <!-- Skel 2 -->
+          <circle cx="0" cy="-10" r="2.5" fill="#e8ddc4"/>
+          <line x1="0" y1="-7" x2="0" y2="-1" stroke="#e8ddc4" stroke-width="1.2"/>
+          <line x1="-3" y1="-5" x2="3" y2="-5" stroke="#e8ddc4" stroke-width="1"/>
+          <line x1="0" y1="-1" x2="-3" y2="4" stroke="#e8ddc4" stroke-width="1"/>
+          <line x1="0" y1="-1" x2="3" y2="4" stroke="#e8ddc4" stroke-width="1"/>
+          <!-- Skel 3 bras levés -->
+          <circle cx="18" cy="-10" r="2.5" fill="#e8ddc4"/>
+          <line x1="18" y1="-7" x2="18" y2="-1" stroke="#e8ddc4" stroke-width="1.2"/>
+          <line x1="14" y1="-7" x2="22" y2="-7" stroke="#e8ddc4" stroke-width="1"/>
+          <line x1="18" y1="-1" x2="15" y2="4" stroke="#e8ddc4" stroke-width="1"/>
+          <line x1="18" y1="-1" x2="21" y2="4" stroke="#e8ddc4" stroke-width="1"/>
+        </g>
+        <!-- Hublots verts -->
+        <circle cx="-20" cy="1" r="2" fill="#00ff88" opacity="0.25"/>
+        <circle cx="0"   cy="1" r="2" fill="#00ff88" opacity="0.25"/>
+        <circle cx="20"  cy="1" r="2" fill="#00ff88" opacity="0.25"/>
+      </g>
+
+      <!-- 🦀 Crabe géant (émerge du fond) -->
+      <g id="giant-crab" opacity="0" style="cursor:pointer" onclick="triggerCthulhu()"
+         title="Priez le grand Cthulhu...">
+        <!-- Carapace -->
+        <ellipse cx="0" cy="0" rx="55" ry="28" fill="#c0401a"/>
+        <ellipse cx="0" cy="0" rx="50" ry="24" fill="#d4501a"/>
+        <!-- Texture carapace -->
+        <ellipse cx="0" cy="-4" rx="30" ry="14" fill="#e06020" opacity="0.5"/>
+        <ellipse cx="0" cy="-6" rx="16" ry="8" fill="#e87030" opacity="0.4"/>
+        <!-- Yeux -->
+        <circle cx="-18" cy="-20" r="6" fill="#2a1808"/>
+        <circle cx="18"  cy="-20" r="6" fill="#2a1808"/>
+        <circle cx="-17" cy="-21" r="2.5" fill="#ff4400" opacity="0.8"/>
+        <circle cx="19"  cy="-21" r="2.5" fill="#ff4400" opacity="0.8"/>
+        <!-- Pinces gauche -->
+        <path d="M-55,-10 Q-80,-30 -90,-20 Q-88,-5 -70,0 Q-55,5 -55,10 Z" fill="#c0401a"/>
+        <path d="M-55,-10 Q-75,-35 -95,-18 Q-90,-10 -80,-6" fill="none" stroke="#8b2a10" stroke-width="2"/>
+        <!-- Pinces droite -->
+        <path d="M55,-10 Q80,-30 90,-20 Q88,-5 70,0 Q55,5 55,10 Z" fill="#c0401a"/>
+        <path d="M55,-10 Q75,-35 95,-18 Q90,-10 80,-6" fill="none" stroke="#8b2a10" stroke-width="2"/>
+        <!-- Pattes gauche (3) -->
+        <line x1="-50" y1="5"  x2="-80" y2="-10" stroke="#b03818" stroke-width="4"/>
+        <line x1="-50" y1="12" x2="-82" y2="2"   stroke="#b03818" stroke-width="4"/>
+        <line x1="-48" y1="20" x2="-78" y2="15"  stroke="#b03818" stroke-width="4"/>
+        <!-- Pattes droite (3) -->
+        <line x1="50"  y1="5"  x2="80"  y2="-10" stroke="#b03818" stroke-width="4"/>
+        <line x1="50"  y1="12" x2="82"  y2="2"   stroke="#b03818" stroke-width="4"/>
+        <line x1="48"  y1="20" x2="78"  y2="15"  stroke="#b03818" stroke-width="4"/>
+        <!-- Bouche / bulles -->
+        <ellipse cx="0" cy="8" rx="12" ry="5" fill="#b03818"/>
+        <circle cx="-25" cy="-35" r="3" fill="#6ab8cc" opacity="0.5"/>
+        <circle cx="30"  cy="-38" r="2" fill="#6ab8cc" opacity="0.4"/>
+        <circle cx="5"   cy="-42" r="2.5" fill="#6ab8cc" opacity="0.35"/>
+      </g>
+
+    </svg>
+  </div>
+
+  <!-- Signature sous l'eau -->
+  <div class="sig-inner" style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:0;opacity:0.75;filter:blur(0.2px)">
+    <div class="sig-text" style="text-align:center">
+      <span class="sig-label" style="font-family:'Courier New',monospace;font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:#7ad4e8;display:block">Conçu &amp; développé par</span>
+      <span class="sig-name" id="sig-name" style="color:#a8e8f4;font-size:1.3rem;letter-spacing:0.1em;text-shadow:0 0 12px rgba(106,184,204,0.6)"></span>
     </div>
   </div>
 </footer>
+
+<style>
+#sig-footer {
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+  border-top: none;
+  padding: 0;
+  margin-top: 3rem;
+}
+#sea-scene {
+  display: block;
+  width: 100%;
+  line-height: 0;
+}
+#sea-svg {
+  width: 100%;
+  height: 180px;
+  display: block;
+}
+.sig-inner {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  white-space: nowrap;
+}
+.sig-text { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+.sig-label { font-family: 'Courier New', monospace; font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase; }
+</style>
+
+<script>
+/* ══════════════════════════════════════════════
+   🌊 SCÈNE MARITIME ÉPIQUE — Animation complète
+══════════════════════════════════════════════ */
+(function(){
+  const svg       = document.getElementById("sea-svg");
+  const waveBack  = document.getElementById("wave-back");
+  const waveMain  = document.getElementById("wave-main");
+  const waveFront = document.getElementById("wave-front");
+  const waveFoam  = document.getElementById("wave-foam");
+  const waveCrest = document.getElementById("wave-crest");
+  const reflect   = document.getElementById("moon-reflect");
+  const g1 = document.getElementById("g1");
+  const g2 = document.getElementById("g2");
+  const g3 = document.getElementById("g3");
+
+  // Bateaux
+  const mainBoat    = document.getElementById("boat-group");
+  const pirateBoat  = document.getElementById("pirate-boat");
+  const templarBoat = document.getElementById("templar-boat");
+  const ghostBoat   = document.getElementById("ghost-boat");
+  const crab        = document.getElementById("giant-crab");
+  const cannonball  = document.getElementById("cannonball");
+  const cannonFlash = document.getElementById("cannon-flash");
+
+  let t = 0;
+
+  // ── État de chaque acteur ──────────────────────────────
+  // Bateau principal
+  let mainX = -100, mainVisible = true;
+
+  // Pirate
+  let pirateState = "hidden"; // hidden | approaching | attacking | retreating
+  let pirateX = 1400, pirateOpacity = 0;
+  let pirateTimer = 300 + Math.random()*200; // délai avant première attaque
+
+  // Boulet de canon
+  let cbX=0,cbY=0,cbVx=0,cbVy=0,cbActive=false,cbOpacity=0;
+  let flashX=0,flashY=0,flashTimer=0;
+
+  // Templier
+  let templarState = "hidden";
+  let templarX = -150, templarOpacity = 0;
+  let templarTimer = 500 + Math.random()*300;
+
+  // Fantôme
+  let ghostState = "hidden";
+  let ghostX = 1400, ghostOpacity = 0;
+  let ghostTimer = 400 + Math.random()*400;
+  let ghostGlow = 0;
+
+  // Crabe
+  let crabState = "hidden"; // hidden | rising | grabbing | sinking
+  let crabX = 400, crabY = 250, crabOpacity = 0;
+  let crabTimer = 700 + Math.random()*500;
+  let crabPhase = 0;
+
+  // ── Utilitaires ──────────────────────────────────────
+  function waveY(x, time, freq, amp, speed) {
+    return amp * Math.sin(freq * x + speed * time);
+  }
+  function surfaceAt(x) {
+    return 62 + waveY(x, t, 0.009, 8, 0.7);
+  }
+  function buildWavePath(baseY, freq, amp, speed, time, segs=12) {
+    const step = 1200 / segs;
+    let d = `M0,${baseY + waveY(0, time, freq, amp, speed)}`;
+    for(let i=1;i<=segs;i++){
+      const x=i*step, cx=x-step*0.5;
+      d += ` Q${cx},${baseY+waveY(cx,time,freq,amp,speed)} ${x},${baseY+waveY(x,time,freq,amp,speed)}`;
+    }
+    return d + ` L1200,180 L0,180 Z`;
+  }
+  function tiltAt(x) {
+    return Math.atan(0.009*8*0.7*Math.cos(0.009*x+0.7*t))*(180/Math.PI)*0.6;
+  }
+  function placeBoat(el, x, opacity, flip=false, scaleExtra=1) {
+    const sy = surfaceAt(x);
+    const tilt = tiltAt(x) * (flip?-1:1);
+    const sc = flip ? -scaleExtra : scaleExtra;
+    el.setAttribute("transform",
+      `translate(${x},${sy-8}) scale(${sc},1) rotate(${tilt},0,8)`);
+    el.setAttribute("opacity", opacity.toFixed(3));
+  }
+
+  // ── Boucle principale ────────────────────────────────
+  function animate() {
+    t += 0.012;
+
+    // Vagues
+    waveBack.setAttribute("d",  buildWavePath(55,0.006,10,0.4,t,8));
+    waveMain.setAttribute("d",  buildWavePath(62,0.009,8,0.7,t,10));
+    waveFront.setAttribute("d", buildWavePath(70,0.014,5,1.1,t,12));
+    const foamY=62+waveY(600,t,0.009,8,0.7);
+    waveFoam.setAttribute("d",
+      `M0,${foamY} Q300,${foamY-10} 600,${foamY} Q900,${foamY+10} 1200,${foamY}` +
+      ` L1200,${foamY+6} Q900,${foamY+16} 600,${foamY+6} Q300,${foamY-4} 0,${foamY+6} Z`);
+    waveCrest.setAttribute("opacity",(0.04+0.04*Math.sin(t*2)).toFixed(3));
+    reflect.setAttribute("opacity",(0.06+0.04*Math.sin(t*0.8)).toFixed(3));
+
+    // Mouettes
+    g1.setAttribute("transform",`translate(${30*Math.sin(t*0.3)},${4*Math.sin(t*0.5)})`);
+    g2.setAttribute("transform",`translate(${20*Math.sin(t*0.2+1)},${3*Math.sin(t*0.4+2)})`);
+    g3.setAttribute("transform",`translate(${-25*Math.sin(t*0.35+0.5)},${5*Math.sin(t*0.6+1)})`);
+
+    // ── Bateau principal ──────────────────────────────
+    mainX += 0.28;
+    if(mainX > 1300) mainX = -120;
+    placeBoat(mainBoat, mainX, mainVisible?1:0);
+
+    // ── Pirate ────────────────────────────────────────
+    pirateTimer--;
+    if(pirateState==="hidden" && pirateTimer<=0) {
+      pirateState="approaching"; pirateX=1350; pirateOpacity=0;
+    }
+    if(pirateState==="approaching") {
+      pirateX -= 1.2; pirateOpacity = Math.min(1, pirateOpacity+0.015);
+      placeBoat(pirateBoat, pirateX, pirateOpacity, true);
+      // Quand assez proche du bateau principal, attaquer
+      if(Math.abs(pirateX - mainX) < 180 && pirateOpacity>0.8) {
+        pirateState="attacking";
+        // Tirer un boulet de canon
+        fireCannon(pirateX, surfaceAt(pirateX)-20, mainX, surfaceAt(mainX)-20);
+      }
+    }
+    if(pirateState==="attacking") {
+      pirateX -= 0.5; // ralentit pendant l'attaque
+      placeBoat(pirateBoat, pirateX, pirateOpacity, true);
+      // Après collision, les deux bateaux se séparent
+      if(pirateX < mainX - 80) {
+        pirateState="retreating";
+        // Bateau principal secoué
+        mainVisible = true;
+      }
+    }
+    if(pirateState==="retreating") {
+      pirateX -= 1.8; pirateOpacity = Math.max(0, pirateOpacity-0.008);
+      placeBoat(pirateBoat, pirateX, pirateOpacity, true);
+      if(pirateX < -150) {
+        pirateState="hidden";
+        pirateTimer = 600 + Math.random()*400;
+      }
+    }
+
+    // ── Boulet de canon ───────────────────────────────
+    if(cbActive) {
+      cbX+=cbVx; cbY+=cbVy; cbVy+=0.3; cbOpacity=Math.max(0,cbOpacity-0.012);
+      cannonball.setAttribute("cx", cbX.toFixed(1));
+      cannonball.setAttribute("cy", cbY.toFixed(1));
+      cannonball.setAttribute("opacity", cbOpacity.toFixed(3));
+      if(cbOpacity<=0) cbActive=false;
+    }
+    // Flash canon
+    if(flashTimer>0) {
+      flashTimer--;
+      cannonFlash.setAttribute("cx", flashX.toFixed(1));
+      cannonFlash.setAttribute("cy", flashY.toFixed(1));
+      cannonFlash.setAttribute("opacity", (flashTimer/8).toFixed(2));
+    } else {
+      cannonFlash.setAttribute("opacity","0");
+    }
+
+    // ── Templier ──────────────────────────────────────
+    templarTimer--;
+    if(templarState==="hidden" && templarTimer<=0) {
+      templarState="sailing"; templarX=-150; templarOpacity=0;
+    }
+    if(templarState==="sailing") {
+      templarX += 0.6; templarOpacity=Math.min(1,templarOpacity+0.01);
+      placeBoat(templarBoat, templarX, templarOpacity);
+      if(templarX>1350) {
+        templarState="hidden";
+        templarTimer=800+Math.random()*600;
+        templarOpacity=0;
+      }
+    }
+
+    // ── Fantôme ───────────────────────────────────────
+    ghostTimer--;
+    if(ghostState==="hidden" && ghostTimer<=0) {
+      ghostState="sailing"; ghostX=1400; ghostOpacity=0;
+    }
+    if(ghostState==="sailing") {
+      ghostX-=0.7;
+      // Scintillement fantôme
+      ghostGlow=0.4+0.35*Math.sin(t*3+ghostX*0.01);
+      ghostOpacity=Math.min(ghostGlow, ghostOpacity+0.008);
+      placeBoat(ghostBoat, ghostX, ghostOpacity, true);
+      // Lueur verte pulsante
+      ghostBoat.style.filter=`drop-shadow(0 0 ${4+4*Math.sin(t*4)}px rgba(0,255,136,0.4))`;
+      if(ghostX<-150) {
+        ghostState="hidden";
+        ghostTimer=700+Math.random()*500;
+        ghostBoat.style.filter="";
+      }
+    }
+
+    // ── Crabe géant ───────────────────────────────────
+    crabTimer--;
+    if(crabState==="hidden" && crabTimer<=0) {
+      // Apparaît sous le bateau principal
+      crabX=mainX; crabY=260; crabOpacity=0; crabPhase=0;
+      crabState="rising";
+    }
+    if(crabState==="rising") {
+      crabY-=0.8; crabOpacity=Math.min(1,crabOpacity+0.02);
+      crabPhase+=0.05;
+      // Pinces qui s'agitent
+      const sx=crabX, sy=crabY;
+      const s=crabOpacity;
+      crab.setAttribute("transform",
+        `translate(${sx},${sy}) scale(${0.7+0.05*Math.sin(crabPhase)})`);
+      crab.setAttribute("opacity",s.toFixed(3));
+      crab.style.filter=`drop-shadow(0 0 8px rgba(192,64,26,0.5))`;
+      if(crabY<80) { crabState="grabbing"; }
+    }
+    if(crabState==="grabbing") {
+      crabPhase+=0.12;
+      crabX=mainX; // suit le bateau
+      const grab=Math.sin(crabPhase);
+      crab.setAttribute("transform",
+        `translate(${crabX},${crabY+grab*4}) scale(${0.75+0.05*Math.abs(grab)})`);
+      crab.setAttribute("opacity","1");
+      // Après 120 frames (environ 2s), replonge
+      if(crabPhase>8) { crabState="sinking"; }
+    }
+    if(crabState==="sinking") {
+      crabY+=1.2; crabOpacity=Math.max(0,crabOpacity-0.018);
+      crab.setAttribute("transform",`translate(${crabX},${crabY})`);
+      crab.setAttribute("opacity",crabOpacity.toFixed(3));
+      if(crabOpacity<=0) {
+        crabState="hidden"; crabTimer=900+Math.random()*600;
+        crab.style.filter="";
+      }
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  function fireCannon(fromX, fromY, toX, toY) {
+    cbX=fromX; cbY=fromY;
+    const dx=toX-fromX, dy=toY-fromY;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    const speed=6;
+    cbVx=dx/dist*speed; cbVy=dy/dist*speed-2;
+    cbActive=true; cbOpacity=1;
+    flashX=fromX; flashY=fromY; flashTimer=8;
+  }
+
+  animate();
+})();
+</script>
 
 <style>
 /* ── Splash screen amélioré ── */
@@ -4916,69 +5839,23 @@ window.addEventListener("DOMContentLoaded",()=>{
 }
 
 /* ── Footer signature ── */
-#sig-footer {
-  padding: 2.5rem 0 3rem;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-}
-.sig-inner { display: inline-flex; flex-direction: column; align-items: center; gap: 0.6rem; }
-.sig-divider { position: relative; width: 120px; }
-.sig-ornament {
-  font-size: 1.1rem; display: block; text-align: center; color: var(--border);
-  animation: floatAnchor 3s ease-in-out infinite;
-}
-@keyframes floatAnchor {
-  0%,100% { transform: translateY(0); }
-  50%      { transform: translateY(-4px); }
-}
-.sig-label {
-  font-family: 'Courier New', monospace;
-  font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase;
-  color: var(--muted); display: block;
-}
 .sig-name {
   display: block;
-  font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
-  font-size: 1.6rem; font-weight: 700; font-style: italic;
-  color: var(--gold);
-  letter-spacing: 0.04em;
-  /* écriture animée via SVG clip */
-  background: linear-gradient(90deg, var(--gold-light), var(--gold), var(--sea));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-  filter: drop-shadow(0 1px 2px rgba(139,105,20,0.3));
+  font-family: 'Palatino Linotype', Palatino, Georgia, serif;
+  font-size: 1.4rem; font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #c9a227;
 }
-.sig-wave { width: 200px; opacity: 0.5; margin-top: 0.2rem; }
-#sig-wave-path {
-  stroke-dasharray: 300;
-  stroke-dashoffset: 300;
-  animation: drawWave 2s 1.5s ease forwards;
-}
-@keyframes drawWave {
-  to { stroke-dashoffset: 0; }
-}
-
-/* Typewriter pour le nom */
-@keyframes typewriter {
-  from { width: 0; }
-  to   { width: 100%; }
-}
+@keyframes typewriter { from { width: 0; } to { width: 100%; } }
 @keyframes cursorBlink {
-  0%,100% { border-color: var(--gold); }
+  0%,100% { border-color: #c9a227; }
   50%     { border-color: transparent; }
 }
 .sig-name-typed {
-  display: inline-block;
-  overflow: hidden;
-  white-space: nowrap;
-  border-right: 2px solid var(--gold);
-  width: 0;
-  animation:
-    typewriter 0.9s steps(6,end) 0.8s forwards,
-    cursorBlink 0.7s step-end 0.8s 5;
+  display: inline-block; overflow: hidden; white-space: nowrap;
+  border-right: 2px solid #c9a227; width: 0;
+  animation: typewriter 0.9s steps(6,end) 0.8s forwards, cursorBlink 0.7s step-end 0.8s 5;
 }
-
 @media print { #sig-footer { display: none; } }
 </style>
 
@@ -5663,6 +6540,717 @@ window.addEventListener("DOMContentLoaded",()=>{
 })();
 
 
+</script>
+<!-- ════════════════════════════════════════════
+     🦀 EASTER EGG CRHULU — Le Grand Réveil
+═══════════════════════════════════════════= -->
+<style>
+@keyframes crhluGrow    { from{transform:translateX(-50%) scale(0.05) translateY(200px);opacity:0} to{transform:translateX(-50%) scale(1) translateY(0);opacity:1} }
+@keyframes crhluFloat   { 0%,100%{transform:translateX(-50%) translateY(0) rotate(-0.5deg)} 50%{transform:translateX(-50%) translateY(-12px) rotate(0.8deg)} }
+@keyframes crhluShake   { 0%,100%{transform:translateX(-50%) translateY(0)} 25%{transform:translateX(calc(-50% - 8px)) translateY(-4px) rotate(-1deg)} 75%{transform:translateX(calc(-50% + 8px)) translateY(4px) rotate(1deg)} }
+@keyframes crhluTxtIn   { from{opacity:0;transform:translateX(-50%) scaleX(0.3);filter:blur(10px)} to{opacity:1;transform:translateX(-50%) scaleX(1);filter:blur(0)} }
+@keyframes crhluBarDrain{ from{width:100%} to{width:0%} }
+@keyframes crhluSplit   { 0%{transform:translateY(0) rotate(0);opacity:1} 100%{transform:translateY(var(--dy)) rotate(var(--rot));opacity:0} }
+@keyframes crhluTabFly  { 0%{transform:translateX(0) translateY(0) rotate(0);opacity:1} 100%{transform:translateX(var(--dx)) translateY(-300px) rotate(var(--rot));opacity:0} }
+@keyframes crhluVignette{ from{opacity:0} to{opacity:1} }
+@keyframes crhluPulse   { 0%,100%{filter:drop-shadow(0 0 30px rgba(180,0,220,.7)) drop-shadow(0 0 60px rgba(0,200,180,.4))} 50%{filter:drop-shadow(0 0 60px rgba(180,0,220,1)) drop-shadow(0 0 120px rgba(0,200,180,.7)) drop-shadow(0 0 200px rgba(255,0,100,.3))} }
+@keyframes crhluPageRip { 0%{clip-path:polygon(0 0,100% 0,100% 100%,0 100%)} 100%{clip-path:polygon(0 0,100% 0,100% 45%,55% 50%,100% 55%,100% 100%,0 100%,0 55%,45% 50%,0 45%)} }
+@keyframes crhluCrack   { from{opacity:0;stroke-dashoffset:500} to{opacity:0.9;stroke-dashoffset:0} }
+@keyframes crhluEyeBlink{ 0%,88%,100%{transform:scaleY(1)} 93%{transform:scaleY(0.05)} }
+@keyframes crhluBubble  { 0%{transform:translateY(0) scale(1);opacity:.8} 100%{transform:translateY(-120px) scale(0.2);opacity:0} }
+@keyframes crhluRainbow { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+
+/* Fond */
+#crhlv-bg {
+  display:none; position:fixed; inset:0; z-index:19000;
+  background: transparent;
+  overflow:hidden;
+}
+#crhlv-bg.active { display:block; }
+
+/* Crabe géant qui grossit */
+#crhlv-crab {
+  position:absolute; bottom:0; left:50%;
+  transform:translateX(-50%) scale(0.05) translateY(200px);
+  width: min(700px,90vw);
+  transform-origin: center bottom;
+  animation: crhluGrow 2s cubic-bezier(.2,1.4,.4,1) forwards;
+  z-index:3; cursor:default;
+}
+#crhlv-crab.float  { animation: crhluFloat 3s ease-in-out infinite; }
+#crhlv-crab.shaker { animation: crhluShake .2s ease-in-out infinite; }
+
+/* Texte */
+#crhlv-txt {
+  position:absolute; top:8%; left:50%;
+  transform:translateX(-50%) scaleX(0.3);
+  text-align:center; white-space:nowrap;
+  z-index:4; pointer-events:none;
+  opacity:0;
+  animation: crhluTxtIn 1s 2s cubic-bezier(.2,1,.3,1) forwards;
+}
+#crhlv-txt h1 {
+  font-family:'Palatino Linotype',Palatino,Georgia,serif;
+  font-size:clamp(1.8rem,5vw,4rem);
+  color:#cc44ff;
+  text-shadow:0 0 20px rgba(200,0,255,.9),0 0 60px rgba(200,0,255,.5),0 2px 4px #000;
+  margin:0 0 .4rem;
+  letter-spacing:.08em;
+}
+#crhlv-txt p {
+  font-family:'Courier New',monospace;
+  font-size:clamp(.6rem,1.5vw,.85rem);
+  color:#00d4b8; letter-spacing:.25em; text-transform:uppercase;
+  opacity:.8;
+}
+
+/* Yeux rouges */
+#crhlv-eyes {
+  position:absolute; top:6%; left:50%; transform:translateX(-50%);
+  display:flex; gap:3rem; z-index:4; pointer-events:none;
+  opacity:0; transition:opacity .5s;
+}
+.crhlv-eye {
+  width:16px; height:16px; border-radius:50%;
+  background:radial-gradient(circle at 40% 35%,#ff6600,#cc0000);
+  box-shadow:0 0 15px #ff4400,0 0 30px rgba(255,68,0,.5);
+  animation:crhluEyeBlink 3.5s ease-in-out infinite;
+}
+
+/* Barre timer */
+#crhlv-bar {
+  position:absolute; bottom:0; left:0; height:4px; z-index:10;
+  background:linear-gradient(90deg,#cc44ff,#00d4b8,#ff44aa,#cc44ff);
+  background-size:400% 100%;
+  box-shadow:0 0 12px rgba(200,0,255,.7);
+}
+
+/* Fissures SVG sur l'écran */
+#crhlv-cracks {
+  position:absolute; inset:0; pointer-events:none; z-index:5;
+}
+
+/* Fuite */
+#crhlv-close {
+  position:absolute; top:1rem; right:1rem; z-index:11;
+  background:rgba(200,0,255,.15); border:1px solid rgba(200,0,255,.4);
+  color:#cc44ff; font-family:'Courier New',monospace;
+  font-size:.68rem; letter-spacing:.2em; padding:.35rem .9rem;
+  cursor:pointer; border-radius:3px; transition:all .2s;
+}
+#crhlv-close:hover { background:rgba(200,0,255,.35); }
+
+/* Éléments qui tombent/volent */
+.crhlv-split-top {
+  position:fixed; pointer-events:none; z-index:18999; overflow:hidden;
+  --dy:-120px; --rot:calc(var(--side,1) * -8deg);
+  animation: crhluSplit var(--dur,1.2s) var(--delay,0s) cubic-bezier(.4,0,1,1) forwards;
+}
+.crhlv-split-bot {
+  position:fixed; pointer-events:none; z-index:18999; overflow:hidden;
+  --dy:120px; --rot:calc(var(--side,1) * 8deg);
+  animation: crhluSplit var(--dur,1.2s) var(--delay,0s) cubic-bezier(.4,0,1,1) forwards;
+}
+.crhlv-tab-fly {
+  position:fixed; pointer-events:none; z-index:18999;
+  background:var(--parchment-dark,#ede4cc);
+  border:1px solid rgba(180,0,220,.5); border-radius:3px 3px 0 0;
+  padding:.3rem .7rem; font-family:'Courier New',monospace; font-size:.68rem;
+  animation: crhluTabFly var(--dur,1s) var(--delay,0s) cubic-bezier(.4,0,.8,1) forwards;
+}
+.crhlv-bubble {
+  position:fixed; pointer-events:none; z-index:18998; font-size:1.2rem;
+  animation: crhluBubble 1.4s ease-out forwards;
+}
+</style>
+
+<!-- Overlay Crhulu -->
+<div id="crhlv-bg">
+  <!-- Yeux -->
+  <div id="crhlv-eyes">
+    <div class="crhlv-eye"></div>
+    <div class="crhlv-eye" style="animation-delay:.2s"></div>
+    <div class="crhlv-eye" style="animation-delay:.1s"></div>
+    <div class="crhlv-eye" style="animation-delay:.3s"></div>
+  </div>
+
+  <!-- Texte -->
+  <div id="crhlv-txt">
+    <h1>🦀 PRIEZ LE GRAND CRHULU ! 🦀</h1>
+    <p>Il s'éveille des profondeurs… et il est en colère</p>
+  </div>
+
+  <!-- Crabe géant -->
+  <img id="crhlv-crab"
+    src="https://raw.githubusercontent.com/Mschapxb/RiskPirate/master/6564680a-4bfd-42c6-8eeb-7645c29140eb.png"
+    alt="Crhulu" />
+
+  <!-- Fissures -->
+  <svg id="crhlv-cracks" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <path d="M600,800 L550,600 L480,400 L600,200 L520,0" stroke="#cc44ff" stroke-width="3" fill="none"
+      stroke-dasharray="500" stroke-dashoffset="500" opacity="0"
+      style="animation:crhluCrack 1s 2.5s ease forwards"/>
+    <path d="M600,800 L650,580 L720,360 L600,200 L680,0" stroke="#00d4b8" stroke-width="2" fill="none"
+      stroke-dasharray="500" stroke-dashoffset="500" opacity="0"
+      style="animation:crhluCrack .8s 2.8s ease forwards"/>
+    <path d="M0,400 L200,380 L400,420 L600,400 L800,380 L1000,420 L1200,400" stroke="#ff44aa" stroke-width="2" fill="none"
+      stroke-dasharray="1200" stroke-dashoffset="1200" opacity="0"
+      style="animation:crhluCrack 1.2s 3s ease forwards"/>
+  </svg>
+
+  <!-- Barre timer -->
+  <div id="crhlv-bar"></div>
+
+  <!-- Bouton fuite -->
+  <button id="crhlv-close" onclick="closeCrhulu()">✕ FUIR</button>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════
+   🦀 EASTER EGG CRHULU
+══════════════════════════════════════════════ */
+(function(){
+  const AUDIO_URL = "https://raw.githubusercontent.com/Mschapxb/RiskPirate/master/Apollon%20Thunderstep%20Music%20de%20Moura%20-%20Cthulhu%20Awakens%20(Epic%20Music).mp3";
+  const DURATION  = 30000;
+
+  let active = false, audio = null, stopTimer = null;
+  let fallenEls = [], hiddenEls = [], barInterval = null;
+  let crabX = 0, crabY = 0, crabVx = 0, crabVy = 0;
+  let crabRafId = null;
+  let destroyedEls = new Set();
+
+  window.triggerCthulhu = window.triggerCrhulu = function() {
+    if(active) return;
+    active = true;
+
+    audio = new Audio(AUDIO_URL);
+    audio.loop = false; audio.volume = 0.9;
+    audio.play().catch(()=>{});
+
+    const bg = document.getElementById("crhlv-bg");
+    bg.classList.add("active");
+
+    // Barre timer
+    const bar = document.getElementById("crhlv-bar");
+    bar.style.width = "100%";
+    let barStart = null;
+    function animBar(ts) {
+      if(!barStart) barStart = ts;
+      const pct = Math.max(0, 100 - (ts-barStart)/DURATION*100);
+      bar.style.width = pct + "%";
+      const h = (ts/20)%360;
+      bar.style.background = `linear-gradient(90deg,hsl(${h},100%,60%),hsl(${(h+120)%360},100%,60%),hsl(${(h+240)%360},100%,60%))`;
+      if(pct > 0 && active) barInterval = requestAnimationFrame(animBar);
+    }
+    barInterval = requestAnimationFrame(animBar);
+
+    // Phase 1 : crabe entre en grossissant depuis le bas
+    const crab = document.getElementById("crhlv-crab");
+    crab.style.cssText = "";
+    crab.className = "";
+    crabX = window.innerWidth/2 - 200;
+    crabY = window.innerHeight + 100;
+    setCrabPos(crab, crabX, crabY, 0.05, 0, 1);
+
+    let entryT = 0;
+    const targetY = window.innerHeight - 320;
+    function entryAnim() {
+      entryT += 0.025;
+      const ease = 1 - Math.pow(1 - Math.min(entryT,1), 3);
+      crabY = window.innerHeight + 100 - ease * (window.innerHeight + 100 - targetY);
+      setCrabPos(crab, crabX, crabY, 0.05 + ease * 0.95, 0, 1);
+      if(entryT < 1) { crabRafId = requestAnimationFrame(entryAnim); }
+      else {
+        crabY = targetY;
+        const ang = -Math.PI/4;
+        crabVx = Math.cos(ang) * 3.5;
+        crabVy = Math.sin(ang) * 3.5;
+        setTimeout(()=>{ document.getElementById("crhlv-eyes").style.opacity="1"; },200);
+        setTimeout(()=>{ shakeBodyCrhulu(); flyTabs(); }, 400);
+        startCrabWalk(crab);
+      }
+    }
+    crabRafId = requestAnimationFrame(entryAnim);
+
+    // Phase finale : crabe replonge à 26s
+    setTimeout(()=>{
+      if(crabRafId) cancelAnimationFrame(crabRafId);
+      let exitT = 0;
+      const startX = crabX, startY = crabY;
+      function exitAnim() {
+        exitT += 0.018;
+        const ease = Math.pow(Math.min(exitT,1), 2);
+        setCrabPos(crab, crabX, startY + ease*600, Math.max(0,1-ease), 0, 1);
+        if(exitT < 1) requestAnimationFrame(exitAnim);
+      }
+      requestAnimationFrame(exitAnim);
+    }, 26000);
+
+    stopTimer = setTimeout(()=>closeCrhulu(), DURATION);
+  };
+
+  // Crabe qui se balade et détruit tout ce qu'il touche
+  function startCrabWalk(crab) {
+    const CW = 400, CH = 280;
+    let flip = 1, bobT = 0;
+
+    // Toutes les cibles destructibles
+    const targets = [
+      ...Array.from(document.querySelectorAll(".card")),
+      ...Array.from(document.querySelectorAll(".resource-tile")),
+      ...Array.from(document.querySelectorAll(".tab-panel > *")),
+    ].filter(el => {
+      const r = el.getBoundingClientRect();
+      return r.width > 20 && r.height > 20;
+    });
+
+    function walk() {
+      if(!active) return;
+      bobT += 0.07;
+      crabX += crabVx;
+      crabY += crabVy;
+
+      const W = window.innerWidth, H = window.innerHeight;
+
+      // Rebonds
+      if(crabX < 0)      { crabX=0;    crabVx=Math.abs(crabVx)+Math.random()*.5; spawnCrash(crabX,crabY+CH/2); }
+      if(crabX > W-CW)   { crabX=W-CW; crabVx=-(Math.abs(crabVx)+Math.random()*.5); spawnCrash(crabX+CW,crabY+CH/2); }
+      if(crabY < 0)      { crabY=0;    crabVy=Math.abs(crabVy)+Math.random()*.5; spawnCrash(crabX+CW/2,crabY); }
+      if(crabY > H-CH)   { crabY=H-CH; crabVy=-(Math.abs(crabVy)+Math.random()*.5); spawnCrash(crabX+CW/2,crabY+CH); }
+
+      // Cap vitesse (accélère légèrement avec le temps)
+      const elapsed = Date.now() - startTime;
+      const maxSpd = 4 + elapsed/8000;
+      crabVx = Math.max(-maxSpd, Math.min(maxSpd, crabVx));
+      crabVy = Math.max(-maxSpd, Math.min(maxSpd, crabVy));
+
+      flip = crabVx >= 0 ? 1 : -1;
+      const bob = Math.sin(bobT) * 5;
+      setCrabPos(crab, crabX, crabY, 1, bob, flip);
+
+      // Hitbox du crabe (centre)
+      const cx = crabX + CW/2, cy = crabY + CH/2;
+
+      // Détection collision avec les éléments
+      targets.forEach(el => {
+        if(destroyedEls.has(el)) return;
+        const r = el.getBoundingClientRect();
+        if(r.width < 5) return;
+        // Collision simple boîte-boîte
+        if(cx > r.left - 60 && cx < r.right + 60 &&
+           cy > r.top  - 40 && cy < r.bottom + 40) {
+          destroyedEls.add(el);
+          spawnCrash(r.left + r.width/2, r.top + r.height/2);
+          splitElement(el);
+        }
+      });
+
+      crabRafId = requestAnimationFrame(walk);
+    }
+
+    const startTime = Date.now();
+    crabRafId = requestAnimationFrame(walk);
+  }
+
+  function setCrabPos(el, x, y, scale, rot, flip) {
+    el.style.cssText = `
+      position:fixed; left:${x}px; top:${y}px;
+      width:400px; transform-origin:center bottom;
+      transform:scaleX(${flip}) rotate(${rot}deg) scale(${scale});
+      filter:drop-shadow(0 0 30px rgba(180,0,220,.8)) drop-shadow(0 0 60px rgba(0,200,180,.5));
+      z-index:19500; pointer-events:none; animation:none;
+    `;
+  }
+
+  // Effet de crash — éclat de particules
+  function spawnCrash(x, y) {
+    const EMOJIS = ["💥","⚡","🔥","💢","✸"];
+    const em = document.createElement("div");
+    em.textContent = EMOJIS[Math.floor(Math.random()*EMOJIS.length)];
+    em.style.cssText = `
+      position:fixed; left:${x-16}px; top:${y-16}px;
+      font-size:2rem; z-index:19800; pointer-events:none;
+      transition:transform .5s ease-out,opacity .4s .1s;
+    `;
+    document.body.appendChild(em);
+    fallenEls.push(em);
+    requestAnimationFrame(()=>{
+      em.style.transform = `translate(${(Math.random()*80-40).toFixed()}px,${(Math.random()*-60-20).toFixed()}px) scale(0.2)`;
+      em.style.opacity   = "0";
+    });
+    setTimeout(()=>em.remove(), 600);
+  }
+
+  // Élément coupé en deux
+  function splitElement(el) {
+    const rect = el.getBoundingClientRect();
+    if(rect.width < 10) return;
+    const side = Math.random()>.5 ? 1 : -1;
+
+    [0,1].forEach(half => {
+      const div = document.createElement("div");
+      const isTop = half === 0;
+      const dy  = isTop ? -(60+Math.random()*80) : (60+Math.random()*80);
+      const rot = side*(5+Math.random()*12)*(isTop?1:-1);
+      div.style.cssText = `
+        position:fixed;
+        left:${rect.left}px;
+        top:${isTop ? rect.top : rect.top+rect.height/2}px;
+        width:${rect.width}px; height:${rect.height/2}px;
+        background:${isTop?"var(--parchment-dark,#ede4cc)":"var(--parchment,#f5efdf)"};
+        border:1px solid rgba(200,0,255,.3); border-radius:3px;
+        overflow:hidden; z-index:18999; pointer-events:none;
+        transition:transform 1s cubic-bezier(.4,0,1,1), opacity .8s .2s;
+      `;
+      document.body.appendChild(div);
+      fallenEls.push(div);
+      requestAnimationFrame(()=>{
+        div.style.transform = `translateY(${dy}px) rotate(${rot}deg)`;
+        div.style.opacity   = "0";
+      });
+      setTimeout(()=>div.remove(), 1400);
+    });
+
+    el.style.visibility    = "hidden";
+    el.style.pointerEvents = "none";
+    hiddenEls.push(el);
+  }
+
+  // Onglets qui s'envolent au passage
+  function flyTabs() {
+    document.querySelectorAll(".tabs-nav .tab-btn").forEach((tab, i) => {
+      const rect = tab.getBoundingClientRect();
+      if(rect.width < 5 || destroyedEls.has(tab)) return;
+      destroyedEls.add(tab);
+      setTimeout(()=>{
+        const clone = document.createElement("div");
+        const dx = (i%2===0?-1:1)*(150+Math.random()*250);
+        clone.style.cssText = `
+          position:fixed; left:${rect.left}px; top:${rect.top}px;
+          background:var(--parchment-dark,#ede4cc);
+          border:1px solid rgba(200,0,255,.4); border-radius:3px 3px 0 0;
+          padding:.3rem .7rem; font-family:'Courier New',monospace; font-size:.68rem;
+          z-index:18999; pointer-events:none;
+          transition:transform .9s cubic-bezier(.4,0,.8,1),opacity .5s .4s;
+        `;
+        clone.textContent = tab.textContent;
+        document.body.appendChild(clone);
+        fallenEls.push(clone);
+        requestAnimationFrame(()=>{
+          clone.style.transform = `translate(${dx}px,-280px) rotate(${(Math.random()*60-30).toFixed()}deg)`;
+          clone.style.opacity   = "0";
+        });
+        tab.style.visibility="hidden"; tab.style.pointerEvents="none"; hiddenEls.push(tab);
+        setTimeout(()=>clone.remove(), 1600);
+      }, i*100);
+    });
+  }
+
+  function shakeBodyCrhulu() {
+    const s = document.createElement("style");
+    s.textContent=`@keyframes crhlvSh{0%,100%{transform:none}20%{transform:translate(-6px,3px) rotate(-.5deg)}50%{transform:translate(6px,-4px) rotate(.6deg)}80%{transform:translate(-5px,5px) rotate(-.4deg)}} .crhlv-shaking{animation:crhlvSh .15s ease-in-out 5}`;
+    document.head.appendChild(s);
+    document.body.classList.add("crhlv-shaking");
+    setTimeout(()=>{ document.body.classList.remove("crhlv-shaking"); s.remove(); },900);
+  }
+
+  window.closeCrhulu = function() {
+    if(!active) return;
+    active = false;
+    if(stopTimer)  { clearTimeout(stopTimer);          stopTimer=null; }
+    if(barInterval){ cancelAnimationFrame(barInterval); barInterval=null; }
+    if(crabRafId)  { cancelAnimationFrame(crabRafId);   crabRafId=null; }
+    destroyedEls.clear();
+
+    const bg = document.getElementById("crhlv-bg");
+    bg.style.transition="opacity 1s"; bg.style.opacity="0";
+    setTimeout(()=>{
+      bg.classList.remove("active"); bg.style.opacity=""; bg.style.transition="";
+      const c=document.getElementById("crhlv-crab"); c.style.cssText=""; c.className="";
+      document.getElementById("crhlv-eyes").style.opacity="0";
+    },1100);
+
+    if(audio){
+      const a=audio; audio=null; let v=a.volume;
+      const fi=setInterval(()=>{ v=Math.max(0,v-.04); try{a.volume=v;}catch(e){} if(v<=0){clearInterval(fi);a.pause();} },50);
+    }
+
+    fallenEls.forEach(el=>{ try{el.remove();}catch(e){} }); fallenEls=[];
+    hiddenEls.forEach(el=>{ el.style.visibility=""; el.style.pointerEvents=""; }); hiddenEls=[];
+  };
+
+  window.triggerCthulhu = window.triggerCrhulu = function() {
+    if(active) return;
+    active = true;
+
+    // ── Audio ──────────────────────────────────────────────
+    audio = new Audio(AUDIO_URL);
+    audio.loop = false; audio.volume = 0.9;
+    audio.play().catch(()=>{});
+
+    // ── Overlay ────────────────────────────────────────────
+    const bg = document.getElementById("crhlv-bg");
+    bg.classList.add("active");
+
+    // ── Barre timer ────────────────────────────────────────
+    const bar = document.getElementById("crhlv-bar");
+    bar.style.width = "100%";
+    let barStart = null;
+    function animBar(ts) {
+      if(!barStart) barStart = ts;
+      const pct = Math.max(0, 100 - (ts-barStart)/DURATION*100);
+      bar.style.width = pct + "%";
+      const h = (ts/20)%360;
+      bar.style.background = `linear-gradient(90deg,hsl(${h},100%,60%),hsl(${(h+120)%360},100%,60%),hsl(${(h+240)%360},100%,60%))`;
+      if(pct > 0 && active) barInterval = requestAnimationFrame(animBar);
+    }
+    barInterval = requestAnimationFrame(animBar);
+
+    // ── Phase 1 (0–2s) : crabe entre en grossissant ────────
+    const crab = document.getElementById("crhlv-crab");
+    crab.style.cssText = "";
+    crab.className = "";
+
+    // Position de départ : centre bas
+    crabX = window.innerWidth/2 - 200;
+    crabY = window.innerHeight + 100;
+    setCrabPos(crab, crabX, crabY, 0.05, 0);
+
+    // Entrée animée
+    let entryT = 0;
+    const targetX = window.innerWidth/2 - 200;
+    const targetY = window.innerHeight - 320;
+    function entryAnim() {
+      entryT += 0.025;
+      const ease = 1 - Math.pow(1 - Math.min(entryT,1), 3);
+      const scale = 0.05 + ease * 0.95;
+      crabX = targetX;
+      crabY = window.innerHeight + 100 - ease * (window.innerHeight + 100 - targetY);
+      setCrabPos(crab, crabX, crabY, scale, 0);
+      if(entryT < 1) { crabRafId = requestAnimationFrame(entryAnim); }
+      else {
+        crabX = targetX; crabY = targetY;
+        // Vitesse initiale aléatoire
+        const spd = 3;
+        const ang = Math.random() * Math.PI * 2;
+        crabVx = Math.cos(ang) * spd;
+        crabVy = Math.sin(ang) * spd;
+        startCrabWalk(crab);
+      }
+    }
+    crabRafId = requestAnimationFrame(entryAnim);
+
+    // ── Phase 2 (2s) : yeux ────────────────────────────────
+    setTimeout(()=>{
+      document.getElementById("crhlv-eyes").style.opacity = "1";
+    }, 1800);
+
+    // ── Phase 3 (3s) : destruction ────────────────────────
+    setTimeout(()=>{
+      shakeBodyCrhulu();
+      flyTabs();
+    }, 3000);
+
+    // ── Phase 5 (26s) : crabe replonge ────────────────────
+    setTimeout(()=>{
+      if(crabRafId) cancelAnimationFrame(crabRafId);
+      let exitT = 0;
+      const startX = crabX, startY = crabY;
+      function exitAnim() {
+        exitT += 0.02;
+        const ease = Math.pow(Math.min(exitT,1), 2);
+        const scale = Math.max(0, 1 - ease);
+        crabY = startY + ease * 500;
+        setCrabPos(crab, crabX, crabY, scale, 0);
+        if(exitT < 1) requestAnimationFrame(exitAnim);
+      }
+      requestAnimationFrame(exitAnim);
+    }, 26000);
+
+    // ── Fermeture auto ─────────────────────────────────────
+    stopTimer = setTimeout(()=>closeCrhulu(), DURATION);
+  };
+
+  // ── Crabe qui se balade et détruit tout à son passage ───
+  function startCrabWalk(crab) {
+    const CW = 400, CH = 280;
+    let flip = 1, bobT = 0, lastDestroy = 0;
+
+    function walk(ts) {
+      if(!active) return;
+      bobT += 0.07;
+      const W = window.innerWidth, H = window.innerHeight;
+      crabX += crabVx; crabY += crabVy;
+
+      // Rebonds + crash
+      if(crabX < 0)    { crabX=0;    crabVx=Math.abs(crabVx)+.4; spawnCrash(20,          crabY+CH/2); }
+      if(crabX > W-CW) { crabX=W-CW; crabVx=-(Math.abs(crabVx)+.4); spawnCrash(W-20,     crabY+CH/2); }
+      if(crabY < 0)    { crabY=0;    crabVy=Math.abs(crabVy)+.4; spawnCrash(crabX+CW/2,  20); }
+      if(crabY > H-CH) { crabY=H-CH; crabVy=-(Math.abs(crabVy)+.4); spawnCrash(crabX+CW/2,H-20); }
+
+      // Accélération progressive
+      const maxSpd = 4 + (ts - startTs) / 5000;
+      crabVx = Math.max(-maxSpd, Math.min(maxSpd, crabVx));
+      crabVy = Math.max(-maxSpd, Math.min(maxSpd, crabVy));
+
+      flip = crabVx >= 0 ? 1 : -1;
+      setCrabPos(crab, crabX, crabY, 1, Math.sin(bobT)*5, flip);
+
+      // Centre + rayon du crabe
+      const cCX = crabX + CW/2;
+      const cCY = crabY + CH/2;
+
+      // Destruction — recalcul live à chaque frame, une cible toutes les 150ms
+      if(ts - lastDestroy > 150) {
+        const sel = ".card, .resource-tile, h2, h3, h4, .nation-name-display, .btn-seal, .badge, .table-row, .compass-icon, .tabs-nav, .header-actions > *, .overline";
+        for(const el of document.querySelectorAll(sel)) {
+          if(destroyedEls.has(el)) continue;
+          const r = el.getBoundingClientRect();
+          if(r.width < 4 || r.height < 4) continue;
+          const eCX = r.left + r.width/2, eCY = r.top + r.height/2;
+          // Distance centre crabe → centre élément
+          if(Math.abs(cCX - eCX) < CW/2 + r.width/2 &&
+             Math.abs(cCY - eCY) < CH/2 + r.height/2) {
+            destroyedEls.add(el);
+            lastDestroy = ts;
+            spawnCrash(eCX, eCY);
+            splitElement(el);
+            break;
+          }
+        }
+      }
+
+      crabRafId = requestAnimationFrame(walk);
+    }
+    const startTs = performance.now();
+    crabRafId = requestAnimationFrame(walk);
+  }
+
+  function setCrabPos(el, x, y, scale, rot, flip=1) {
+    el.style.position   = "fixed";
+    el.style.left       = x + "px";
+    el.style.top        = y + "px";
+    el.style.transform  = `scaleX(${flip}) rotate(${rot}deg) scale(${scale})`;
+    el.style.transformOrigin = "center bottom";
+    el.style.width      = "400px";
+    el.style.animation  = "none";
+    el.style.filter     = `drop-shadow(0 0 30px rgba(180,0,220,.8)) drop-shadow(0 0 60px rgba(0,200,180,.5))`;
+    el.style.zIndex     = "19500";
+  }
+
+
+  // ── Élément coupé en deux ──────────────────────────────
+  function splitElement(el) {
+    const rect = el.getBoundingClientRect();
+    if(rect.width < 10) return;
+    const side = Math.random() > .5 ? 1 : -1;
+
+    const top = mkSplitEl(rect.left, rect.top, rect.width, rect.height/2, "var(--parchment-dark,#ede4cc)", side, -1);
+    const bot = mkSplitEl(rect.left, rect.top+rect.height/2, rect.width, rect.height/2, "var(--parchment,#f5efdf)", -side, 1);
+
+    document.body.appendChild(top);
+    document.body.appendChild(bot);
+    fallenEls.push(top, bot);
+
+    el.style.visibility   = "hidden";
+    el.style.pointerEvents = "none";
+    hiddenEls.push(el);
+
+    setTimeout(()=>{ top.remove(); bot.remove(); }, 1800);
+  }
+
+  function mkSplitEl(x, y, w, h, bg, side, dirY) {
+    const el = document.createElement("div");
+    const dy  = (80+Math.random()*80) * dirY;
+    const rot = side * (5+Math.random()*12);
+    el.style.cssText = `
+      position:fixed; left:${x}px; top:${y}px;
+      width:${w}px; height:${h}px;
+      background:${bg}; border:1px solid rgba(200,0,255,.3);
+      z-index:18999; pointer-events:none; overflow:hidden;
+      border-radius:3px;
+      transition: transform 1.2s cubic-bezier(.4,0,1,1), opacity 1s .2s;
+    `;
+    requestAnimationFrame(()=>{
+      el.style.transform = `translateY(${dy}px) rotate(${rot}deg)`;
+      el.style.opacity   = "0";
+    });
+    return el;
+  }
+
+  // ── Onglets qui s'envolent ─────────────────────────────
+  function flyTabs() {
+    document.querySelectorAll(".tabs-nav .tab-btn").forEach((tab, i) => {
+      const rect = tab.getBoundingClientRect();
+      if(rect.width < 5 || destroyedEls.has(tab)) return;
+      destroyedEls.add(tab);
+
+      const clone = document.createElement("div");
+      const dx = (i%2===0?-1:1)*(200+Math.random()*300);
+      clone.style.cssText = `
+        position:fixed; left:${rect.left}px; top:${rect.top}px;
+        background:var(--parchment-dark,#ede4cc);
+        border:1px solid rgba(200,0,255,.4); border-radius:3px 3px 0 0;
+        padding:.3rem .7rem; font-family:'Courier New',monospace; font-size:.68rem;
+        z-index:18999; pointer-events:none;
+        transition:transform ${.9+Math.random()*.5}s ${i*.08}s cubic-bezier(.4,0,.8,1), opacity .4s ${i*.08+.6}s;
+      `;
+      clone.textContent = tab.textContent;
+      document.body.appendChild(clone);
+      fallenEls.push(clone);
+      requestAnimationFrame(()=>{
+        clone.style.transform = `translate(${dx}px,-300px) rotate(${(Math.random()*60-30).toFixed(0)}deg)`;
+        clone.style.opacity   = "0";
+      });
+
+      setTimeout(()=>{ tab.style.visibility="hidden"; tab.style.pointerEvents="none"; hiddenEls.push(tab); }, i*80+200);
+      setTimeout(()=>clone.remove(), i*80+1800);
+    });
+  }
+
+  // ── Tremblement de page ────────────────────────────────
+  function shakeBodyCrhulu() {
+    const s = document.createElement("style");
+    s.textContent = `@keyframes crhlvBodyShake{0%,100%{transform:none}15%{transform:translate(-6px,3px) rotate(-.5deg)}35%{transform:translate(6px,-4px) rotate(.6deg)}55%{transform:translate(-5px,5px) rotate(-.4deg)}75%{transform:translate(5px,-3px) rotate(.4deg)}} .crhlv-shaking{animation:crhlvBodyShake .15s ease-in-out 5}`;
+    document.head.appendChild(s);
+    document.body.classList.add("crhlv-shaking");
+    setTimeout(()=>{ document.body.classList.remove("crhlv-shaking"); s.remove(); }, 1000);
+  }
+
+  window.closeCrhulu = function() {
+    if(!active) return;
+    active = false;
+    if(stopTimer) { clearTimeout(stopTimer); stopTimer = null; }
+    if(barInterval) { cancelAnimationFrame(barInterval); barInterval = null; }
+    if(crabRafId)   { cancelAnimationFrame(crabRafId);   crabRafId = null; }
+    destroyedEls.clear();
+
+    // Fadeout overlay
+    const bg = document.getElementById("crhlv-bg");
+    bg.style.transition = "opacity 1s";
+    bg.style.opacity    = "0";
+    setTimeout(()=>{
+      bg.classList.remove("active");
+      bg.style.opacity = ""; bg.style.transition = "";
+      const c = document.getElementById("crhlv-crab");
+      c.style.cssText = ""; c.className = "";
+      document.getElementById("crhlv-eyes").style.opacity = "0";
+    }, 1100);
+
+    // Fadeout audio
+    if(audio) {
+      const a = audio; audio = null;
+      let v = a.volume;
+      const fi = setInterval(()=>{ v=Math.max(0,v-.04); try{a.volume=v;}catch(e){} if(v<=0){clearInterval(fi);a.pause();} },50);
+    }
+
+    // Nettoyer clones
+    fallenEls.forEach(el=>{ try{el.remove();}catch(e){} }); fallenEls=[];
+
+    // Restaurer éléments
+    hiddenEls.forEach(el=>{ el.style.visibility=""; el.style.pointerEvents=""; }); hiddenEls=[];
+  };
+})();
 </script>
 </body>
 </html>
