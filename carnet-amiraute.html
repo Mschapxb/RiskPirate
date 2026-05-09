@@ -134,9 +134,10 @@ h1,h2,h3,h4 { font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgi
   padding: 1rem; box-shadow: 2px 2px 0 rgba(139,105,20,0.06);
 }
 .resource-value { font-size: 1.9rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-.resource-delta { font-family: 'Courier New', monospace; font-size: 0.72rem; margin-top: 0.4rem; display: flex; align-items: center; gap: 0.25rem; }
-.delta-pos { color: var(--success); }
-.delta-neg { color: var(--crimson); }
+.resource-delta { font-family: 'Courier New', monospace; font-size: 0.78rem; font-weight: 700; margin-top: 0.4rem; display: flex; align-items: center; gap: 0.25rem; }
+.delta-pos { color: #1a7a1a; }
+.delta-neg { color: #b52020; }
+.delta-neu { color: var(--muted); font-weight: 400; }
 .delta-neu { color: var(--muted); }
 
 /* ── Forms ── */
@@ -387,7 +388,7 @@ input:checked + .slider:before { transform: translateX(18px); }
     <div class="tabs-nav" style="margin-bottom:1rem">
       <button class="tab-btn active" onclick="showMilTab('armee',this)">⚔ Armée de terre</button>
       <button class="tab-btn" onclick="showMilTab('marine',this)">⚓ Marine</button>
-      <button class="tab-btn" onclick="showMilTab('training',this)">🏕️ Entraînement</button>
+      <button class="tab-btn" onclick="showMilTab('training',this)">🏕️ Camp</button>
     </div>
     <div id="mil-armee" class="space-y"></div>
     <div id="mil-marine" class="space-y hidden"></div>
@@ -1373,28 +1374,27 @@ function computeTurnChanges() {
     breakdown.push({label:`Nourriture (${eaters} hab. hors capitale × 1 blé)`,changes:{ble:-bleUsed,__pop:eaters}});
   }
 
-  // 10) Commerce récurrent
+  // 10) Commerce — routes récurrentes ET ponctuelles (les ponctuelles sont supprimées après)
   const tradeCh=emptyRes();
   for(const r of G.trade_routes) {
-    if(!r.recurring) continue;
+    // récurrent OU ponctuel : les deux s'appliquent ce tour
     if(r.direction==="import"){tradeCh[r.resource]=(tradeCh[r.resource]||0)+r.quantity;tradeCh.or=(tradeCh.or||0)-r.quantity*r.price_per_unit;}
     else{tradeCh[r.resource]=(tradeCh[r.resource]||0)-r.quantity;tradeCh.or=(tradeCh.or||0)+r.quantity*r.price_per_unit;}
   }
   if(Object.values(tradeCh).some(v=>v!==0)) {
     for(const[k,v] of Object.entries(tradeCh)) delta[k]=(delta[k]||0)+v;
-    breakdown.push({label:"Commerce (récurrent)",changes:Object.fromEntries(Object.entries(tradeCh).filter(([,v])=>v!==0))});
+    breakdown.push({label:"Commerce (export)",changes:Object.fromEntries(Object.entries(tradeCh).filter(([,v])=>v!==0))});
   }
 
-  // 9b) Échanges entre joueurs (récurrents)
+  // 9b) Échanges entre joueurs — récurrents ET ponctuels
   const ptCh=emptyRes();
   for(const pt of (G.player_trades||[])) {
-    if(!pt.recurring) continue;
     if(RESOURCE_KEYS.includes(pt.give_res))  ptCh[pt.give_res] =(ptCh[pt.give_res] ||0)-pt.give_qty;
     if(RESOURCE_KEYS.includes(pt.recv_res))  ptCh[pt.recv_res] =(ptCh[pt.recv_res] ||0)+pt.recv_qty;
   }
   if(Object.values(ptCh).some(v=>v!==0)) {
     for(const[k,v] of Object.entries(ptCh)) delta[k]=(delta[k]||0)+v;
-    breakdown.push({label:"Échanges joueurs (récurrent)",changes:Object.fromEntries(Object.entries(ptCh).filter(([,v])=>v!==0))});
+    breakdown.push({label:"Échanges joueurs",changes:Object.fromEntries(Object.entries(ptCh).filter(([,v])=>v!==0))});
   }
 
   // 11) Population libre → 1 or / habitant libre / tour (bêta, activable)
@@ -1976,8 +1976,10 @@ function actionEndTurn() {
       levelUps.push(tu);
     }
   }
+  // Supprimer les ponctuels après application (déjà calculés dans computeTurnChanges)
+  G.trade_routes  = G.trade_routes.filter(r=>r.recurring);
+  G.player_trades = (G.player_trades||[]).filter(pt=>pt.recurring);
   G.training_units = G.training_units.filter(tu=>!tu._remove);
-  ch.deficits = deficits;
   G.resources = after;
   G.turn++;
   const report={turn:G.turn-1,timestamp:new Date().toISOString(),before,delta:ch.delta,after,breakdown:ch.breakdown,pop_occupied:ch.pop_occupied,deficits:deficits,turn_log:[...(G.turn_log||[])]};
@@ -2052,7 +2054,7 @@ function randomResources(domain) {
 // RENDER
 // =============================================================================
 function fmt(n) { return (n||0).toLocaleString('fr-FR'); }
-function fmtDelta(n) { return n>0?`+${fmt(n)}`:fmt(n); }
+function fmtDelta(n) { return n>0?`+${fmt(n)}`:n<0?fmt(n):'0'; }
 function costStr(cost) { return Object.entries(cost).map(([k,v])=>`${fmt(v)} ${RESOURCE_LABELS[k]||k}`).join(' · '); }
 
 function render() {
@@ -2167,7 +2169,22 @@ function computeResourceSources() {
     }
   }
 
-  // Nourriture (hors capitale)
+  // Entretien navires
+  for(const sg of G.ships) {
+    const spec = sg.kind==="guerre"?(SHIP_TIERS[sg.tier]||SHIP_TIERS[1]):sg.kind==="galion"?GALION:MERCHANT_SHIP;
+    for(const [k,v] of Object.entries(spec.upkeep)) {
+      init(k); sources[k].push({label:`Entretien ${spec.label} ×${sg.count}`, value:-v*sg.count});
+    }
+  }
+
+  // Solde troupes
+  for(const tg of G.troops) {
+    const tiers = tg.branch==="infanterie"?TROOP_TIERS_INFANTERIE:TROOP_TIERS_MARINE;
+    const spec = tiers[tg.tier]; if(!spec) continue;
+    for(const [k,v] of Object.entries(spec.upkeep)) {
+      init(k); sources[k].push({label:`Solde ${tg.branch} Niv.${tg.tier} ×${tg.packs} paq.`, value:-v*tg.packs});
+    }
+  }
   const _capitalCap2 = CAPITAL_BASE_POP + G.buildings.reduce((sum,b)=>{
     return sum + (UTILITY_BUILDINGS[b.type]?.capital_pop_bonus||0);
   }, 0);
@@ -2193,15 +2210,27 @@ function computeResourceSources() {
     }
   }
 
-  // Commerce récurrent
+  // Commerce — routes récurrentes ET ponctuelles
   for(const r of G.trade_routes) {
-    if(!r.recurring) continue;
+    const label = r.recurring ? "" : " 🕐";
     if(r.direction==="import") {
-      init(r.resource); sources[r.resource].push({label:`Import ${r.partner||"?"}`, value:r.quantity});
-      init("or"); sources["or"].push({label:`Paiement import ${r.partner||"?"}`, value:-r.quantity*r.price_per_unit});
+      init(r.resource); sources[r.resource].push({label:`Import ${r.partner||"?"}${label}`, value:r.quantity});
+      init("or"); sources["or"].push({label:`Paiement import ${r.partner||"?"}${label}`, value:-r.quantity*r.price_per_unit});
     } else {
-      init(r.resource); sources[r.resource].push({label:`Export ${r.partner||"?"}`, value:-r.quantity});
-      init("or"); sources["or"].push({label:`Recette export ${r.partner||"?"}`, value:r.quantity*r.price_per_unit});
+      init(r.resource); sources[r.resource].push({label:`Export → ${r.partner||"?"}${label}`, value:-r.quantity});
+      init("or"); sources["or"].push({label:`Recette ${RESOURCE_LABELS[r.resource]||r.resource} → ${r.partner||"?"}${label}`, value:r.quantity*r.price_per_unit});
+    }
+  }
+
+  // Échanges joueurs — récurrents ET ponctuels
+  for(const pt of (G.player_trades||[])) {
+    const label = pt.recurring ? "" : " 🕐";
+    const partner = pt.partner||"?";
+    if(RESOURCE_KEYS.includes(pt.give_res)) {
+      init(pt.give_res); sources[pt.give_res].push({label:`Échange → ${partner}${label}`, value:-pt.give_qty});
+    }
+    if(RESOURCE_KEYS.includes(pt.recv_res)) {
+      init(pt.recv_res); sources[pt.recv_res].push({label:`Échange ← ${partner}${label}`, value:pt.recv_qty});
     }
   }
 
@@ -2311,7 +2340,7 @@ function renderResources() {
         <span>${RESOURCE_ICON[k]||""}</span>
       </div>
       <div class="resource-value">${fmt(v)}</div>
-      <div class="resource-delta ${dc}">${da} <span>${fmtDelta(d)}/tour</span></div>
+      <div class="resource-delta ${dc}" title="Delta ce tour : ${fmtDelta(d)}">${da}&nbsp;<span style="letter-spacing:0.02em">${fmtDelta(d)}</span><span style="font-weight:400;opacity:0.7;font-size:0.68rem">/tour</span></div>
       ${srcHtml}
     </div>`;
   }).join("");
@@ -5470,7 +5499,10 @@ window.addEventListener("DOMContentLoaded",()=>{
         <circle cx="20"  cy="1" r="2" fill="#00ff88" opacity="0.25"/>
       </g>
 
-      <!-- 🦀 Crabe géant (émerge du fond) -->
+      <!-- 🚢 Bateau gif (petit, discret) -->
+      <image id="gif-boat" href="https://raw.githubusercontent.com/Mschapxb/RiskPirate/master/e37ac96e-b56a-469a-8fee-ab5a2c57daaf.png"
+        width="55" height="45" opacity="0" style="image-rendering:auto"/>
+
       <g id="giant-crab" opacity="0" style="cursor:pointer" onclick="triggerCthulhu()"
          title="Priez le grand Cthulhu...">
         <!-- Carapace -->
@@ -5573,11 +5605,18 @@ window.addEventListener("DOMContentLoaded",()=>{
   const cannonball  = document.getElementById("cannonball");
   const cannonFlash = document.getElementById("cannon-flash");
 
+  const gifBoat     = document.getElementById("gif-boat");
+
   let t = 0;
 
   // ── État de chaque acteur ──────────────────────────────
   // Bateau principal
   let mainX = -100, mainVisible = true;
+
+  // Bateau gif (traverse de gauche à droite, légèrement plus petit et en avant)
+  let gifX = -80, gifOpacity = 0;
+  let gifDir = 1; // 1=droite, -1=gauche
+  let gifTimer = 200 + Math.random()*300;
 
   // Pirate
   let pirateState = "hidden"; // hidden | approaching | attacking | retreating
@@ -5657,6 +5696,29 @@ window.addEventListener("DOMContentLoaded",()=>{
     mainX += 0.28;
     if(mainX > 1300) mainX = -120;
     placeBoat(mainBoat, mainX, mainVisible?1:0);
+
+    // ── Bateau gif ────────────────────────────────────────
+    gifTimer--;
+    if(gifTimer <= 0) {
+      if(gifOpacity === 0) {
+        gifDir = Math.random() < 0.5 ? 1 : -1;
+        gifX   = gifDir === 1 ? -80 : 1280;
+      }
+      gifX += gifDir * 0.9;
+      gifOpacity = Math.min(1, gifOpacity + 0.03);
+      const syG = surfaceAt(gifX + 27);
+      gifBoat.setAttribute("x", gifX.toFixed(1));
+      gifBoat.setAttribute("y", (syG - 38).toFixed(1));
+      gifBoat.setAttribute("opacity", gifOpacity.toFixed(2));
+      gifBoat.setAttribute("transform",
+        gifDir < 0 ? "translate("+(gifX*2 + 55).toFixed(1)+",0) scale(-1,1)" : "");
+      if(gifX > 1300 || gifX < -100) {
+        gifOpacity = 0;
+        gifBoat.setAttribute("opacity","0");
+        gifBoat.setAttribute("transform","");
+        gifTimer = 350 + Math.random()*350;
+      }
+    }
 
     // ── Pirate ────────────────────────────────────────
     pirateTimer--;
