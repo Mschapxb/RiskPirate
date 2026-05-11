@@ -951,9 +951,9 @@ window.addEventListener("unhandledrejection", function(e) {
   }, 100);
 });
 
-const RESOURCE_KEYS = ["or","fer","ble","sucre","tabac","cacao","bois","nacre","sel","acier","planches","rhum","cigares","chocolat","pain","conserves","bijoux"];
-const RESOURCE_LABELS = {or:"Or",fer:"Fer",ble:"Blé",sucre:"Sucre",tabac:"Tabac",cacao:"Cacao",bois:"Bois",nacre:"Nacre",sel:"Sel",acier:"Acier",planches:"Planches",rhum:"Rhum",cigares:"Cigares",chocolat:"Chocolat",pain:"Pain",conserves:"Conserves",bijoux:"Bijoux"};
-const RESOURCE_ICON = {or:"🪙",fer:"⛏️",ble:"🌾",sucre:"🍬",tabac:"🚬",cacao:"🍫",bois:"🌲",nacre:"💎",sel:"🌊",acier:"⚙️",planches:"📦",rhum:"🍺",cigares:"🚬",chocolat:"🍫",pain:"🥐",conserves:"📦",bijoux:"✨"};
+const RESOURCE_KEYS = ["or","fer","ble","sucre","tabac","cacao","bois","nacre","sel","acier","planches","rhum","cigares","chocolat","bijoux"];
+const RESOURCE_LABELS = {or:"Or",fer:"Fer",ble:"Blé",sucre:"Sucre",tabac:"Tabac",cacao:"Cacao",bois:"Bois",nacre:"Nacre",sel:"Sel",acier:"Acier",planches:"Planches",rhum:"Rhum",cigares:"Cigares",chocolat:"Chocolat",bijoux:"Bijoux"};
+const RESOURCE_ICON = {or:"🪙",fer:"⛏️",ble:"🌾",sucre:"🍬",tabac:"🚬",cacao:"🍫",bois:"🌲",nacre:"💎",sel:"🌊",acier:"⚙️",planches:"📦",rhum:"🍺",cigares:"🚬",chocolat:"🍫",bijoux:"✨"};
 const TILE_RESOURCES = {
   or:{label:"Gisement d'or",primary:"Mine d'or",domain:"terre"},
   fer:{label:"Gisement de fer",primary:"Mine de fer",domain:"terre"},
@@ -1033,11 +1033,11 @@ const TROOP_TIERS_INFANTERIE = {
 };
 const TROOP_TIERS_MARINE = {
   1:{label:"Niveau I",   recruit_cost:{or:100},  upkeep:{or:30, fer:30, ble:20},   power:1.0},
-  2:{label:"Niveau II",  recruit_cost:{or:200},  upkeep:{or:60, fer:60, ble:50},   power:1.6},
-  3:{label:"Niveau III", recruit_cost:{or:300},  upkeep:{or:120,fer:120,ble:110},  power:2.5},
 };
 const INFANTRY_BUILDING_REQ = {1:"base_militaire_1",2:"base_militaire_2",3:"base_militaire_3"};
-const MARINE_BUILDING_REQ = {1:"port_militaire_1",2:"port_militaire_2",3:"port_militaire_3"};
+const MARINE_BUILDING_REQ = {1:"port_militaire_1"};
+// Marins (en paquets) requis par navire de guerre pour être armé
+const SHIP_MARINES_REQUIRED = {guerre:{1:1,2:2,3:3},galion:15};
 const TROOP_POP_PER_PACK = 10;
 
 const SHIP_TIERS = {
@@ -1052,8 +1052,8 @@ const USINES = {
   rhum:{label:"Distillerie de Rhum",cost:{or:1000},pop:20,prereq:[["sucre",3]],consume:{sucre:600},produce:{rhum:100}},
   cigares:{label:"Manufacture de cigares",cost:{or:1000},pop:20,prereq:[["tabac",3]],consume:{tabac:600},produce:{cigares:100}},
   chocolat:{label:"Chocolaterie",cost:{or:1000},pop:20,prereq:[["cacao",3]],consume:{cacao:600},produce:{chocolat:100}},
-  boulangerie:{label:"Boulangerie",cost:{or:1000},pop:20,prereq:[["ble",3],["sel",3]],consume:{ble:1000,sel:100},produce:{pain:100}},
-  conserverie:{label:"Conserverie",cost:{or:1000},pop:20,prereq:[["poisson",3]],consume:{ble:800},produce:{conserves:100}},
+  boulangerie:{label:"Boulangerie",cost:{or:1000},pop:20,prereq:[["ble",3],["sel",3]],consume:{ble:600,sel:300},produce:{ble:1000}},
+  conserverie:{label:"Conserverie",cost:{or:1000},pop:20,prereq:[["poisson",3]],consume:{ble:600,fer:100},produce:{ble:1000}},
   bijouterie:{label:"Bijouterie",cost:{or:1000},pop:20,prereq:[["nacre",3],["or",3]],consume:{or:600,nacre:100},produce:{bijoux:100}},
   forgerie:{label:"Forgerie",cost:{or:1000},pop:20,prereq:[["fer",3]],consume:{fer:600},produce:{acier:300}},
   scierie_indus:{label:"Usine à planches",cost:{or:1000},pop:20,prereq:[["bois",3]],consume:{bois:600},produce:{planches:300}},
@@ -1072,7 +1072,7 @@ let preview = null;
 function newNation() {
   return {
     id:"default",name:"Mon Empire",turn:0,
-    resources:{or:600,fer:600,ble:600,bois:600,sucre:0,tabac:0,cacao:0,nacre:0,sel:0,acier:0,planches:0,rhum:0,cigares:0,chocolat:0,pain:0,conserves:0,bijoux:0},
+    resources:{or:600,fer:600,ble:600,bois:600,sucre:0,tabac:0,cacao:0,nacre:0,sel:0,acier:0,planches:0,rhum:0,cigares:0,chocolat:0,bijoux:0},
     population_total:100,
     tiles:[{id:uid(),name:"Capitale",domain:"capitale",resource:null,has_primary:false,has_fortress:false}],
     buildings:[],usines:[],troops:[],ships:[],trade_routes:[],player_trades:[],training_units:[],attacks:[],
@@ -1217,8 +1217,8 @@ function popOccupied() {
   for(const b of G.buildings) { const i=UTILITY_BUILDINGS[b.type]; if(i) occ+=(i.pop_required||0); }
   for(const tg of G.troops) occ+=tg.packs*TROOP_POP_PER_PACK;
   for(const sg of G.ships) {
-    const crew = sg.kind==="guerre"?(SHIP_TIERS[sg.tier]||SHIP_TIERS[1]).crew : sg.kind==="galion"?GALION.crew:MERCHANT_SHIP.crew;
-    occ+=sg.count*crew;
+    // Navires de guerre et galions : la pop est déjà comptée via les paquets de marins (troupes)
+    if(sg.kind==="commerce") occ+=sg.count*MERCHANT_SHIP.crew;
   }
   return occ;
 }
@@ -1656,8 +1656,10 @@ function actionBuildUsine(type) {
       const have=primaryByRes[res]||0;
       if(have<needed) error(`Prérequis : ${needed} bât. primaire(s) sur ${RESOURCE_LABELS[res]||res} (${have}/${needed})`);
     }
-    const alreadyBuilt = G.usines.some(u=>u.type===type) || (G.free_usines||[]).some(u=>u.type===type);
-    if(alreadyBuilt) error(`${info.label} déjà construite — une seule par type autorisée.`);
+    // Limite : autant d'usines que de bâtiments primaires disponibles sur la ressource requise
+    const alreadyCount = G.usines.filter(u=>u.type===type).length + (G.free_usines||[]).filter(u=>u.type===type).length;
+    const maxAllowed = info.prereq.length ? Math.min(...info.prereq.map(([res,n])=>Math.floor((primaryByRes[res]||0)/n))) : Infinity;
+    if(alreadyCount>=maxAllowed) error(`Maximum atteint — ${alreadyCount} usine(s) pour ${maxAllowed} groupe(s) de bât. primaires disponibles.`);
     const err=canAfford(G.resources,info.cost); if(err) error(err);
     const free=popCapacity()-popOccupied();
     if(free<info.pop) error(`Population insuffisante (${free}/${info.pop})`);
@@ -1698,9 +1700,9 @@ function actionRecruit(branch,tier,packs) {
   const _b=branch,_t=parseInt(tier),_p=parseInt(packs);
   const _recruitOk = run(()=>{
     tier=parseInt(tier); packs=parseInt(packs);
-    if(![1,2,3].includes(tier)) error("Niveau invalide");
-    if(packs<=0) error("Quantité invalide");
     const tiers=branch==="infanterie"?TROOP_TIERS_INFANTERIE:TROOP_TIERS_MARINE;
+    if(!tiers[tier]) error("Niveau invalide");
+    if(packs<=0) error("Quantité invalide");
     const spec=tiers[tier];
     const reqBld=branch==="infanterie"?INFANTRY_BUILDING_REQ[tier]:MARINE_BUILDING_REQ[tier];
     // Accepter le bâtiment requis OU n'importe quel niveau supérieur de la même chaîne
@@ -1736,6 +1738,19 @@ function actionDisbandTroop(id,packs) {
   toast("Pack démobilisé.");
 }
 
+// ── Marins disponibles (non liés à un navire) ─────────────────────────────
+function totalMarinePacks() {
+  return G.troops.filter(t=>t.branch==="marine").reduce((a,t)=>a+t.packs,0);
+}
+function linkedMarinePacks() {
+  return G.ships.filter(s=>s.kind==="guerre"||s.kind==="galion")
+    .reduce((a,s)=>{
+      const req = s.kind==="galion" ? SHIP_MARINES_REQUIRED.galion : (SHIP_MARINES_REQUIRED.guerre[s.tier]||1);
+      return a + req * s.count;
+    },0);
+}
+function freeMarinePacks() { return Math.max(0, totalMarinePacks() - linkedMarinePacks()); }
+
 function actionBuildShip(kind,tier,count) {
   run(()=>{
     tier=parseInt(tier); count=parseInt(count);
@@ -1764,8 +1779,16 @@ function actionBuildShip(kind,tier,count) {
     }
     const cost=Object.fromEntries(Object.entries(spec.cost).map(([k,v])=>[k,v*count]));
     const err=canAfford(G.resources,cost); if(err) error(err);
-    const free=popCapacity()-popOccupied();
-    if(free<spec.crew*count) error(`Population insuffisante pour l'équipage (${free}/${spec.crew*count})`);
+    // Vérification marins pour navires de guerre et galions
+    if(kind==="guerre"||kind==="galion") {
+      const packsNeeded = kind==="galion" ? SHIP_MARINES_REQUIRED.galion*count : (SHIP_MARINES_REQUIRED.guerre[tier]||1)*count;
+      const free=freeMarinePacks();
+      if(free<packsNeeded) error(`Marins insuffisants — ${free} paquet(s) libre(s), ${packsNeeded} requis (${packsNeeded*10} marins). Recrutez des marins d'abord.`);
+    } else {
+      // Navire marchand : pop générale suffisante
+      const free=popCapacity()-popOccupied();
+      if(free<spec.crew*count) error(`Population insuffisante pour l'équipage (${free}/${spec.crew*count})`);
+    }
     deduct(G.resources,cost);
     const ex=G.ships.find(s=>s.kind===kind&&s.tier===shipTier);
     if(ex) ex.count+=count;
@@ -1787,8 +1810,9 @@ function actionDisbandShip(id,count) {
     if(count<=0||count>g.count) error("Quantité invalide");
     g.count-=count;
     if(g.count===0) G.ships=G.ships.filter(s=>s.id!==id);
+    // Les marins liés à ce navire sont automatiquement libérés (linked = recalculé à la volée)
   });
-  toast("Navire désarmé.");
+  toast("Navire désarmé — marins libérés.");
 }
 
 const TRADE_EXPORTABLE = ["cacao","tabac","sucre","sel","nacre","rhum","cigares","chocolat","bijoux"];
@@ -2288,8 +2312,8 @@ function renderResources() {
     [...G.usines,...(G.free_usines||[])].forEach(u=>{const i=USINES[u.type];if(i)rows.push({cat:"⚙ Usines",label:i.label+(G.free_usines?.some(x=>x.id===u.id)?" ✨":""),pop:i.pop});});
     // Troupes
     [...G.troops,...(G.free_troops||[])].forEach(t=>{rows.push({cat:"⚔ Armée",label:`${t.branch} Niv.${t.tier} ×${t.packs}${G.free_troops?.some(x=>x.id===t.id)?" ✨":""}`,pop:t.packs*TROOP_POP_PER_PACK});});
-    // Navires
-    [...G.ships,...(G.free_ships||[])].forEach(s=>{const spec=s.kind==="guerre"?(SHIP_TIERS[s.tier]||SHIP_TIERS[1]):s.kind==="galion"?GALION:MERCHANT_SHIP;rows.push({cat:"🚢 Marine",label:`${spec.label} ×${s.count}${G.free_ships?.some(x=>x.id===s.id)?" ✨":""}`,pop:spec.crew*s.count});});
+    // Navires marchands uniquement (guerre/galion = pop comptée via les marins)
+    [...G.ships,...(G.free_ships||[])].filter(s=>s.kind==="commerce").forEach(s=>{rows.push({cat:"🚢 Marine",label:`Navire marchand ×${s.count}${G.free_ships?.some(x=>x.id===s.id)?" ✨":""}`,pop:MERCHANT_SHIP.crew*s.count});});
 
     if(!rows.length) { pd.innerHTML=""; }
     else {
@@ -2613,18 +2637,21 @@ function renderUsines() {
         const info=USINES[u.type]; if(!info) return "";
         const cons=Object.entries(info.consume).map(([k,v])=>`−${v} ${RESOURCE_LABELS[k]}`).join(" · ");
         const prod=Object.entries(info.produce).map(([k,v])=>`+${v} ${RESOURCE_LABELS[k]}`).join(" · ");
-        return `<div class="table-row flex-wrap gap-sm">
+        const paused = u.batches_per_turn === 0;
+        return `<div class="table-row flex-wrap gap-sm" style="${paused?"opacity:0.55;":""}">
           <div class="flex items-center gap-sm flex-1">
-            <span>⚙</span>
+            <span>${paused?"⏸":"⚙"}</span>
             <div>
-              <div class="bold text-sm">${info.label}</div>
+              <div class="bold text-sm">${info.label}${paused?` <span class="badge" style="background:rgba(139,26,26,0.1);border-color:var(--crimson);color:var(--crimson);font-size:0.6rem">EN PAUSE</span>`:""}</div>
               <div class="text-xs text-muted"><span class="text-danger">${cons}</span> → <span class="text-success">${prod}</span></div>
             </div>
           </div>
           <div class="flex items-center gap-sm">
-            <span class="overline" title="0 = pause (aucune prod. ni conso.)">Cycles/tour</span>
-            <input type="number" min="0" value="${u.batches_per_turn}" style="width:60px"
+            <span class="overline" title="0 = pause">Cycles/tour</span>
+            <input type="number" min="0" value="${u.batches_per_turn}" style="width:55px"
               onchange="actionConfigureUsine('${u.id}',this.value)" />
+            <button class="btn btn-sm" style="padding:0.25rem 0.6rem;background:${paused?"var(--success,#2d6a2d)":"rgba(0,0,0,0.06)"};color:${paused?"#fff":"var(--fg)"};border:1px solid ${paused?"var(--success,#2d6a2d)":"var(--border)"}"
+              onclick="actionConfigureUsine('${u.id}','${paused?1:0}')" title="${paused?"Relancer":"Mettre en pause"}">${paused?"▶ Relancer":"⏸ Pause"}</button>
             <button class="btn btn-ghost btn-icon text-danger" onclick="confirmDemolishUsine('${u.id}')">🗑</button>
           </div>
         </div>`;
@@ -2639,19 +2666,22 @@ function renderUsines() {
       const info = USINES[u.type]; if(!info) return "";
       const prod = Object.entries(info.produce).map(([k,v]) => `+${v} ${RESOURCE_LABELS[k]}`).join(" · ");
       const uid_ = u.id;
-      return `<div class="table-row flex-wrap gap-sm">
+      const paused2 = u.batches_per_turn === 0;
+      return `<div class="table-row flex-wrap gap-sm" style="${paused2?"opacity:0.55;":""}">
         <div class="flex items-center gap-sm flex-1">
-          <span>✨</span>
+          <span>${paused2?"⏸":"✨"}</span>
           <div>
-            <div class="bold text-sm">${info.label} <span class="badge badge-sea">Sans entretien</span></div>
+            <div class="bold text-sm">${info.label} <span class="badge badge-sea">Sans entretien</span>${paused2?` <span class="badge" style="background:rgba(139,26,26,0.1);border-color:var(--crimson);color:var(--crimson);font-size:0.6rem">EN PAUSE</span>`:""}</div>
             <div class="text-xs text-success">${prod}</div>
           </div>
         </div>
         <div class="flex items-center gap-sm">
-          <span class="overline" title="0 = pause (aucune prod. ni conso.)">Cycles/tour</span>
-          <input type="number" min="0" value="${u.batches_per_turn}" style="width:60px"
+          <span class="overline" title="0 = pause">Cycles/tour</span>
+          <input type="number" min="0" value="${u.batches_per_turn}" style="width:55px"
             data-free-usine-id="${uid_}"
             onchange="actionConfigureFreeUsine(this.dataset.freeUsineId, this.value)" />
+          <button class="btn btn-sm" style="padding:0.25rem 0.6rem;background:${paused2?"var(--success,#2d6a2d)":"rgba(0,0,0,0.06)"};color:${paused2?"#fff":"var(--fg)"};border:1px solid ${paused2?"var(--success,#2d6a2d)":"var(--border)"}"
+            onclick="actionConfigureFreeUsine('${uid_}','${paused2?1:0}')" title="${paused2?"Relancer":"Mettre en pause"}">${paused2?"▶ Relancer":"⏸ Pause"}</button>
         </div>
       </div>`;
     }).join("");
@@ -2668,15 +2698,18 @@ function renderUsines() {
   cat.innerHTML=Object.entries(USINES).map(([key,info])=>{
     const prereqOk=info.prereq.every(([res,n])=>(primaryByRes[res]||0)>=n);
     const count=G.usines.filter(u=>u.type===key).length + (G.free_usines||[]).filter(u=>u.type===key).length;
+    const maxAllowed = info.prereq.length ? Math.min(...info.prereq.map(([res,n])=>Math.floor((primaryByRes[res]||0)/n))) : Infinity;
+    const canBuildMore = prereqOk && count < maxAllowed;
     const prereqLines=info.prereq.map(([res,n])=>{
       const have=primaryByRes[res]||0; const ok=have>=n;
       return `<li class="${ok?"text-success":"text-danger"}">${n}× bât. primaire ${RESOURCE_LABELS[res]||res} (${have}/${n})</li>`;
     }).join("");
     const cons=Object.entries(info.consume).map(([k,v])=>`−${v} ${RESOURCE_LABELS[k]}`).join(" · ");
     const prod=Object.entries(info.produce).map(([k,v])=>`+${v} ${RESOURCE_LABELS[k]}`).join(" · ");
+    const slotLabel = maxAllowed===Infinity ? "" : ` <span class="text-muted" style="font-weight:400;font-size:0.75rem">${count}/${maxAllowed}</span>`;
     return `<div class="card ${!prereqOk?"opacity-50":""}"><div class="card-body">
       <div class="flex items-start gap justify-between">
-        <div><h3 style="font-size:1rem;font-weight:700">⚙ ${info.label}</h3>
+        <div><h3 style="font-size:1rem;font-weight:700">⚙ ${info.label}${slotLabel}</h3>
         <p class="text-xs text-muted mt-1"><span class="text-danger">${cons}</span> → <span class="text-success">${prod}</span></p></div>
         ${count?`<span class="badge badge-gold">×${count}</span>`:""}
       </div>
@@ -2686,12 +2719,9 @@ function renderUsines() {
         <ul class="mt-1 ml-2" style="list-style:none">${prereqLines}</ul>
       </div>
       <div class="mt-2">
-        ${count>0
-          ? `<span class="badge badge-gold" style="padding:0.3rem 0.75rem">✓ Construite</span>`
-          : `<button class="btn btn-primary btn-sm" ${!prereqOk?"disabled":""} onclick="actionBuildUsine('${key}')">
-              ${prereqOk?"+ Construire":"🔒 Prérequis"}
-            </button>`
-        }
+        <button class="btn btn-primary btn-sm" ${!canBuildMore?"disabled":""} onclick="actionBuildUsine('${key}')">
+          ${!prereqOk?"🔒 Prérequis":count>=maxAllowed?"✓ Maximum atteint":"+ Construire"}
+        </button>
       </div>
     </div></div>`;
   }).join("");
@@ -2703,6 +2733,102 @@ function renderUsines() {
   ).join("");
 }
 
+
+// ── Tarifs dynamiques inline ─────────────────────────────────────────────────
+function _tarifRes(obj) {
+  return Object.entries(obj).map(([k,v])=>
+    `<span style="margin-right:0.5rem">${RESOURCE_ICON[k]||""} <strong>${v}</strong> <span style="color:var(--muted)">${RESOURCE_LABELS[k]||k}</span></span>`
+  ).join("");
+}
+function _tarifRow(label, obj, color) {
+  return `<div style="display:flex;align-items:baseline;gap:0.5rem;margin-bottom:0.2rem">
+    <span style="color:var(--muted);min-width:120px">${label}</span>
+    <span style="color:${color||"inherit"}">${_tarifRes(obj)}</span>
+  </div>`;
+}
+function _multiplyObj(obj, n) {
+  return Object.fromEntries(Object.entries(obj).map(([k,v])=>[k,v*n]));
+}
+
+function updateInfTarif() {
+  const el=document.getElementById("inf-tarif"); if(!el) return;
+  const tier=parseInt(document.getElementById("inf-tier")?.value||1);
+  const packs=Math.max(1,parseInt(document.getElementById("inf-packs")?.value||1));
+  const spec=TROOP_TIERS_INFANTERIE[tier]; if(!spec) return;
+  el.innerHTML=
+    _tarifRow("Achat ×"+packs+" :", _multiplyObj(spec.recruit_cost,packs), "var(--gold)")
+   +_tarifRow("Entretien/tour :", _multiplyObj(spec.upkeep,packs), "var(--crimson)")
+   +`<div style="color:var(--muted);margin-top:0.2rem">${packs*10} soldats · ${packs*10} hab.</div>`;
+}
+
+function updateMarTarif() {
+  const el=document.getElementById("mar-tarif"); if(!el) return;
+  const packs=Math.max(1,parseInt(document.getElementById("mar-packs")?.value||1));
+  const spec=TROOP_TIERS_MARINE[1];
+  el.innerHTML=
+    _tarifRow("Achat ×"+packs+" :", _multiplyObj(spec.recruit_cost,packs), "var(--gold)")
+   +_tarifRow("Entretien/tour :", _multiplyObj(spec.upkeep,packs), "var(--crimson)")
+   +`<div style="color:var(--muted);margin-top:0.2rem">${packs*10} marins · ${packs*10} hab. · arme ${packs} navire Niv. I / ${Math.floor(packs/2)} Niv. II / ${Math.floor(packs/3)} Niv. III</div>`;
+}
+
+function updateWarTarif() {
+  const el=document.getElementById("war-tarif"); if(!el) return;
+  const tier=parseInt(document.getElementById("war-tier")?.value||1);
+  const count=Math.max(1,parseInt(document.getElementById("war-count")?.value||1));
+  const spec=SHIP_TIERS[tier]; if(!spec) return;
+  const marNeeded=(SHIP_MARINES_REQUIRED.guerre[tier]||1)*count;
+  const marSpec=TROOP_TIERS_MARINE[1];
+  const totalCost=_multiplyObj(spec.cost,count);
+  const marCost=_multiplyObj(marSpec.recruit_cost,marNeeded);
+  // Combiner les deux coûts
+  const combined={...totalCost};
+  for(const[k,v] of Object.entries(marCost)) combined[k]=(combined[k]||0)+v;
+  const totalUpkeep={..._multiplyObj(spec.upkeep,count)};
+  const marUp=_multiplyObj(marSpec.upkeep,marNeeded);
+  for(const[k,v] of Object.entries(marUp)) totalUpkeep[k]=(totalUpkeep[k]||0)+v;
+  el.innerHTML=
+    _tarifRow("Navire ×"+count+" :", _multiplyObj(spec.cost,count), "var(--gold)")
+   +_tarifRow("Marins requis ("+marNeeded+"p) :", _multiplyObj(marSpec.recruit_cost,marNeeded), "var(--gold)")
+   +_tarifRow("Total achat :", combined, "var(--gold-dim,#b8972a)")
+   +"<div style='border-top:1px dashed var(--border);margin:0.3rem 0'></div>"
+   +_tarifRow("Entretien navire :", _multiplyObj(spec.upkeep,count), "var(--crimson)")
+   +_tarifRow("Entretien marins :", marUp, "var(--crimson)")
+   +_tarifRow("Total entretien :", totalUpkeep, "var(--crimson)")
+   +`<div style="color:var(--muted);margin-top:0.2rem">${marNeeded} paquet${marNeeded>1?"s":""} de marins liés</div>`;
+}
+
+function updateGalionTarif() {
+  const el=document.getElementById("galion-tarif"); if(!el) return;
+  const count=Math.max(1,parseInt(document.getElementById("galion-count")?.value||1));
+  const marNeeded=SHIP_MARINES_REQUIRED.galion*count;
+  const marSpec=TROOP_TIERS_MARINE[1];
+  const totalCost=_multiplyObj(GALION.cost,count);
+  const marCost=_multiplyObj(marSpec.recruit_cost,marNeeded);
+  const combined={...totalCost};
+  for(const[k,v] of Object.entries(marCost)) combined[k]=(combined[k]||0)+v;
+  const totalUpkeep={..._multiplyObj(GALION.upkeep,count)};
+  const marUp=_multiplyObj(marSpec.upkeep,marNeeded);
+  for(const[k,v] of Object.entries(marUp)) totalUpkeep[k]=(totalUpkeep[k]||0)+v;
+  el.innerHTML=
+    _tarifRow("Galion ×"+count+" :", _multiplyObj(GALION.cost,count), "var(--gold)")
+   +_tarifRow("Marins requis ("+marNeeded+"p) :", _multiplyObj(marSpec.recruit_cost,marNeeded), "var(--gold)")
+   +_tarifRow("Total achat :", combined, "var(--gold-dim,#b8972a)")
+   +"<div style='border-top:1px dashed var(--border);margin:0.3rem 0'></div>"
+   +_tarifRow("Entretien galion :", _multiplyObj(GALION.upkeep,count), "var(--crimson)")
+   +_tarifRow("Entretien marins :", marUp, "var(--crimson)")
+   +_tarifRow("Total entretien :", totalUpkeep, "var(--crimson)")
+   +`<div style="color:var(--muted);margin-top:0.2rem">Puissance ×${GALION.power} · max ${GALION.max_per_nation} par nation</div>`;
+}
+
+function updateMerchTarif() {
+  const el=document.getElementById("merch-tarif"); if(!el) return;
+  const count=Math.max(1,parseInt(document.getElementById("merch-count")?.value||1));
+  el.innerHTML=
+    _tarifRow("Achat ×"+count+" :", _multiplyObj(MERCHANT_SHIP.cost,count), "var(--gold)")
+   +_tarifRow("Entretien/tour :", _multiplyObj(MERCHANT_SHIP.upkeep,count), "var(--crimson)")
+   +`<div style="color:var(--muted);margin-top:0.2rem">${count*MERCHANT_SHIP.crew} hab. d'équipage</div>`;
+}
+
 function renderMilitary() {
   // Armée
   const tierOptions=(tiers)=>Object.entries(tiers).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
@@ -2711,20 +2837,21 @@ function renderMilitary() {
     <div class="card"><div class="card-body">
       <h3 class="mb-1" style="font-size:1.1rem;font-weight:700">Recrutement d'infanterie</h3>
       <p class="text-sm text-muted mb-2">Nécessite une Base militaire du niveau correspondant.</p>
-      <div class="flex flex-wrap gap items-end">
-        <div><label class="overline">Niveau</label><select id="inf-tier" style="width:120px">${tierOptions(TROOP_TIERS_INFANTERIE)}</select></div>
-        <div><label class="overline">Paquets de 10</label><input type="number" id="inf-packs" value="1" min="1" style="width:80px"/></div>
+      <div class="flex flex-wrap gap items-end mb-2">
+        <div><label class="overline">Niveau</label><select id="inf-tier" style="width:120px" onchange="updateInfTarif()">${tierOptions(TROOP_TIERS_INFANTERIE)}</select></div>
+        <div><label class="overline">Paquets de 10</label><input type="number" id="inf-packs" value="1" min="1" style="width:80px" onchange="updateInfTarif()"/></div>
         <button class="btn btn-primary btn-sm" onclick="actionRecruit('infanterie',document.getElementById('inf-tier').value,document.getElementById('inf-packs').value)">+ Recruter</button>
       </div>
+      <div id="inf-tarif" style="background:var(--bg-alt,rgba(0,0,0,0.04));border-radius:4px;padding:0.5rem 0.75rem;font-size:0.75rem"></div>
     </div></div>
     <div class="card"><div class="card-body">
       <h3 class="mb-1" style="font-size:1.1rem;font-weight:700">Recrutement de marins</h3>
-      <p class="text-sm text-muted mb-2">Nécessite un Port militaire du niveau correspondant.</p>
-      <div class="flex flex-wrap gap items-end">
-        <div><label class="overline">Niveau</label><select id="mar-tier" style="width:120px">${tierOptions(TROOP_TIERS_MARINE)}</select></div>
-        <div><label class="overline">Paquets de 10</label><input type="number" id="mar-packs" value="1" min="1" style="width:80px"/></div>
-        <button class="btn btn-primary btn-sm" onclick="actionRecruit('marine',document.getElementById('mar-tier').value,document.getElementById('mar-packs').value)">+ Recruter</button>
+      <p class="text-sm text-muted mb-2">Nécessite un Port militaire Niv. I. Chaque paquet de 10 marins peut armer un navire de guerre.</p>
+      <div class="flex flex-wrap gap items-end mb-2">
+        <div><label class="overline">Paquets de 10</label><input type="number" id="mar-packs" value="1" min="1" style="width:80px" onchange="updateMarTarif()"/></div>
+        <button class="btn btn-primary btn-sm" onclick="actionRecruit('marine',1,document.getElementById('mar-packs').value)">+ Recruter</button>
       </div>
+      <div id="mar-tarif" style="background:var(--bg-alt,rgba(0,0,0,0.04));border-radius:4px;padding:0.5rem 0.75rem;font-size:0.75rem"></div>
     </div></div>
     <div class="card"><div class="card-body">
       <h3 class="mb-2" style="font-size:1.1rem;font-weight:700">Forces actuelles</h3>
@@ -2781,6 +2908,9 @@ function renderMilitary() {
       })()}
     </div></div>`;
 
+  // Peupler les tarifs inline au rendu
+  setTimeout(()=>{ updateInfTarif(); updateMarTarif(); },0);
+
   // ── Camp d'entraînement ──────────────────────────────────
   const hasCamp = G.buildings.some(b=>b.type==="camp_entrainement");
   const trainingEl = document.getElementById("mil-training");
@@ -2797,32 +2927,47 @@ function renderMilitary() {
   }
 
   const tierOptionsShip=Object.entries(SHIP_TIERS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
+  const totalMar=totalMarinePacks(), linkedMar=linkedMarinePacks(), freeMar=freeMarinePacks();
+  const marColor = freeMar<=0 && totalMar>0 ? "var(--crimson)" : "var(--success,#2d6a2d)";
   const mm=document.getElementById("mil-marine");
   mm.innerHTML=`
+    <div class="card" style="border-color:var(--sea)"><div class="card-body">
+      <h3 class="mb-2" style="font-size:1rem;font-weight:700;color:var(--sea)">⚓ Marins disponibles</h3>
+      <div class="flex gap" style="gap:1.5rem;flex-wrap:wrap">
+        <div><div class="overline">Total recrutés</div><div class="font-mono" style="font-size:1.1rem;font-weight:700">${totalMar} paquet${totalMar!==1?"s":""} <span style="color:var(--muted);font-size:0.8rem">(${totalMar*10} marins)</span></div></div>
+        <div><div class="overline">Liés à des navires</div><div class="font-mono" style="font-size:1.1rem;font-weight:700;color:var(--crimson)">${linkedMar} paquet${linkedMar!==1?"s":""}</div></div>
+        <div><div class="overline">Disponibles</div><div class="font-mono" style="font-size:1.1rem;font-weight:700;color:${marColor}">${freeMar} paquet${freeMar!==1?"s":""}</div></div>
+      </div>
+      <div class="text-xs text-muted mt-2" style="font-style:italic">Niv. I : 1 paquet · Niv. II : 2 paquets · Niv. III : 3 paquets · Galion : 15 paquets</div>
+      ${linkedMar>totalMar?`<div style="margin-top:0.6rem;padding:0.5rem 0.75rem;background:rgba(139,26,26,0.08);border:1px solid var(--crimson);border-radius:4px;color:var(--crimson);font-size:0.8rem;font-weight:600">⚠ Déficit de ${linkedMar-totalMar} paquet(s) — ${(linkedMar-totalMar)*10} marins manquants. Des navires sont non opérationnels.</div>`:""}
+    </div></div>
     <div class="card"><div class="card-body">
       <h3 class="mb-1" style="font-size:1.1rem;font-weight:700">Navires de guerre</h3>
-      <p class="text-sm text-muted mb-2">Nécessite un Port militaire.</p>
-      <div class="flex flex-wrap gap items-end">
-        <div><label class="overline">Classe</label><select id="war-tier" style="width:150px">${tierOptionsShip}</select></div>
-        <div><label class="overline">Quantité</label><input type="number" id="war-count" value="1" min="1" style="width:70px"/></div>
+      <p class="text-sm text-muted mb-2">Nécessite un Port militaire et des marins disponibles.</p>
+      <div class="flex flex-wrap gap items-end mb-2">
+        <div><label class="overline">Classe</label><select id="war-tier" style="width:150px" onchange="updateWarTarif()">${tierOptionsShip}</select></div>
+        <div><label class="overline">Quantité</label><input type="number" id="war-count" value="1" min="1" style="width:70px" onchange="updateWarTarif()"/></div>
         <button class="btn btn-primary btn-sm" onclick="actionBuildShip('guerre',document.getElementById('war-tier').value,document.getElementById('war-count').value)">+ Construire</button>
       </div>
+      <div id="war-tarif" style="background:var(--bg-alt,rgba(0,0,0,0.04));border-radius:4px;padding:0.5rem 0.75rem;font-size:0.75rem"></div>
     </div></div>
     <div class="card card-gold"><div class="card-body">
       <h3 class="mb-1" style="font-size:1.1rem;font-weight:700">⚓ ${GALION.label}</h3>
-      <p class="text-sm text-muted mb-2">Nécessite Port militaire III. Max ${GALION.max_per_nation} par nation. Puissance ×${GALION.power}.</p>
-      <div class="flex flex-wrap gap items-end">
-        <div><label class="overline">Quantité</label><input type="number" id="galion-count" value="1" min="1" style="width:70px"/></div>
+      <p class="text-sm text-muted mb-2">Nécessite Port militaire III · Max ${GALION.max_per_nation} par nation · Puissance ×${GALION.power} · <strong>15 paquets de marins requis</strong>.</p>
+      <div class="flex flex-wrap gap items-end mb-2">
+        <div><label class="overline">Quantité</label><input type="number" id="galion-count" value="1" min="1" style="width:70px" onchange="updateGalionTarif()"/></div>
         <button class="btn btn-primary btn-sm" onclick="actionBuildShip('galion',1,document.getElementById('galion-count').value)">+ Construire</button>
       </div>
+      <div id="galion-tarif" style="background:rgba(0,0,0,0.05);border-radius:4px;padding:0.5rem 0.75rem;font-size:0.75rem"></div>
     </div></div>
     <div class="card"><div class="card-body">
       <h3 class="mb-1" style="font-size:1.1rem;font-weight:700">Navires marchands</h3>
       <p class="text-sm text-muted mb-2">Nécessite un Port de commerce.</p>
-      <div class="flex flex-wrap gap items-end">
-        <div><label class="overline">Quantité</label><input type="number" id="merch-count" value="1" min="1" style="width:70px"/></div>
+      <div class="flex flex-wrap gap items-end mb-2">
+        <div><label class="overline">Quantité</label><input type="number" id="merch-count" value="1" min="1" style="width:70px" onchange="updateMerchTarif()"/></div>
         <button class="btn btn-primary btn-sm" onclick="actionBuildShip('commerce',1,document.getElementById('merch-count').value)">+ Construire</button>
       </div>
+      <div id="merch-tarif" style="background:var(--bg-alt,rgba(0,0,0,0.04));border-radius:4px;padding:0.5rem 0.75rem;font-size:0.75rem"></div>
     </div></div>
     <div class="card"><div class="card-body">
       <h3 class="mb-2" style="font-size:1.1rem;font-weight:700">Flotte actuelle</h3>
@@ -2830,8 +2975,21 @@ function renderMilitary() {
         G.ships.map(s=>{
           const spec=s.kind==="guerre"?(SHIP_TIERS[s.tier]||SHIP_TIERS[1]):s.kind==="galion"?GALION:MERCHANT_SHIP;
           const ico=s.kind==="galion"?"⚓":s.kind==="commerce"?"⛵":"🚢";
-          return `<div class="table-row">
-            <div class="flex items-center gap-sm">${ico} <span class="bold text-sm">${spec.label}</span></div>
+          const marReq = s.kind==="guerre" ? (SHIP_MARINES_REQUIRED.guerre[s.tier]||1)*s.count
+                       : s.kind==="galion" ? SHIP_MARINES_REQUIRED.galion*s.count : null;
+          const marBadge = marReq!==null ? `<span class="text-xs" style="color:var(--sea)">⚓ ${marReq} paquet${marReq!==1?"s":""} liés</span>` : "";
+          // Badge sous-équipé : vérifier si ce navire contribue au déficit global
+          let undercrewBadge = "";
+          if(marReq!==null) {
+            // On recalcule le déficit global et on marque les navires dans l'ordre de liste
+            const deficit = Math.max(0, linkedMarinePacks() - totalMarinePacks());
+            if(deficit>0) {
+              // Accumulation : chaque navire guerre/galion est potentiellement affecté
+              undercrewBadge = `<span class="badge" style="background:rgba(139,26,26,0.12);border:1px solid var(--crimson);color:var(--crimson);font-size:0.6rem;padding:0.1rem 0.4rem">⚠ Sous-équipé</span>`;
+            }
+          }
+          return `<div class="table-row" style="${undercrewBadge?"border-left:3px solid var(--crimson)":""}">
+            <div class="flex items-center gap-sm" style="flex-wrap:wrap">${ico} <span class="bold text-sm">${spec.label}</span>${marBadge}${undercrewBadge}</div>
             <div class="flex items-center gap-sm">
               <span class="font-mono text-sm">×${s.count}</span>
               <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDisbandShip('${s.id}',1)" title="Désarmer 1">−</button>
@@ -2839,6 +2997,8 @@ function renderMilitary() {
           </div>`;
         }).join("")}
     </div></div>`;
+  // Peupler les tarifs navires au rendu
+  setTimeout(()=>{ updateWarTarif(); updateGalionTarif(); updateMerchTarif(); },0);
 }
 
 function renderCommerce() {
@@ -3164,6 +3324,112 @@ function showMilTab(tab,btn) {
   ["armee","marine","training"].forEach(t=>document.getElementById("mil-"+t).classList.toggle("hidden",t!==tab));
   btn.closest(".tabs-nav").querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("active",b===btn));
 }
+function renderMilTarifs() {
+  const el = document.getElementById("mil-tarifs");
+  if(!el) return;
+
+  // Helper : formater un objet coût en badges colorés
+  const fmtCost = (obj, color="var(--gold)") =>
+    Object.entries(obj).map(([k,v])=>
+      `<span style="display:inline-flex;align-items:center;gap:0.2rem;background:rgba(0,0,0,0.07);border-radius:3px;padding:0.1rem 0.35rem;font-size:0.72rem;font-family:monospace">
+        ${RESOURCE_ICON[k]||""}${fmt(v)} <span style="color:var(--muted);font-size:0.65rem">${RESOURCE_LABELS[k]||k}</span>
+      </span>`
+    ).join(" ");
+
+  const rowStyle = "display:grid;grid-template-columns:1fr auto;align-items:start;gap:0.5rem;padding:0.5rem 0;border-bottom:1px solid var(--border)";
+  const subStyle = "font-size:0.72rem;color:var(--muted);margin-top:0.25rem";
+
+  // ── INFANTERIE ─────────────────────────────────────────────────────────────
+  const infRows = Object.entries(TROOP_TIERS_INFANTERIE).map(([tier,spec])=>`
+    <div style="${rowStyle}">
+      <div>
+        <div style="font-weight:700;font-size:0.85rem">⚔️ Infanterie ${spec.label} <span class="badge badge-gold" style="font-size:0.6rem">par paquet de 10</span></div>
+        <div style="${subStyle}">Achat : ${fmtCost(spec.recruit_cost)}</div>
+        <div style="${subStyle}">Entretien/tour : ${fmtCost(spec.upkeep,"var(--crimson)")}</div>
+        <div style="${subStyle}">Puissance : ×${spec.power} · Pop : 10 hab.</div>
+      </div>
+      <button class="btn btn-primary btn-sm" style="white-space:nowrap;margin-top:0.2rem" onclick="showMilTab('armee',document.querySelector('#tab-militaire .tabs-nav .tab-btn'))">Recruter →</button>
+    </div>`).join("");
+
+  // ── MARINS ─────────────────────────────────────────────────────────────────
+  const marRows = Object.entries(TROOP_TIERS_MARINE).map(([tier,spec])=>`
+    <div style="${rowStyle}">
+      <div>
+        <div style="font-weight:700;font-size:0.85rem">⚓ Marins ${spec.label} <span class="badge badge-gold" style="font-size:0.6rem">par paquet de 10</span></div>
+        <div style="${subStyle}">Achat : ${fmtCost(spec.recruit_cost)}</div>
+        <div style="${subStyle}">Entretien/tour : ${fmtCost(spec.upkeep,"var(--crimson)")}</div>
+        <div style="${subStyle}">Puissance : ×${spec.power} · Pop : 10 hab.</div>
+      </div>
+    </div>`).join("");
+
+  // ── NAVIRES DE GUERRE ──────────────────────────────────────────────────────
+  const warRows = Object.entries(SHIP_TIERS).map(([tier,spec])=>{
+    const marNeeded = SHIP_MARINES_REQUIRED.guerre[parseInt(tier)]||1;
+    const marUpkeep = Object.fromEntries(Object.entries(TROOP_TIERS_MARINE[1].upkeep).map(([k,v])=>[k,v*marNeeded]));
+    return `<div style="${rowStyle}">
+      <div>
+        <div style="font-weight:700;font-size:0.85rem">🚢 ${spec.label}</div>
+        <div style="${subStyle}">Achat navire : ${fmtCost(spec.cost)}</div>
+        <div style="${subStyle}">Marins requis : ${marNeeded} paquet${marNeeded>1?"s":""} (${marNeeded*10} marins) — achat ${fmtCost(Object.fromEntries(Object.entries(TROOP_TIERS_MARINE[1].recruit_cost).map(([k,v])=>[k,v*marNeeded])))}</div>
+        <div style="${subStyle}">Entretien navire/tour : ${fmtCost(spec.upkeep,"var(--crimson)")}</div>
+        <div style="${subStyle}">Entretien marins/tour : ${fmtCost(marUpkeep,"var(--crimson)")}</div>
+        <div style="${subStyle}">Puissance : ×${spec.power} · Prérequis : ${UTILITY_BUILDINGS[spec.requires]?.label||spec.requires}</div>
+      </div>
+    </div>`;
+  }).join("");
+
+  // ── GALION ─────────────────────────────────────────────────────────────────
+  const galMarNeeded = SHIP_MARINES_REQUIRED.galion;
+  const galMarCost   = Object.fromEntries(Object.entries(TROOP_TIERS_MARINE[1].recruit_cost).map(([k,v])=>[k,v*galMarNeeded]));
+  const galMarUpkeep = Object.fromEntries(Object.entries(TROOP_TIERS_MARINE[1].upkeep).map(([k,v])=>[k,v*galMarNeeded]));
+  const galRow = `<div style="${rowStyle}">
+    <div>
+      <div style="font-weight:700;font-size:0.85rem">⚓ ${GALION.label} <span class="badge" style="background:rgba(201,162,39,0.15);border-color:var(--gold);color:var(--gold);font-size:0.6rem">Légendaire · max ${GALION.max_per_nation}</span></div>
+      <div style="${subStyle}">Achat navire : ${fmtCost(GALION.cost)}</div>
+      <div style="${subStyle}">Marins requis : ${galMarNeeded} paquets (${galMarNeeded*10} marins) — achat ${fmtCost(galMarCost)}</div>
+      <div style="${subStyle}">Entretien navire/tour : ${fmtCost(GALION.upkeep,"var(--crimson)")}</div>
+      <div style="${subStyle}">Entretien marins/tour : ${fmtCost(galMarUpkeep,"var(--crimson)")}</div>
+      <div style="${subStyle}">Puissance : ×${GALION.power} · Prérequis : ${UTILITY_BUILDINGS[GALION.requires]?.label||GALION.requires}</div>
+    </div>
+  </div>`;
+
+  // ── NAVIRE MARCHAND ────────────────────────────────────────────────────────
+  const merchantRow = `<div style="${rowStyle}">
+    <div>
+      <div style="font-weight:700;font-size:0.85rem">⛵ ${MERCHANT_SHIP.label}</div>
+      <div style="${subStyle}">Achat : ${fmtCost(MERCHANT_SHIP.cost)}</div>
+      <div style="${subStyle}">Entretien/tour : ${fmtCost(MERCHANT_SHIP.upkeep,"var(--crimson)")}</div>
+      <div style="${subStyle}">Équipage : ${MERCHANT_SHIP.crew} hab. · Prérequis : ${UTILITY_BUILDINGS[MERCHANT_SHIP.requires]?.label||MERCHANT_SHIP.requires}</div>
+    </div>
+  </div>`;
+
+  el.innerHTML = `
+    <div class="brass-divider">✦ Tarifs — Armée & Marine ✦</div>
+
+    <div class="card mb-1"><div class="card-body">
+      <h3 style="font-size:1rem;font-weight:700;margin-bottom:0.75rem">⚔️ Infanterie</h3>
+      ${infRows}
+    </div></div>
+
+    <div class="card mb-1"><div class="card-body">
+      <h3 style="font-size:1rem;font-weight:700;margin-bottom:0.75rem">⚓ Marins</h3>
+      ${marRows}
+    </div></div>
+
+    <div class="card mb-1"><div class="card-body">
+      <h3 style="font-size:1rem;font-weight:700;margin-bottom:0.75rem">🚢 Navires de guerre</h3>
+      <p class="text-xs text-muted mb-2" style="font-style:italic">Les coûts des marins s'ajoutent au coût du navire. L'entretien est cumulé chaque tour.</p>
+      ${warRows}
+      ${galRow}
+    </div></div>
+
+    <div class="card"><div class="card-body">
+      <h3 style="font-size:1rem;font-weight:700;margin-bottom:0.75rem">⛵ Commerce</h3>
+      ${merchantRow}
+    </div></div>`;
+}
+
+
 
 function openModal(id) { document.getElementById(id).classList.add("open"); }
 function closeModal(id) { document.getElementById(id).classList.remove("open"); }
@@ -3848,9 +4114,8 @@ popOccupied = function() {
   // free troops and ships still occupy population (they are real people)
   for(const tg of G.free_troops) occ += tg.packs * TROOP_POP_PER_PACK;
   for(const sg of G.free_ships) {
-    const crew = sg.kind==="guerre"?(SHIP_TIERS[sg.tier]||SHIP_TIERS[1]).crew
-                :sg.kind==="galion"?GALION.crew:MERCHANT_SHIP.crew;
-    occ += sg.count * crew;
+    // Guerre/galion : pop comptée via les marins
+    if(sg.kind==="commerce") occ += sg.count * MERCHANT_SHIP.crew;
   }
   for(const u of G.free_usines) { const i=USINES[u.type]; if(i) occ += i.pop; }
   return occ;
@@ -4126,11 +4391,38 @@ function confirmDisbandTroop(id, packs) {
   const label = `${g.branch} Niv.${g.tier}`;
   // Remboursement = coût de recrutement intégral × nb de packs
   const refund = Object.fromEntries(Object.entries(spec.recruit_cost||{}).map(([k,v])=>[k,v*packs]));
+
+  // Si ce sont des marins, vérifier si leur suppression rend des navires sous-équipés
+  let warshipWarning = "";
+  if(g.branch==="marine") {
+    const freeBefore = freeMarinePacks();
+    const freeAfter  = freeBefore - packs;
+    if(freeAfter < 0) {
+      // Calculer combien de paquets manquent et quels navires sont affectés
+      const deficit = Math.abs(freeAfter);
+      // Trier les navires guerre+galion par "valeur" croissante pour identifier les affectés
+      const warships = G.ships.filter(s=>s.kind==="guerre"||s.kind==="galion");
+      const affected = [];
+      let remaining = deficit;
+      for(const s of [...warships].reverse()) {
+        if(remaining<=0) break;
+        const spec2 = s.kind==="galion"?GALION:(SHIP_TIERS[s.tier]||SHIP_TIERS[1]);
+        const req = s.kind==="galion"?SHIP_MARINES_REQUIRED.galion:(SHIP_MARINES_REQUIRED.guerre[s.tier]||1);
+        const takeable = Math.min(s.count, Math.ceil(remaining/req));
+        affected.push(`${spec2.label} ×${takeable}`);
+        remaining -= takeable * req;
+      }
+      warshipWarning = `⚠ ${deficit} paquet(s) de marins en déficit — navire(s) sous-équipé(s) : ${affected.join(", ")}.`;
+    }
+  }
+
   openDemolishModal({
     title: `Démobiliser ${packs} pack(s) — ${label}`,
     subtitle: `Démobilisation de ${packs*10} soldats.`,
     refund,
-    warning: "La dissolution définitive ne rembourse rien. L'annulation rembourse le coût de recrutement intégral.",
+    warning: warshipWarning
+      ? `${warshipWarning} La dissolution définitive ne rembourse rien. L'annulation rembourse le coût de recrutement intégral.`
+      : "La dissolution définitive ne rembourse rien. L'annulation rembourse le coût de recrutement intégral.",
     onDestroy: (withRefund) => {
       run(()=>{
         const grp=G.troops.find(t=>t.id===id); if(!grp) error("Groupe introuvable");
@@ -5223,11 +5515,10 @@ function renderPopulation() {
     return `<div class="table-row"><span class="text-sm" style="text-transform:capitalize">${label} ×${t.packs}</span><span class="font-mono text-xs">${total} hab.</span></div>`;
   }).filter(Boolean).join("");
 
-  // ── Navires ───────────────────────────────────────────────────────────────
-  const shipRows = [...G.ships,...(G.free_ships||[])].map(s=>{
-    const spec=s.kind==="guerre"?(SHIP_TIERS[s.tier]||SHIP_TIERS[1]):s.kind==="galion"?GALION:MERCHANT_SHIP;
-    const crew=spec.crew*s.count;
-    const label = G.free_ships?.some(x=>x.id===s.id) ? `${spec.label} ✨` : spec.label;
+  // ── Navires marchands uniquement (guerre/galion = pop comptée via les marins) ──
+  const shipRows = [...G.ships,...(G.free_ships||[])].filter(s=>s.kind==="commerce").map(s=>{
+    const crew=MERCHANT_SHIP.crew*s.count;
+    const label = G.free_ships?.some(x=>x.id===s.id) ? "Navire marchand ✨" : "Navire marchand";
     return `<div class="table-row"><span class="text-sm">${label} ×${s.count}</span><span class="font-mono text-xs">${crew} hab.</span></div>`;
   }).filter(Boolean).join("");
 
