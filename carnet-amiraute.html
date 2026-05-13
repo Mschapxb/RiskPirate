@@ -563,6 +563,10 @@ input:checked + .slider:before { transform: translateX(18px); }
         <label class="overline">Ressource (slot 2) <span class="text-muted text-xs">— terres uniquement</span></label>
         <select id="tile-resource2"></select>
       </div>
+      <div class="form-group"><label class="overline">Nombre de cases à conquérir</label>
+        <input id="tile-quantity" type="number" min="1" max="20" value="1" style="width:80px" />
+        <span class="text-xs text-muted" style="margin-left:0.5rem">Si > 1, la ressource et le nom seront ignorés (tirage aléatoire)</span>
+      </div>
       <div class="form-group"><label class="overline">Nom (optionnel)</label>
         <input id="tile-name" placeholder="Ex : Province du Nord" />
       </div>
@@ -973,12 +977,12 @@ const TILE_RESOURCES = {
 };
 const TILE_YIELD = {
   or:{resource:"or",raw:100,primary:200},fer:{resource:"fer",raw:100,primary:200},
-  ble:{resource:"ble",raw:100,primary:200},sucre:{resource:"sucre",raw:100,primary:200},
-  tabac:{resource:"tabac",raw:100,primary:200},cacao:{resource:"cacao",raw:100,primary:200},
+  ble:{resource:"ble",raw:100,primary:200},sucre:{resource:"sucre",raw:50,primary:100},
+  tabac:{resource:"tabac",raw:50,primary:100},cacao:{resource:"cacao",raw:50,primary:100},
   bois:{resource:"bois",raw:100,primary:200},
   tresor_terre:{resource:null,raw:0,primary:0},  // pas de production propre — bonus via slot 2
-  poisson:{resource:"ble",raw:100,primary:200},nacre:{resource:"nacre",raw:100,primary:200},
-  sel:{resource:"sel",raw:100,primary:200},
+  poisson:{resource:"ble",raw:100,primary:200},nacre:{resource:"nacre",raw:50,primary:100},
+  sel:{resource:"sel",raw:50,primary:100},
   capitale_ennemie:{resource:"__capitale__",raw:0,primary:0}, // gérée séparément
   coffre:{resource:null,raw:0,primary:0},         // pas de production
   terra_incognita:{resource:null,raw:0,primary:0}, // pas de production
@@ -1012,24 +1016,26 @@ const UTILITY_BUILDINGS = {
   base_militaire_1:{label:"Base militaire (Niv. I)",cost:{or:200},upkeep:{bois:35},pop_required:20,effect:"Recrute de l'infanterie",unique:true},
   base_militaire_2:{label:"Base militaire (Niv. II)",cost:{or:500},upkeep:{bois:35},pop_required:20,effect:"Améliore l'armée de terre",requires:"base_militaire_1",upgrades_from:"base_militaire_1",unique:true},
   base_militaire_3:{label:"Base militaire (Niv. III)",cost:{or:1000},upkeep:{bois:35},pop_required:20,effect:"Permet l'infanterie d'élite",requires:"base_militaire_2",upgrades_from:"base_militaire_2",unique:true},
-  forteresse_cap_1:{label:"Forteresse capitale (I)",cost:{or:300},upkeep:{bois:10},pop_required:3,defense_attack_pts:3,effect:"+3 pts d'attaque à briser, léger bonus défense",unique:true},
-  forteresse_cap_2:{label:"Forteresse capitale (II)",cost:{or:1000},upkeep:{fer:10},pop_required:5,defense_attack_pts:5,capital_pop_bonus:200,effect:"+5 pts, capitale loge 300 hab., bonus défense",requires:"forteresse_cap_1",upgrades_from:"forteresse_cap_1",unique:true},
-  forteresse_cap_3:{label:"Forteresse capitale (III)",cost:{or:1500},upkeep:{acier:10},pop_required:10,defense_attack_pts:8,capital_pop_bonus:400,effect:"+8 pts, capitale loge 500 hab., énorme bonus défense",requires:"forteresse_cap_2",upgrades_from:"forteresse_cap_2",unique:true},
-  forteresse_prov_1:{label:"Forteresse province (I)",cost:{or:200},upkeep:{bois:30},pop_required:3,defense_attack_pts:2,effect:"Province : +2 pts d'attaque",unique:false},
-  forteresse_prov_2:{label:"Forteresse province (II)",cost:{or:1000},upkeep:{fer:30},pop_required:5,defense_attack_pts:5,effect:"+5 pts, gros bonus défense",requires:"forteresse_prov_1",upgrades_from:"forteresse_prov_1",unique:false},
+  forteresse_cap_1:{label:"Forteresse capitale (I)",cost:{or:500},upkeep:{bois:20},pop_required:3,defense_attack_pts:3,effect:"+3 pts d'attaque à briser, léger bonus défense",unique:true},
+  forteresse_cap_2:{label:"Forteresse capitale (II)",cost:{or:1000},upkeep:{fer:40},pop_required:5,defense_attack_pts:5,capital_pop_bonus:200,effect:"+5 pts, capitale loge 300 hab., bonus défense",requires:"forteresse_cap_1",upgrades_from:"forteresse_cap_1",unique:true},
+  forteresse_cap_3:{label:"Forteresse capitale (III)",cost:{or:2000},upkeep:{acier:40},pop_required:10,defense_attack_pts:8,capital_pop_bonus:400,effect:"+8 pts, capitale loge 500 hab., énorme bonus défense",requires:"forteresse_cap_2",upgrades_from:"forteresse_cap_2",unique:true},
+  forteresse_prov_1:{label:"Forteresse province (I)",cost:{or:500},upkeep:{bois:20},pop_required:3,defense_attack_pts:2,effect:"Province : +2 pts d'attaque",unique:false},
+  forteresse_prov_2:{label:"Forteresse province (II)",cost:{or:1000},upkeep:{fer:40},pop_required:5,defense_attack_pts:5,effect:"+5 pts, gros bonus défense",requires:"forteresse_prov_1",upgrades_from:"forteresse_prov_1",unique:false},
   camp_entrainement:{label:"Camp d'entraînement",cost:{or:400,bois:100},upkeep:{bois:35},pop_required:20,effect:"Débloque l'entraînement des unités (+1 rang par tour · 20T max)",unique:true},
+  hopital:{label:"Hôpital",cost:{or:1000},upkeep:{bois:35},pop_required:10,effect:"Limite les morts dans les guerres",unique:true},
+  prison:{label:"Prison",cost:{or:500},upkeep:{bois:35},pop_required:10,effect:"Détient des prisonniers ennemis",unique:true},
 };
 const BLD_FAMILIES = {
-  infrastructure:["maison","taverne","hotel_impots","port_commerce"],
+  infrastructure:["maison","taverne","hotel_impots","port_commerce","hopital","prison"],
   economie:["banque_1","banque_2","banque_3"],
   militaire:["base_militaire_1","base_militaire_2","base_militaire_3","port_militaire_1","port_militaire_2","port_militaire_3","camp_entrainement"],
   defense:["forteresse_cap_1","forteresse_cap_2","forteresse_cap_3","forteresse_prov_1","forteresse_prov_2"],
 };
 
 const TROOP_TIERS_INFANTERIE = {
-  1:{label:"Niveau I",   recruit_cost:{or:100},  upkeep:{or:30, fer:30, ble:20},   power:1.0},
-  2:{label:"Niveau II",  recruit_cost:{or:200},  upkeep:{or:60, fer:60, ble:50},   power:1.6},
-  3:{label:"Niveau III", recruit_cost:{or:300},  upkeep:{or:120,acier:60,ble:110}, power:2.5},
+  1:{label:"Niveau I",   recruit_cost:{or:200},  upkeep:{or:30, fer:30, ble:20},   power:1.0},
+  2:{label:"Niveau II",  recruit_cost:{or:400},  upkeep:{or:60, fer:60, ble:50},   power:1.6},
+  3:{label:"Niveau III", recruit_cost:{or:600},  upkeep:{or:120,acier:60,ble:110}, power:2.5},
 };
 const TROOP_TIERS_MARINE = {
   1:{label:"Niveau I",   recruit_cost:{or:100},  upkeep:{or:30, fer:30, ble:20},   power:1.0},
@@ -1041,20 +1047,20 @@ const SHIP_MARINES_REQUIRED = {guerre:{1:1,2:2,3:3},galion:15};
 const TROOP_POP_PER_PACK = 10;
 
 const SHIP_TIERS = {
-  1:{label:"Navire Niv. I",cost:{or:300},upkeep:{bois:30},crew:20,power:1.0,requires:"port_militaire_1"},
-  2:{label:"Navire Niv. II",cost:{or:600},upkeep:{bois:60},crew:20,power:1.8,requires:"port_militaire_2"},
-  3:{label:"Navire Niv. III",cost:{or:1200},upkeep:{planches:60},crew:20,power:3.0,requires:"port_militaire_3"},
+  1:{label:"Navire Niv. I",cost:{or:600},upkeep:{bois:30},crew:10,power:1.0,requires:"port_militaire_1"},
+  2:{label:"Navire Niv. II",cost:{or:1200},upkeep:{bois:60},crew:20,power:1.8,requires:"port_militaire_2"},
+  3:{label:"Navire Niv. III",cost:{or:2400},upkeep:{planches:60},crew:30,power:3.0,requires:"port_militaire_3"},
 };
-const GALION = {label:"Galion légendaire",cost:{or:1500},upkeep:{planches:100},crew:150,power:5.0,max_per_nation:3,requires:"port_militaire_3"};
+const GALION = {label:"Galion légendaire",cost:{or:10000},upkeep:{planches:100},crew:120,power:5.0,max_per_nation:3,requires:"port_militaire_3"};
 const MERCHANT_SHIP = {label:"Navire marchand",cost:{or:300},upkeep:{bois:30},crew:10,requires:"port_commerce"};
 
 const USINES = {
-  rhum:{label:"Distillerie de Rhum",cost:{or:1000},pop:20,prereq:[["sucre",3]],consume:{sucre:600},produce:{rhum:100}},
-  cigares:{label:"Manufacture de cigares",cost:{or:1000},pop:20,prereq:[["tabac",3]],consume:{tabac:600},produce:{cigares:100}},
-  chocolat:{label:"Chocolaterie",cost:{or:1000},pop:20,prereq:[["cacao",3]],consume:{cacao:600},produce:{chocolat:100}},
-  boulangerie:{label:"Boulangerie",cost:{or:1000},pop:20,prereq:[["ble",3],["sel",3]],consume:{ble:600,sel:300},produce:{ble:1000}},
-  conserverie:{label:"Conserverie",cost:{or:1000},pop:20,prereq:[["poisson",3]],consume:{ble:600,fer:100},produce:{ble:1000}},
-  bijouterie:{label:"Bijouterie",cost:{or:1000},pop:20,prereq:[["nacre",3],["or",3]],consume:{or:600,nacre:100},produce:{bijoux:100}},
+  rhum:{label:"Distillerie de Rhum",cost:{or:1000},pop:20,prereq:[["sucre",3]],consume:{sucre:300},produce:{rhum:50}},
+  cigares:{label:"Manufacture de cigares",cost:{or:1000},pop:20,prereq:[["tabac",3]],consume:{tabac:300},produce:{cigares:50}},
+  chocolat:{label:"Chocolaterie",cost:{or:1000},pop:20,prereq:[["cacao",3]],consume:{cacao:300},produce:{chocolat:50}},
+  boulangerie:{label:"Boulangerie",cost:{or:1000},pop:20,prereq:[["ble",3],["sel",3]],consume:{ble:300,sel:150},produce:{ble:600}},
+  conserverie:{label:"Conserverie",cost:{or:1000},pop:20,prereq:[["poisson",3]],consume:{ble:300,fer:50},produce:{ble:600}},
+  bijouterie:{label:"Bijouterie",cost:{or:1000},pop:20,prereq:[["nacre",3],["or",3]],consume:{or:300,nacre:150},produce:{bijoux:50}},
   forgerie:{label:"Forgerie",cost:{or:1000},pop:20,prereq:[["fer",3]],consume:{fer:600},produce:{acier:300}},
   scierie_indus:{label:"Usine à planches",cost:{or:1000},pop:20,prereq:[["bois",3]],consume:{bois:600},produce:{planches:300}},
 };
@@ -1148,6 +1154,8 @@ function migrateState(d) {
   if(d.capital_active       === undefined) d.capital_active       = true;
   // Numériques
   if(d.or_preempted === undefined) d.or_preempted = 0;
+  if(d.army_mobilisation  === undefined) d.army_mobilisation  = 0;
+  if(d.naval_mobilisation === undefined) d.naval_mobilisation = 0;
   if(d.pop_bonus    === undefined) d.pop_bonus    = 0;
   if(d.turn         === undefined) d.turn         = 0;
   // Ressources manquantes (ex: anciennes sauvegardes sans poisson retiré)
@@ -1305,6 +1313,7 @@ function computeTurnChanges() {
     const i=UTILITY_BUILDINGS[b.type]; if(!i) continue;
     for(const[k,v] of Object.entries(i.upkeep||{})) bldUpkeep[k]-=v;
   }
+
   if(Object.values(bldUpkeep).some(v=>v!==0)) {
     for(const[k,v] of Object.entries(bldUpkeep)) delta[k]+=v;
     const ch=Object.fromEntries(Object.entries(bldUpkeep).filter(([,v])=>v!==0));
@@ -1333,27 +1342,37 @@ function computeTurnChanges() {
     }
   }
 
-  // 7) Solde troupes
+  // 7) Solde troupes (modulé par le % de mobilisation armée)
+  const armyMob = (G.army_mobilisation ?? 100) / 100;
   const troopUpkeep=emptyRes();
   for(const tg of G.troops) {
     const tiers=tg.branch==="infanterie"?TROOP_TIERS_INFANTERIE:TROOP_TIERS_MARINE;
     const spec=tiers[tg.tier]; if(!spec) continue;
-    for(const[k,v] of Object.entries(spec.upkeep)) troopUpkeep[k]-=v*tg.packs;
+    for(const[k,v] of Object.entries(spec.upkeep)) {
+      // Le blé de base + bonus selon % mobilisation ; les autres ressources inchangées
+      const mult = k === "ble" ? (1 + armyMob) : 1;
+      troopUpkeep[k]-=Math.round(v*tg.packs*mult);
+    }
   }
   if(Object.values(troopUpkeep).some(v=>v!==0)) {
     for(const[k,v] of Object.entries(troopUpkeep)) delta[k]+=v;
-    breakdown.push({label:"Solde des troupes",changes:Object.fromEntries(Object.entries(troopUpkeep).filter(([,v])=>v!==0))});
+    breakdown.push({label:`Solde des troupes (mob. ${Math.round(armyMob*100)}%)`,changes:Object.fromEntries(Object.entries(troopUpkeep).filter(([,v])=>v!==0))});
   }
 
-  // 8) Entretien navires
+  // 8) Entretien navires (modulé par le % de mobilisation navale)
+  const navalMob = (G.naval_mobilisation ?? 100) / 100;
   const shipUpkeep=emptyRes();
   for(const sg of G.ships) {
     const spec=sg.kind==="guerre"?(SHIP_TIERS[sg.tier]||SHIP_TIERS[1]):sg.kind==="galion"?GALION:MERCHANT_SHIP;
-    for(const[k,v] of Object.entries(spec.upkeep)) shipUpkeep[k]-=v*sg.count;
+    for(const[k,v] of Object.entries(spec.upkeep)) {
+      // Le bois/planches de base + bonus selon % mobilisation navale
+      const mult = k === "ble" ? (1 + navalMob) : 1;
+      shipUpkeep[k]-=Math.round(v*sg.count*mult);
+    }
   }
   if(Object.values(shipUpkeep).some(v=>v!==0)) {
     for(const[k,v] of Object.entries(shipUpkeep)) delta[k]+=v;
-    breakdown.push({label:"Entretien navires",changes:Object.fromEntries(Object.entries(shipUpkeep).filter(([,v])=>v!==0))});
+    breakdown.push({label:`Entretien navires (mob. ${Math.round(navalMob*100)}%)`,changes:Object.fromEntries(Object.entries(shipUpkeep).filter(([,v])=>v!==0))});
   }
 
   // 9) Nourriture — tous les habitants hors capitale paient 1 blé/tour
@@ -2193,20 +2212,24 @@ function computeResourceSources() {
     }
   }
 
-  // Entretien navires
+  // Entretien navires (modulé par mobilisation navale)
+  const _navalMob = (G.naval_mobilisation ?? 100) / 100;
   for(const sg of G.ships) {
     const spec = sg.kind==="guerre"?(SHIP_TIERS[sg.tier]||SHIP_TIERS[1]):sg.kind==="galion"?GALION:MERCHANT_SHIP;
     for(const [k,v] of Object.entries(spec.upkeep)) {
-      init(k); sources[k].push({label:`Entretien ${spec.label} ×${sg.count}`, value:-v*sg.count});
+      const mult = k === "ble" ? (1 + _navalMob) : 1;
+      init(k); sources[k].push({label:`Entretien ${spec.label} ×${sg.count}`, value:-Math.round(v*sg.count*mult)});
     }
   }
 
-  // Solde troupes
+  // Solde troupes (modulé par mobilisation armée)
+  const _armyMob = (G.army_mobilisation ?? 100) / 100;
   for(const tg of G.troops) {
     const tiers = tg.branch==="infanterie"?TROOP_TIERS_INFANTERIE:TROOP_TIERS_MARINE;
     const spec = tiers[tg.tier]; if(!spec) continue;
     for(const [k,v] of Object.entries(spec.upkeep)) {
-      init(k); sources[k].push({label:`Solde ${tg.branch} Niv.${tg.tier} ×${tg.packs} paq.`, value:-v*tg.packs});
+      const mult = k === "ble" ? (1 + _armyMob) : 1;
+      init(k); sources[k].push({label:`Solde ${tg.branch} Niv.${tg.tier} ×${tg.packs} paq.`, value:-Math.round(v*tg.packs*mult)});
     }
   }
   const _capitalCap2 = CAPITAL_BASE_POP + G.buildings.reduce((sum,b)=>{
@@ -2215,23 +2238,6 @@ function computeResourceSources() {
   const _eaters2 = Math.max(0, popCapacity() - _capitalCap2);
   if(_eaters2 > 0) {
     init("ble"); sources["ble"].push({label:`Nourriture (${_eaters2} hab. × 1)`, value:-_eaters2});
-  }
-
-  // Solde troupes
-  for(const tg of G.troops) {
-    const tiers = tg.branch==="infanterie"?TROOP_TIERS_INFANTERIE:TROOP_TIERS_MARINE;
-    const spec = tiers[tg.tier]; if(!spec) continue;
-    for(const [k,v] of Object.entries(spec.upkeep)) {
-      init(k); sources[k].push({label:`Solde ${tg.branch} Niv.${tg.tier}`, value:-v*tg.packs});
-    }
-  }
-
-  // Entretien navires
-  for(const sg of G.ships) {
-    const spec = sg.kind==="guerre"?(SHIP_TIERS[sg.tier]||SHIP_TIERS[1]):sg.kind==="galion"?GALION:MERCHANT_SHIP;
-    for(const [k,v] of Object.entries(spec.upkeep)) {
-      init(k); sources[k].push({label:`Entretien ${spec.label}×${sg.count}`, value:-v*sg.count});
-    }
   }
 
   // Commerce — routes récurrentes ET ponctuelles
@@ -2598,7 +2604,8 @@ function renderBuildings() {
       const freeNow=Math.max(0,popCapacity()-popOccupied());
       const popOk=popReq<=freeNow;
       const statusLabel = superseded ? "Amélioré" : alreadyBuilt ? "Construit" : "";
-      return `<div class="card ${!buildable?"opacity-50":""}"><div class="card-body">
+      const dimCard = !buildable && key !== "prison";
+      return `<div class="card ${dimCard?"opacity-50":""}"><div class="card-body">
         <div class="flex items-start gap justify-between">
           <div class="flex-1">
             <h3 style="font-size:1rem;font-weight:700">${info.label}</h3>
@@ -2625,6 +2632,65 @@ function renderBuildings() {
       </div></div>`;
     }).join("");
   }
+  renderPrisonSection();
+}
+
+function renderPrisonSection() {
+  const el = document.getElementById("bld-infrastructure");
+  if(!el) return;
+  const hasPrison = G.buildings.some(b=>b.type==="prison");
+  if(!hasPrison) return;
+  const cards = el.querySelectorAll(".card");
+  for(const card of cards) {
+    const h3 = card.querySelector("h3");
+    if(h3 && h3.textContent.includes("Prison")) {
+      let prisonExtra = card.querySelector("#prison-prisoners-block");
+      if(!prisonExtra) {
+        prisonExtra = document.createElement("div");
+        prisonExtra.id = "prison-prisoners-block";
+        prisonExtra.className = "mt-2";
+        card.querySelector(".card-body").appendChild(prisonExtra);
+      }
+      prisonExtra.innerHTML = renderPrisonPaquets();
+      break;
+    }
+  }
+}
+
+function renderPrisonPaquets() {
+  if(!G.prison) G.prison = {paquets:[]};
+  const total = G.prison.paquets.reduce((s,p)=>s+p.count,0);
+  return `
+    <hr style="border-color:var(--border);margin:0.5rem 0">
+    <div class="overline mb-1">⛓ Prisonniers</div>
+    ${G.prison.paquets.length ? G.prison.paquets.map((p,i)=>`
+      <div class="table-row text-xs" style="margin-bottom:0.2rem">
+        <span class="text-muted">${p.label||"Paquet #"+(i+1)}</span>
+        <span class="font-mono">${p.count} unités</span>
+        <button class="btn btn-ghost btn-sm text-danger" style="padding:0 0.3rem" onclick="removePrisonPaquet(${i})">✕</button>
+      </div>`).join("") : `<p class="text-xs text-muted">Aucun prisonnier.</p>`}
+    <div class="flex gap-sm mt-2" style="flex-wrap:wrap;align-items:center">
+      <input id="prison-label-input" type="text" placeholder="Nom (ex: Légion I)" class="input-sm" style="flex:1;min-width:100px;font-size:0.75rem;padding:0.2rem 0.4rem;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);color:var(--text)">
+      <input id="prison-count-input" type="number" min="1" placeholder="Nb unités" class="input-sm" style="width:80px;font-size:0.75rem;padding:0.2rem 0.4rem;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);color:var(--text)">
+      <button class="btn btn-primary btn-sm" onclick="addPrisonPaquet()">+ Ajouter</button>
+    </div>`;
+}
+
+function addPrisonPaquet() {
+  if(!G.prison) G.prison = {paquets:[]};
+  const label = (document.getElementById("prison-label-input")?.value||"").trim() || ("Paquet #"+(G.prison.paquets.length+1));
+  const count = parseInt(document.getElementById("prison-count-input")?.value)||0;
+  if(count <= 0) { alert("Entrez un nombre d'unités valide."); return; }
+  G.prison.paquets.push({label, count});
+  saveGame();
+  renderBuildings();
+}
+
+function removePrisonPaquet(index) {
+  if(!G.prison) return;
+  G.prison.paquets.splice(index,1);
+  saveGame();
+  renderBuildings();
 }
 
 function renderUsines() {
@@ -2854,6 +2920,18 @@ function renderMilitary() {
       <div id="mar-tarif" style="background:var(--bg-alt,rgba(0,0,0,0.04));border-radius:4px;padding:0.5rem 0.75rem;font-size:0.75rem"></div>
     </div></div>
     <div class="card"><div class="card-body">
+      <h3 class="mb-2" style="font-size:1rem;font-weight:700">⚔⚔️ Abondance de provisions pour les troupes</h3>\n      <p class="text-xs text-muted mb-2">Plus les rations sont généreuses, plus le moral des troupes est boosté — mais cela augmente la consommation de blé.
+      <div class="flex items-center gap" style="gap:1rem">
+        <input type="range" id="army-mob-slider" min="0" max="100" step="1"
+          value="${G.army_mobilisation}"
+          style="flex:1;accent-color:var(--gold)"
+          oninput="document.getElementById('army-mob-val').textContent=this.value+'%';"
+          onmouseup="G.army_mobilisation=+this.value; saveGame(); render();"
+          ontouchend="G.army_mobilisation=+this.value; saveGame(); render();">
+        <span id="army-mob-val" style="font-weight:700;font-size:1.1rem;min-width:3rem;text-align:right">${G.army_mobilisation}%</span>
+      </div>
+    </div></div>
+    <div class="card"><div class="card-body">
       <h3 class="mb-2" style="font-size:1.1rem;font-weight:700">Forces actuelles</h3>
       ${!G.troops.length ? `<p class="italic text-muted text-sm">Aucune troupe recrutée.</p>` : (()=>{
         // Construire la map des rangs par troop_key
@@ -2940,6 +3018,18 @@ function renderMilitary() {
       </div>
       <div class="text-xs text-muted mt-2" style="font-style:italic">Niv. I : 1 paquet · Niv. II : 2 paquets · Niv. III : 3 paquets · Galion : 15 paquets</div>
       ${linkedMar>totalMar?`<div style="margin-top:0.6rem;padding:0.5rem 0.75rem;background:rgba(139,26,26,0.08);border:1px solid var(--crimson);border-radius:4px;color:var(--crimson);font-size:0.8rem;font-weight:600">⚠ Déficit de ${linkedMar-totalMar} paquet(s) — ${(linkedMar-totalMar)*10} marins manquants. Des navires sont non opérationnels.</div>`:""}
+    </div></div>
+    <div class="card"><div class="card-body">
+      <h3 class="mb-2" style="font-size:1rem;font-weight:700">⚓ Abondance de provisions pour les marins</h3>\n      <p class="text-xs text-muted mb-2">Plus les rations sont généreuses, plus le moral des marins est boosté — mais cela augmente la consommation de blé.</p>
+      <div class="flex items-center gap" style="gap:1rem">
+        <input type="range" id="naval-mob-slider" min="0" max="100" step="1"
+          value="${G.naval_mobilisation}"
+          style="flex:1;accent-color:var(--sea)"
+          oninput="document.getElementById('naval-mob-val').textContent=this.value+'%';"
+          onmouseup="G.naval_mobilisation=+this.value; saveGame(); render();"
+          ontouchend="G.naval_mobilisation=+this.value; saveGame(); render();">
+        <span id="naval-mob-val" style="font-weight:700;font-size:1.1rem;min-width:3rem;text-align:right">${G.naval_mobilisation}%</span>
+      </div>
     </div></div>
     <div class="card"><div class="card-body">
       <h3 class="mb-1" style="font-size:1.1rem;font-weight:700">Navires de guerre</h3>
@@ -3522,12 +3612,16 @@ document.getElementById("tile-resource").addEventListener("change",function(){
 function addTile() {
   const domain=document.getElementById("tile-domain").value;
   const resource=document.getElementById("tile-resource").value;
-  // Slot 2 : optionnel pour terre sauf si slot 1 = capitale_ennemie
   const _r2raw = document.getElementById("tile-resource2").value;
   const resource2=(domain==="terre"&&resource!=="capitale_ennemie")
     ?(_r2raw||null):null;
   const name=document.getElementById("tile-name").value.trim();
-  actionAddTile(domain,resource,resource2,name);
+  const qty=Math.max(1,parseInt(document.getElementById("tile-quantity")?.value)||1);
+  if(qty===1) {
+    actionAddTile(domain,resource,resource2,name);
+  } else {
+    for(let i=0;i<qty;i++) actionAddTile(domain,"random",null,"");
+  }
   closeModal("modal-add-tile");
 }
 
