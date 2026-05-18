@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Carnet d'Amirauté — App de comptabilité par Mschap</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -258,6 +258,418 @@ input:checked + .slider:before { transform: translateX(18px); }
   .tab-panel { display: block !important; }
   .tabs-container { padding: 0; }
 }
+/* ── Breakdown — cartes catégories cliquables ─────────────────────────────── */
+.bd-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+.bd-cat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.75rem 0.9rem;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.15s, border-color 0.15s;
+  position: relative;
+  user-select: none;
+}
+.bd-cat-card:hover {
+  border-color: var(--gold);
+  box-shadow: 0 2px 8px rgba(139,105,20,0.12);
+  transform: translateY(-1px);
+}
+.bd-cat-card:active { transform: translateY(0); }
+.bd-cat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+.bd-cat-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--gold);
+}
+.bd-cat-count {
+  font-size: 0.65rem;
+  color: var(--muted);
+  background: rgba(0,0,0,0.04);
+  border-radius: 8px;
+  padding: 0.1rem 0.45rem;
+}
+.bd-cat-changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.6rem;
+  font-family: monospace;
+  font-size: 0.72rem;
+}
+.bd-cat-changes .none { color: var(--muted); font-style: italic; font-family: inherit; }
+.bd-cat-clue {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.6rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+  opacity: 0.6;
+}
+.bd-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px dashed var(--border);
+}
+.bd-detail-row:last-child { border-bottom: none; }
+.bd-detail-name { font-size: 0.85rem; font-weight: 500; }
+.bd-detail-sub { font-size: 0.7rem; color: var(--muted); margin-top: 0.1rem; }
+.bd-detail-changes { display: flex; flex-wrap: wrap; gap: 0.25rem 0.6rem; justify-content: flex-end; font-family: monospace; font-size: 0.72rem; }
+.bd-chart-wrap { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.bd-chart-legend { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.75rem; flex: 1; min-width: 180px; }
+.bd-chart-legend-item { display: flex; align-items: center; gap: 0.4rem; }
+.bd-chart-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+.bd-chart-tabs { display: flex; gap: 0.4rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+.bd-chart-tab {
+  font-size: 0.72rem; padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border); border-radius: 2px;
+  background: transparent; cursor: pointer; color: var(--ink);
+}
+.bd-chart-tab.active { background: var(--gold); color: #faf6ec; border-color: var(--gold); }
+/* ── Cases ressources : cliquables, regroupement par catégorie ──────────── */
+.resource-tile-clickable {
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.15s, border-color 0.15s;
+  position: relative;
+}
+.resource-tile-clickable:hover {
+  border-color: var(--gold);
+  box-shadow: 0 2px 8px rgba(139,105,20,0.12);
+  transform: translateY(-1px);
+}
+.resource-tile-clickable:active { transform: translateY(0); }
+.resource-tile-clickable::after {
+  content: "↗";
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  font-size: 0.65rem;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.resource-tile-clickable:hover::after { opacity: 0.7; }
+.res-cat-block {
+  margin-top: 0.45rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.res-cat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: monospace;
+  font-size: 0.68rem;
+}
+.res-cat-label {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 70%;
+}
+.res-cat-val { font-weight: 600; }
+/* ── Popup détail ressource ─────────────────────────────────────────────── */
+.res-detail-current {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.res-detail-current-val { font-size: 2.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.res-detail-current-delta { font-family: monospace; font-weight: 700; }
+.res-detail-cat-group {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: rgba(0,0,0,0.02);
+  border-left: 3px solid var(--gold);
+  border-radius: 2px;
+}
+.res-detail-cat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+.res-detail-cat-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.res-detail-source-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-family: monospace;
+  font-size: 0.72rem;
+  padding: 0.15rem 0;
+}
+.res-detail-source-row .lbl { color: var(--muted); }
+/* Icônes ressources en image (pour remplacer certains emojis) */
+.res-icon-img {
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.2em;
+  object-fit: contain;
+  image-rendering: -webkit-optimize-contrast;
+}
+/* ── Typographie des forteresses ──────────────────────────────────────── */
+.fortress-effect {
+  margin-top: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.fortress-effect-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.fortress-badge-lvl {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  font-family: 'Georgia', serif;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  color: #faf6ec;
+  background: var(--gold);
+  border: 1px solid var(--gold-light);
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+.fortress-scope {
+  font-size: 0.72rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+.fortress-effect-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.fortress-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: monospace;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: rgba(0,0,0,0.02);
+  cursor: help;
+}
+.fortress-stat-resist {
+  color: var(--gold);
+  border-color: var(--gold-light);
+  background: rgba(201,162,39,0.12);
+}
+.fortress-stat-atk {
+  color: var(--crimson);
+  border-color: var(--crimson);
+  background: rgba(139,26,26,0.08);
+}
+.fortress-stat-pop {
+  color: var(--success);
+  border-color: var(--success);
+  background: rgba(45,106,45,0.08);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   RESPONSIVE — Optimisations pour tablettes (≤900px) et téléphones (≤600px)
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Tablette (≤900px) ───────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .header-inner { padding: 0.9rem 1rem; }
+  .tabs-container { padding: 1rem 1rem 3rem; }
+  .nation-name-display { font-size: 1.55rem; }
+  .compass-icon { width: 38px; height: 38px; font-size: 1.2rem; }
+  .card-body { padding: 0.9rem; }
+  /* Tabs : scroll horizontal plutôt que wrap multi-lignes */
+  .tabs-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .tabs-nav::-webkit-scrollbar { height: 4px; }
+  .tabs-nav::-webkit-scrollbar-thumb { background: var(--border); }
+  .tab-btn { flex-shrink: 0; padding: 0.6rem 0.85rem; }
+  /* Grille ressources : 3 colonnes pour mieux remplir l'écran */
+  .grid-6 { grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }
+  .resource-tile { padding: 0.7rem 0.6rem; }
+  .resource-value { font-size: 1.45rem; }
+}
+
+/* ── Mobile (≤600px) ─────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  /* Header plus compact */
+  .header-inner {
+    padding: 0.7rem 0.75rem;
+    gap: 0.5rem;
+  }
+  .nation-name-display { font-size: 1.3rem; line-height: 1.05; }
+  .header-meta { font-size: 0.7rem; }
+  .compass-icon { width: 34px; height: 34px; font-size: 1.1rem; }
+  .header-logo { gap: 0.6rem; }
+  .header-actions { gap: 0.4rem; }
+  /* Boutons : zone tactile élargie, taille de texte conservée */
+  .btn { padding: 0.55rem 0.85rem; min-height: 38px; }
+  .btn-sm { padding: 0.35rem 0.6rem; min-height: 32px; }
+  .btn-seal { padding: 0.65rem 1.1rem; font-size: 0.78rem; letter-spacing: 0.08em; }
+  .btn-icon { width: 2.25rem; height: 2.25rem; min-height: 2.25rem; }
+
+  /* Tabs : padding plus serré */
+  .tabs-container { padding: 0.75rem 0.6rem 2.5rem; }
+  .tab-btn { padding: 0.55rem 0.7rem; font-size: 0.7rem; }
+
+  /* Cards : marge réduite */
+  .card-body { padding: 0.75rem 0.7rem; }
+
+  /* Grille ressources : 2 colonnes (au lieu d'1 par défaut) — meilleur ratio */
+  .grid-6 { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+  .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; gap: 0.75rem; }
+  .resource-tile { padding: 0.65rem 0.55rem; }
+  .resource-value { font-size: 1.3rem; }
+  .resource-delta { font-size: 0.72rem; }
+
+  /* Cases catégories du breakdown : 1 colonne */
+  .bd-cat-grid { grid-template-columns: 1fr; gap: 0.5rem; }
+  .bd-cat-card { padding: 0.65rem 0.7rem; }
+
+  /* Modales : utiliser quasi tout l'écran, marges minimales */
+  .modal-overlay { padding: 0.5rem; }
+  .modal {
+    max-width: 100% !important;
+    max-height: 95vh;
+    margin: 0;
+  }
+  .modal-header { padding: 1rem 1rem 0.6rem; }
+  .modal-body { padding: 0.9rem 1rem; }
+  .modal-footer { padding: 0.6rem 1rem 1rem; flex-wrap: wrap; }
+  .modal-title { font-size: 1.2rem; line-height: 1.2; }
+
+  /* Détails ressource : ajustements visuels */
+  .res-cat-row { font-size: 0.72rem; }
+  .res-detail-current { gap: 0.6rem; flex-wrap: wrap; }
+  .res-detail-current-val { font-size: 1.7rem; }
+  .res-detail-source-row { font-size: 0.7rem; }
+
+  /* Graphes : un seul donut visible à la fois, et la légende sous le donut */
+  .bd-chart-wrap { flex-direction: column; align-items: flex-start; }
+  .bd-chart-legend { min-width: 0; width: 100%; font-size: 0.7rem; }
+  .bd-chart-tabs { gap: 0.3rem; }
+  .bd-chart-tab { padding: 0.35rem 0.55rem; font-size: 0.7rem; min-height: 32px; }
+
+  /* Forteresses : badges qui peuvent passer à la ligne sans déborder */
+  .fortress-effect-stats { gap: 0.25rem; }
+  .fortress-stat { font-size: 0.68rem; padding: 0.18rem 0.4rem; }
+
+  /* Tableau interne aux cartes : laisser respirer en vertical si trop long */
+  .table-row {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+  .table-row > span:last-child { font-size: 0.8rem; }
+
+  /* Toast : ne pas occuper toute la largeur */
+  .toast { max-width: calc(100vw - 1rem); right: 0.5rem; left: 0.5rem; }
+}
+
+/* ── Très petit écran (≤380px) ───────────────────────────────────────────── */
+@media (max-width: 380px) {
+  .nation-name-display { font-size: 1.15rem; }
+  .tab-btn { padding: 0.5rem 0.55rem; font-size: 0.65rem; letter-spacing: 0.05em; }
+  .resource-value { font-size: 1.15rem; }
+  .grid-6 { gap: 0.4rem; }
+  .resource-tile { padding: 0.55rem 0.45rem; }
+  .res-cat-row { font-size: 0.66rem; }
+  .res-cat-label { max-width: 60%; }
+  .btn { padding: 0.5rem 0.7rem; font-size: 0.75rem; }
+}
+
+/* ── Zones tactiles : agrandir les cibles cliquables sur appareil tactile ── */
+@media (hover: none) and (pointer: coarse) {
+  .tab-btn { min-height: 40px; }
+  .resource-tile-clickable { -webkit-tap-highlight-color: rgba(139,105,20,0.15); }
+  .bd-cat-card { -webkit-tap-highlight-color: rgba(139,105,20,0.15); }
+  /* L'effet ↗ au survol ne marche pas en tactile, on l'affiche en permanence en discret */
+  .resource-tile-clickable::after { opacity: 0.4; }
+}
+
+/* ── Animation de transition entre onglets (slide directionnel) ──────────── */
+@keyframes tabSlideFromRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes tabSlideFromLeft {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.tab-panel.active.slide-from-right { animation: tabSlideFromRight 0.22s ease-out; }
+.tab-panel.active.slide-from-left  { animation: tabSlideFromLeft 0.22s ease-out; }
+
+/* ── Petit rebond en bout d'onglets (feedback de swipe en limite) ─────── */
+@keyframes tabBounceLeft  { 0%{transform:translateX(0)} 50%{transform:translateX(12px)} 100%{transform:translateX(0)} }
+@keyframes tabBounceRight { 0%{transform:translateX(0)} 50%{transform:translateX(-12px)} 100%{transform:translateX(0)} }
+.tabs-container.tab-bounce-left  > .tab-panel.active { animation: tabBounceLeft 0.25s ease-out; }
+.tabs-container.tab-bounce-right > .tab-panel.active { animation: tabBounceRight 0.25s ease-out; }
+
+/* ── Barre d'onglets : scroll snap pour alignement net sur mobile ────── */
+@media (max-width: 900px) {
+  .tabs-container > .tabs-nav {
+    scroll-snap-type: x proximity;
+    /* Fade gauche/droite indiquant qu'il y a plus à scroller */
+    mask-image: linear-gradient(to right, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+    padding: 0 4px;
+  }
+  .tabs-container > .tabs-nav .tab-btn {
+    scroll-snap-align: center;
+  }
+  /* L'onglet actif a un fond subtil pour le rendre plus repérable au tap */
+  .tab-btn.active {
+    background: rgba(139,105,20,0.08);
+    border-radius: 4px 4px 0 0;
+  }
+}
+
+/* ── Indicateur visuel de swipe disponible (petits chevrons aux extrémités) */
+@media (max-width: 600px) and (hover: none) {
+  .tabs-container { position: relative; }
+  .tab-panel.active { touch-action: pan-y; }
+}
 </style>
 </head>
 <body>
@@ -320,8 +732,11 @@ input:checked + .slider:before { transform: translateX(18px); }
     <div class="mt-3" id="pop-detail-section"></div>
     <div class="card mt-3" id="breakdown-card" style="display:none">
       <div class="card-body">
-        <div class="overline mb-2">Détail du prochain tour</div>
-        <div id="breakdown-list"></div>
+        <div class="overline mb-2">Détail du prochain tour <span class="text-xs text-muted" style="font-weight:400;letter-spacing:normal;text-transform:none;margin-left:0.5rem">— cliquez sur une catégorie pour voir le détail</span></div>
+        <div class="overline mb-2" style="color:var(--success);font-size:0.7rem">▲ Gains</div>
+        <div id="breakdown-gains" class="bd-cat-grid"></div>
+        <div class="overline mb-2 mt-3" style="color:var(--crimson);font-size:0.7rem">▼ Pertes / Entretien</div>
+        <div id="breakdown-losses" class="bd-cat-grid"></div>
       </div>
     </div>
   </div>
@@ -912,6 +1327,44 @@ input:checked + .slider:before { transform: translateX(18px); }
   </div>
 </div>
 
+<!-- Modal — détail d'une catégorie du breakdown -->
+<div class="modal-overlay" id="modal-breakdown-detail">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-header">
+      <div class="modal-title" id="bd-modal-title">Détail</div>
+      <div class="text-xs text-muted mt-1" id="bd-modal-subtitle"></div>
+    </div>
+    <div class="modal-body">
+      <div id="bd-modal-summary" class="mb-3"></div>
+      <div id="bd-modal-chart" class="mb-3"></div>
+      <div class="overline mb-1">Détail ligne par ligne</div>
+      <div id="bd-modal-rows"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-breakdown-detail')">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal — détail d'une ressource (sources par catégorie + graphes) -->
+<div class="modal-overlay" id="modal-resource-detail">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-header">
+      <div class="modal-title" id="rd-modal-title">Détail ressource</div>
+      <div class="text-xs text-muted mt-1" id="rd-modal-subtitle"></div>
+    </div>
+    <div class="modal-body">
+      <div id="rd-modal-current"></div>
+      <div id="rd-modal-chart" class="mb-3"></div>
+      <div class="overline mb-1 mt-2">Sources par catégorie</div>
+      <div id="rd-modal-groups"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-resource-detail')">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // =============================================================================
 // GAME ENGINE — toute la logique du backend portée en JS
@@ -957,7 +1410,7 @@ window.addEventListener("unhandledrejection", function(e) {
 
 const RESOURCE_KEYS = ["or","fer","ble","sucre","tabac","cacao","bois","nacre","sel","acier","planches","rhum","cigares","chocolat","bijoux"];
 const RESOURCE_LABELS = {or:"Or",fer:"Fer",ble:"Blé",sucre:"Sucre",tabac:"Tabac",cacao:"Cacao",bois:"Bois",nacre:"Nacre",sel:"Sel",acier:"Acier",planches:"Planches",rhum:"Rhum",cigares:"Cigares",chocolat:"Chocolat",bijoux:"Bijoux"};
-const RESOURCE_ICON = {or:"🪙",fer:"⛏️",ble:"🌾",sucre:"🍬",tabac:"🚬",cacao:"🍫",bois:"🌲",nacre:"💎",sel:"🌊",acier:"⚙️",planches:"📦",rhum:"🍺",cigares:"🚬",chocolat:"🍫",bijoux:"✨"};
+const RESOURCE_ICON = {or:"🪙",fer:"⛏️",ble:"🌾",sucre:"🍬",tabac:'<img class="res-icon-img" alt="tabac" src="https://raw.githubusercontent.com/Mschapxb/RiskPirate/master/78fe771c-6d7d-4cb2-877e-e294e7c104a2.png">',cacao:'<img class="res-icon-img" alt="cacao" src="https://raw.githubusercontent.com/Mschapxb/RiskPirate/master/ad2b092f-2591-465b-a7a9-c033d95bdb80.png">',bois:"🌲",nacre:"💎",sel:"🌊",acier:"⚙️",planches:"📦",rhum:"🍺",cigares:"🚬",chocolat:"🍫",bijoux:"✨"};
 const TILE_RESOURCES = {
   or:{label:"Gisement d'or",primary:"Mine d'or",domain:"terre"},
   fer:{label:"Gisement de fer",primary:"Mine de fer",domain:"terre"},
@@ -989,6 +1442,8 @@ const TILE_YIELD = {
   rien:{resource:null,raw:0,primary:0},            // pas de production
 };
 const CAPITAL_PRODUCTION = {or:200,ble:100,bois:100,fer:100};
+// Une capitale ennemie conquise produit moins qu'une capitale propre (or réduit, ressources matérielles identiques)
+const CAPITAL_ENNEMIE_PRODUCTION = {or:100, ble:100, bois:100, fer:100};
 const CAPITAL_BASE_DEFENSE = 5;
 const TILE_CONQUEST_COST_LAND = 200;
 const PRIMARY_BUILD_COST = {or:200};
@@ -1016,11 +1471,11 @@ const UTILITY_BUILDINGS = {
   base_militaire_1:{label:"Base militaire (Niv. I)",cost:{or:200},upkeep:{bois:35},pop_required:20,effect:"Recrute de l'infanterie",unique:true},
   base_militaire_2:{label:"Base militaire (Niv. II)",cost:{or:500},upkeep:{bois:35},pop_required:20,effect:"Améliore l'armée de terre",requires:"base_militaire_1",upgrades_from:"base_militaire_1",unique:true},
   base_militaire_3:{label:"Base militaire (Niv. III)",cost:{or:1000},upkeep:{bois:35},pop_required:20,effect:"Permet l'infanterie d'élite",requires:"base_militaire_2",upgrades_from:"base_militaire_2",unique:true},
-  forteresse_cap_1:{label:"Forteresse capitale (I)",cost:{or:500},upkeep:{bois:20},pop_required:3,defense_attack_pts:3,effect:"+3 pts d'attaque à briser, léger bonus défense",unique:true},
-  forteresse_cap_2:{label:"Forteresse capitale (II)",cost:{or:1000},upkeep:{fer:40},pop_required:5,defense_attack_pts:5,capital_pop_bonus:200,effect:"+5 pts, capitale loge 300 hab., bonus défense",requires:"forteresse_cap_1",upgrades_from:"forteresse_cap_1",unique:true},
-  forteresse_cap_3:{label:"Forteresse capitale (III)",cost:{or:2000},upkeep:{acier:40},pop_required:10,defense_attack_pts:8,capital_pop_bonus:400,effect:"+8 pts, capitale loge 500 hab., énorme bonus défense",requires:"forteresse_cap_2",upgrades_from:"forteresse_cap_2",unique:true},
-  forteresse_prov_1:{label:"Forteresse province (I)",cost:{or:500},upkeep:{bois:20},pop_required:3,defense_attack_pts:2,effect:"Province : +2 pts d'attaque",unique:false},
-  forteresse_prov_2:{label:"Forteresse province (II)",cost:{or:1000},upkeep:{fer:40},pop_required:5,defense_attack_pts:5,effect:"+5 pts, gros bonus défense",requires:"forteresse_prov_1",upgrades_from:"forteresse_prov_1",unique:false},
+  forteresse_cap_1:{label:"Forteresse capitale (I)",cost:{or:500},upkeep:{bois:20},pop_required:3,defense_attack_pts:3,resistance_pct:10,effect:"Niv. I — +10% de résistance aux dégâts",unique:true},
+  forteresse_cap_2:{label:"Forteresse capitale (II)",cost:{or:1000},upkeep:{fer:40},pop_required:5,defense_attack_pts:5,capital_pop_bonus:200,resistance_pct:20,effect:"Niv. II — +20% de résistance aux dégâts · capitale loge 300 hab.",requires:"forteresse_cap_1",upgrades_from:"forteresse_cap_1",unique:true},
+  forteresse_cap_3:{label:"Forteresse capitale (III)",cost:{or:2000},upkeep:{acier:40},pop_required:10,defense_attack_pts:8,capital_pop_bonus:400,resistance_pct:30,effect:"Niv. III — +30% de résistance aux dégâts · capitale loge 500 hab.",requires:"forteresse_cap_2",upgrades_from:"forteresse_cap_2",unique:true},
+  forteresse_prov_1:{label:"Forteresse province (I)",cost:{or:500},upkeep:{bois:20},pop_required:3,defense_attack_pts:2,resistance_pct:10,effect:"Niv. I — Province · +10% de résistance aux dégâts",unique:false},
+  forteresse_prov_2:{label:"Forteresse province (II)",cost:{or:1000},upkeep:{fer:40},pop_required:5,defense_attack_pts:5,resistance_pct:20,effect:"Niv. II — Province · +20% de résistance aux dégâts",requires:"forteresse_prov_1",upgrades_from:"forteresse_prov_1",unique:false},
   camp_entrainement:{label:"Camp d'entraînement",cost:{or:400,bois:100},upkeep:{bois:35},pop_required:20,effect:"Débloque l'entraînement des unités (+1 rang par tour · 20T max)",unique:true},
   hopital:{label:"Hôpital",cost:{or:1000},upkeep:{bois:35},pop_required:10,effect:"Limite les morts dans les guerres",unique:true},
   prison:{label:"Prison",cost:{or:500},upkeep:{bois:35},pop_required:10,effect:"Détient des prisonniers ennemis",unique:true},
@@ -1255,25 +1710,36 @@ function computeTurnChanges() {
   // 1) Capitale
   if(G.capital_active !== false) {
     for(const[k,v] of Object.entries(CAPITAL_PRODUCTION)) delta[k]+=v;
-    breakdown.push({label:"Capitale",changes:{...CAPITAL_PRODUCTION}});
+    const capTile = G.tiles.find(t=>t.domain==="capitale");
+    breakdown.push({
+      label:"Capitale",
+      category:"capitale",
+      changes:{...CAPITAL_PRODUCTION},
+      details:[{name:`👑 ${capTile?.name||"Capitale"}`,changes:{...CAPITAL_PRODUCTION}}]
+    });
   }
 
   // 2) Cases — slot 1 + slot 2 + capitale ennemie
   const tilesChanges={};
   const capEnnemieChanges={};
+  const tileDetails=[];      // détail par case productive (territoire)
+  const capEnnemieDetails=[]; // détail par capitale ennemie conquise
   for(const t of G.tiles) {
     if(t.domain==="capitale") continue;
-    // Capitale ennemie — produit comme CAPITAL_PRODUCTION
+    // Capitale ennemie — produit la MOITIÉ d'une capitale propre
     if(t.resource==="capitale_ennemie") {
-      for(const[k,v] of Object.entries(CAPITAL_PRODUCTION)) capEnnemieChanges[k]=(capEnnemieChanges[k]||0)+v;
+      for(const[k,v] of Object.entries(CAPITAL_ENNEMIE_PRODUCTION)) capEnnemieChanges[k]=(capEnnemieChanges[k]||0)+v;
+      capEnnemieDetails.push({name:`⚔️ ${t.name||"Capitale ennemie"}`,changes:{...CAPITAL_ENNEMIE_PRODUCTION}});
       continue;
     }
+    const tileCh={};
     // Slot 1 (skip si désactivé ou pas de ressource productive)
     if(!t.slot1_disabled) {
       const info=TILE_YIELD[t.resource];
       if(info&&info.resource) {
         const qty=t.has_primary?info.primary:info.raw;
         tilesChanges[info.resource]=(tilesChanges[info.resource]||0)+qty;
+        tileCh[info.resource]=(tileCh[info.resource]||0)+qty;
       }
     }
     // Slot 2 (terres uniquement, skip si désactivé)
@@ -1282,14 +1748,35 @@ function computeTurnChanges() {
       if(info2&&info2.resource) {
         const qty2=t.has_primary2?info2.primary:info2.raw;
         tilesChanges[info2.resource]=(tilesChanges[info2.resource]||0)+qty2;
+        tileCh[info2.resource]=(tileCh[info2.resource]||0)+qty2;
       }
+    }
+    if(Object.keys(tileCh).length) {
+      const icon = t.domain==="mer" ? "🌊" : "🗺️";
+      const resLabel = TILE_RESOURCES[t.resource]?.label || t.resource;
+      const primarySuffix = t.has_primary ? " ★" : "";
+      tileDetails.push({
+        name:`${icon} ${t.name||resLabel}${primarySuffix}`,
+        sublabel: resLabel + (t.resource2 ? ` + ${TILE_RESOURCES[t.resource2]?.label||t.resource2}` : ""),
+        changes:tileCh
+      });
     }
   }
   for(const[k,v] of Object.entries(tilesChanges)) delta[k]+=v;
-  if(Object.keys(tilesChanges).length) breakdown.push({label:"Cases & primaires",changes:{...tilesChanges}});
+  if(Object.keys(tilesChanges).length) breakdown.push({
+    label:"Cases & primaires",
+    category:"territoire",
+    changes:{...tilesChanges},
+    details:tileDetails
+  });
   if(Object.keys(capEnnemieChanges).length) {
     for(const[k,v] of Object.entries(capEnnemieChanges)) delta[k]+=v;
-    breakdown.push({label:"Capitale(s) ennemie(s)",changes:{...capEnnemieChanges}});
+    breakdown.push({
+      label:"Capitale(s) ennemie(s)",
+      category:"territoire",
+      changes:{...capEnnemieChanges},
+      details:capEnnemieDetails
+    });
   }
 
   // 3) Banques (meilleur niveau)
@@ -1297,27 +1784,54 @@ function computeTurnChanges() {
   if(bankLevels.length) {
     const top=bankLevels.sort((a,b)=>parseInt(b.split("_")[1])-parseInt(a.split("_")[1]))[0];
     const bonus=UTILITY_BUILDINGS[top]?.or_per_turn||0;
-    if(bonus){delta.or+=bonus;breakdown.push({label:UTILITY_BUILDINGS[top].label,changes:{or:bonus}});}
+    if(bonus){
+      delta.or+=bonus;
+      breakdown.push({
+        label:UTILITY_BUILDINGS[top].label,
+        category:"batiments",
+        changes:{or:bonus},
+        details:[{name:`🏛 ${UTILITY_BUILDINGS[top].label}`,changes:{or:bonus}}]
+      });
+    }
   }
 
   // 4) Hôtel des impôts
   if(G.buildings.some(b=>b.type==="hotel_impots")) {
     const tranches=Math.floor(popCapacity()/100);
     const bonus=50*tranches;
-    if(bonus){delta.or+=bonus;breakdown.push({label:`Hôtel des impôts (${tranches} tranches)`,changes:{or:bonus}});}
+    if(bonus){
+      delta.or+=bonus;
+      breakdown.push({
+        label:`Hôtel des impôts (${tranches} tranches)`,
+        category:"batiments",
+        changes:{or:bonus},
+        details:[{name:`💰 Hôtel des impôts`,sublabel:`${tranches} tranches de 100 hab.`,changes:{or:bonus}}]
+      });
+    }
   }
 
   // 5) Entretien bâtiments
   const bldUpkeep=emptyRes();
+  const bldUpkeepDetails=[];
   for(const b of G.buildings) {
     const i=UTILITY_BUILDINGS[b.type]; if(!i) continue;
-    for(const[k,v] of Object.entries(i.upkeep||{})) bldUpkeep[k]-=v;
+    const bch={};
+    for(const[k,v] of Object.entries(i.upkeep||{})) {
+      bldUpkeep[k]-=v;
+      bch[k]=(bch[k]||0)-v;
+    }
+    if(Object.keys(bch).length) bldUpkeepDetails.push({name:`🔧 ${i.label}`,changes:bch});
   }
 
   if(Object.values(bldUpkeep).some(v=>v!==0)) {
     for(const[k,v] of Object.entries(bldUpkeep)) delta[k]+=v;
     const ch=Object.fromEntries(Object.entries(bldUpkeep).filter(([,v])=>v!==0));
-    breakdown.push({label:"Entretien bâtiments",changes:ch});
+    breakdown.push({
+      label:"Entretien bâtiments",
+      category:"batiments",
+      changes:ch,
+      details:bldUpkeepDetails
+    });
   }
 
   // 6) Usines — batches_per_turn=0 signifie pause (aucune production ni consommation)
@@ -1338,41 +1852,80 @@ function computeTurnChanges() {
     }
     if(runs){
       for(const[k,v] of Object.entries(uCh)) delta[k]=(delta[k]||0)+v;
-      breakdown.push({label:`${info.label} (×${runs})`,changes:{...uCh}});
+      breakdown.push({
+        label:`${info.label} (×${runs})`,
+        category:"batiments",
+        changes:{...uCh},
+        details:[{name:`🏭 ${info.label}`,sublabel:`${runs} lot(s) ce tour`,changes:{...uCh}}]
+      });
     }
   }
 
-  // 7) Solde troupes (modulé par le % de mobilisation armée)
-  const armyMob = (G.army_mobilisation ?? 100) / 100;
+  // 7) Solde troupes (armée=armyMob sur blé, marins=navalMob sur blé)
+  const armyMob = (G.army_mobilisation ?? 0) / 100;
+  const navalMobTroop = (G.naval_mobilisation ?? 0) / 100;
   const troopUpkeep=emptyRes();
+  const troopDetails=[];
   for(const tg of G.troops) {
     const tiers=tg.branch==="infanterie"?TROOP_TIERS_INFANTERIE:TROOP_TIERS_MARINE;
     const spec=tiers[tg.tier]; if(!spec) continue;
+    const mob = tg.branch==="marine" ? navalMobTroop : armyMob;
+    const tch={};
     for(const[k,v] of Object.entries(spec.upkeep)) {
-      // Le blé de base + bonus selon % mobilisation ; les autres ressources inchangées
-      const mult = k === "ble" ? (1 + armyMob) : 1;
-      troopUpkeep[k]-=Math.round(v*tg.packs*mult);
+      const mult = k === "ble" ? (1 + mob) : 1;
+      const cost = Math.round(v*tg.packs*mult);
+      troopUpkeep[k]-=cost;
+      tch[k]=(tch[k]||0)-cost;
+    }
+    if(Object.keys(tch).length) {
+      const icon = tg.branch==="marine" ? "⚓" : "⚔️";
+      troopDetails.push({
+        name:`${icon} ${spec.label||(tg.branch+" Niv."+tg.tier)}`,
+        sublabel:`${tg.packs} pack(s) — ${tg.packs*10} soldats`,
+        changes:tch
+      });
     }
   }
   if(Object.values(troopUpkeep).some(v=>v!==0)) {
     for(const[k,v] of Object.entries(troopUpkeep)) delta[k]+=v;
-    breakdown.push({label:`Solde des troupes (mob. ${Math.round(armyMob*100)}%)`,changes:Object.fromEntries(Object.entries(troopUpkeep).filter(([,v])=>v!==0))});
+    breakdown.push({
+      label:`Solde des troupes (mob. ${Math.round(armyMob*100)}%)`,
+      category:"militaire",
+      changes:Object.fromEntries(Object.entries(troopUpkeep).filter(([,v])=>v!==0)),
+      details:troopDetails
+    });
   }
 
   // 8) Entretien navires (modulé par le % de mobilisation navale)
   const navalMob = (G.naval_mobilisation ?? 100) / 100;
   const shipUpkeep=emptyRes();
+  const shipDetails=[];
   for(const sg of G.ships) {
     const spec=sg.kind==="guerre"?(SHIP_TIERS[sg.tier]||SHIP_TIERS[1]):sg.kind==="galion"?GALION:MERCHANT_SHIP;
+    const sch={};
     for(const[k,v] of Object.entries(spec.upkeep)) {
-      // Le bois/planches de base + bonus selon % mobilisation navale
-      const mult = k === "ble" ? (1 + navalMob) : 1;
-      shipUpkeep[k]-=Math.round(v*sg.count*mult);
+      // Entretien navires inchangé (bois/planches fixes)
+      const cost = Math.round(v*sg.count);
+      shipUpkeep[k]-=cost;
+      sch[k]=(sch[k]||0)-cost;
+    }
+    if(Object.keys(sch).length) {
+      const icon = sg.kind==="guerre" ? "🚢" : sg.kind==="galion" ? "⛴️" : "🛥️";
+      shipDetails.push({
+        name:`${icon} ${spec.label||sg.kind}`,
+        sublabel:`× ${sg.count}`,
+        changes:sch
+      });
     }
   }
   if(Object.values(shipUpkeep).some(v=>v!==0)) {
     for(const[k,v] of Object.entries(shipUpkeep)) delta[k]+=v;
-    breakdown.push({label:`Entretien navires (mob. ${Math.round(navalMob*100)}%)`,changes:Object.fromEntries(Object.entries(shipUpkeep).filter(([,v])=>v!==0))});
+    breakdown.push({
+      label:`Entretien navires (mob. ${Math.round(navalMob*100)}%)`,
+      category:"militaire",
+      changes:Object.fromEntries(Object.entries(shipUpkeep).filter(([,v])=>v!==0)),
+      details:shipDetails
+    });
   }
 
   // 9) Nourriture — tous les habitants hors capitale paient 1 blé/tour
@@ -1390,30 +1943,80 @@ function computeTurnChanges() {
     const bleUsed=Math.min(bleAvail,foodNeeded);
     delta.ble-=bleUsed;
     // Plus de fallback poisson — le blé est la seule nourriture
-    breakdown.push({label:`Nourriture (${eaters} hab. hors capitale × 1 blé)`,changes:{ble:-bleUsed,__pop:eaters}});
+    breakdown.push({
+      label:`Nourriture (${eaters} hab. hors capitale × 1 blé)`,
+      category:"population",
+      changes:{ble:-bleUsed,__pop:eaters},
+      details:[{name:`🍞 Nourriture des habitants`,sublabel:`${eaters} bouches × 1 blé/tour`,changes:{ble:-bleUsed}}]
+    });
   }
 
   // 10) Commerce — routes récurrentes ET ponctuelles (les ponctuelles sont supprimées après)
   const tradeCh=emptyRes();
+  const tradeDetails=[];
   for(const r of G.trade_routes) {
+    const rch={};
     // récurrent OU ponctuel : les deux s'appliquent ce tour
-    if(r.direction==="import"){tradeCh[r.resource]=(tradeCh[r.resource]||0)+r.quantity;tradeCh.or=(tradeCh.or||0)-r.quantity*r.price_per_unit;}
-    else{tradeCh[r.resource]=(tradeCh[r.resource]||0)-r.quantity;tradeCh.or=(tradeCh.or||0)+r.quantity*r.price_per_unit;}
+    if(r.direction==="import"){
+      tradeCh[r.resource]=(tradeCh[r.resource]||0)+r.quantity;
+      tradeCh.or=(tradeCh.or||0)-r.quantity*r.price_per_unit;
+      rch[r.resource]=r.quantity;
+      rch.or=-r.quantity*r.price_per_unit;
+    }
+    else{
+      tradeCh[r.resource]=(tradeCh[r.resource]||0)-r.quantity;
+      tradeCh.or=(tradeCh.or||0)+r.quantity*r.price_per_unit;
+      rch[r.resource]=-r.quantity;
+      rch.or=r.quantity*r.price_per_unit;
+    }
+    const arrow = r.direction==="import" ? "⬇️ Import" : "⬆️ Export";
+    const partner = r.partner ? ` — ${r.partner}` : "";
+    const oneshot = r.oneshot ? " (ponctuel)" : "";
+    tradeDetails.push({
+      name:`${arrow} ${r.quantity} ${RESOURCE_LABELS[r.resource]||r.resource}${partner}${oneshot}`,
+      sublabel:`${r.price_per_unit} or/u`,
+      changes:rch
+    });
   }
   if(Object.values(tradeCh).some(v=>v!==0)) {
     for(const[k,v] of Object.entries(tradeCh)) delta[k]=(delta[k]||0)+v;
-    breakdown.push({label:"Commerce (export)",changes:Object.fromEntries(Object.entries(tradeCh).filter(([,v])=>v!==0))});
+    breakdown.push({
+      label:"Commerce (export)",
+      category:"commerce",
+      changes:Object.fromEntries(Object.entries(tradeCh).filter(([,v])=>v!==0)),
+      details:tradeDetails
+    });
   }
 
   // 9b) Échanges entre joueurs — récurrents ET ponctuels
   const ptCh=emptyRes();
+  const ptDetails=[];
   for(const pt of (G.player_trades||[])) {
-    if(RESOURCE_KEYS.includes(pt.give_res))  ptCh[pt.give_res] =(ptCh[pt.give_res] ||0)-pt.give_qty;
-    if(RESOURCE_KEYS.includes(pt.recv_res))  ptCh[pt.recv_res] =(ptCh[pt.recv_res] ||0)+pt.recv_qty;
+    const pch={};
+    if(RESOURCE_KEYS.includes(pt.give_res)) {
+      ptCh[pt.give_res] =(ptCh[pt.give_res] ||0)-pt.give_qty;
+      pch[pt.give_res] = -pt.give_qty;
+    }
+    if(RESOURCE_KEYS.includes(pt.recv_res)) {
+      ptCh[pt.recv_res] =(ptCh[pt.recv_res] ||0)+pt.recv_qty;
+      pch[pt.recv_res] = (pch[pt.recv_res]||0)+pt.recv_qty;
+    }
+    const partner = pt.partner ? ` ↔ ${pt.partner}` : "";
+    const oneshot = pt.oneshot ? " (ponctuel)" : "";
+    ptDetails.push({
+      name:`🤝 Échange${partner}${oneshot}`,
+      sublabel:`Donne ${pt.give_qty} ${RESOURCE_LABELS[pt.give_res]||pt.give_res} contre ${pt.recv_qty} ${RESOURCE_LABELS[pt.recv_res]||pt.recv_res}`,
+      changes:pch
+    });
   }
   if(Object.values(ptCh).some(v=>v!==0)) {
     for(const[k,v] of Object.entries(ptCh)) delta[k]=(delta[k]||0)+v;
-    breakdown.push({label:"Échanges joueurs",changes:Object.fromEntries(Object.entries(ptCh).filter(([,v])=>v!==0))});
+    breakdown.push({
+      label:"Échanges joueurs",
+      category:"commerce",
+      changes:Object.fromEntries(Object.entries(ptCh).filter(([,v])=>v!==0)),
+      details:ptDetails
+    });
   }
 
   // 11) Population libre → 1 or / habitant libre / tour (bêta, activable)
@@ -1422,7 +2025,12 @@ function computeTurnChanges() {
     const popFree=Math.max(0,cap-occ);
     if(popFree>0) {
       delta.or=(delta.or||0)+popFree;
-      breakdown.push({label:`Pop. libre productive (${fmt(popFree)} hab. × 1 or)`,changes:{or:popFree}});
+      breakdown.push({
+        label:`Pop. libre productive (${fmt(popFree)} hab. × 1 or)`,
+        category:"population",
+        changes:{or:popFree},
+        details:[{name:`🧑‍🌾 Pop. libre productive`,sublabel:`${fmt(popFree)} habitants disponibles × 1 or/tour`,changes:{or:popFree}}]
+      });
     }
   }
 
@@ -1964,6 +2572,7 @@ function actionEndTurn() {
       // mais on ajoute un log pour informer
       ch.breakdown.push({
         label:`⚠ Export partiel ${RESOURCE_LABELS[res]} (stock insuffisant)`,
+        category:"commerce",
         changes:{[res]: -(Math.min(stock, qtyNeeded))}
       });
     }
@@ -2024,6 +2633,18 @@ function actionEndTurn() {
   G.player_trades = (G.player_trades||[]).filter(pt=>pt.recurring);
   G.training_units = G.training_units.filter(tu=>!tu._remove);
   G.resources = after;
+  // Progression du moral (max ±25% par tour vers la cible)
+  const _armyTarget  = G.army_mobilisation  ?? 0;
+  const _navalTarget = G.naval_mobilisation ?? 0;
+  const _armyCur  = G.army_moral  ?? 0;
+  const _navalCur = G.naval_moral ?? 0;
+  const _step = 25;
+  G.army_moral  = _armyCur  < _armyTarget  ? Math.min(_armyTarget,  _armyCur  + _step)
+               : _armyCur  > _armyTarget  ? Math.max(_armyTarget,  _armyCur  - _step)
+               : _armyCur;
+  G.naval_moral = _navalCur < _navalTarget ? Math.min(_navalTarget, _navalCur + _step)
+               : _navalCur > _navalTarget ? Math.max(_navalTarget, _navalCur - _step)
+               : _navalCur;
   G.turn++;
   const report={turn:G.turn-1,timestamp:new Date().toISOString(),before,delta:ch.delta,after,breakdown:ch.breakdown,pop_occupied:ch.pop_occupied,deficits:deficits,turn_log:[...(G.turn_log||[])]};
   G.last_turn_report=report;
@@ -2121,14 +2742,15 @@ function renderHeader() {
 }
 
 function computeResourceSources() {
-  // Retourne pour chaque ressource un tableau de {label, value}
+  // Retourne pour chaque ressource un tableau de {label, value, category}
+  // category ∈ {territoire, capitale, batiments, militaire, population, commerce}
   const sources = {};
   const init = (k) => { if(!sources[k]) sources[k] = []; };
 
   // Capitale
   if(G.capital_active !== false) {
     for(const [k,v] of Object.entries(CAPITAL_PRODUCTION)) {
-      init(k); sources[k].push({label:"Capitale", value:v});
+      init(k); sources[k].push({label:"Capitale", value:v, category:"capitale"});
     }
   }
 
@@ -2136,8 +2758,8 @@ function computeResourceSources() {
   for(const t of G.tiles) {
     if(t.domain==="capitale") continue;
     if(t.resource==="capitale_ennemie") {
-      for(const[k,v] of Object.entries(CAPITAL_PRODUCTION)) {
-        init(k); sources[k].push({label:`${t.name||"Cap. ennemie"}`, value:v});
+      for(const[k,v] of Object.entries(CAPITAL_ENNEMIE_PRODUCTION)) {
+        init(k); sources[k].push({label:`${t.name||"Cap. ennemie"}`, value:v, category:"territoire"});
       }
       continue;
     }
@@ -2147,7 +2769,7 @@ function computeResourceSources() {
     const name = t.name || (t.domain==="mer" ? "Île" : "Province");
     if(res && !t.slot1_disabled) {
       init(res);
-      sources[res].push({label: t.has_primary ? `${name} (bât.)` : name, value: qty});
+      sources[res].push({label: t.has_primary ? `${name} (bât.)` : name, value: qty, category:"territoire"});
     }
     // Slot 2 (terres uniquement)
     if(t.domain==="terre" && t.resource2 && !t.slot2_disabled) {
@@ -2155,7 +2777,7 @@ function computeResourceSources() {
       if(info2 && info2.resource) {
         const qty2 = t.has_primary2 ? info2.primary : info2.raw;
         init(info2.resource);
-        sources[info2.resource].push({label: t.has_primary2 ? `${name} S2 (bât.)` : `${name} S2`, value: qty2});
+        sources[info2.resource].push({label: t.has_primary2 ? `${name} S2 (bât.)` : `${name} S2`, value: qty2, category:"territoire"});
       }
     }
   }
@@ -2165,27 +2787,33 @@ function computeResourceSources() {
   if(bankLevels.length) {
     const top = bankLevels.sort((a,b)=>parseInt(b.split("_")[1])-parseInt(a.split("_")[1]))[0];
     const bonus = UTILITY_BUILDINGS[top]?.or_per_turn||0;
-    if(bonus) { init("or"); sources["or"].push({label:UTILITY_BUILDINGS[top].label, value:bonus}); }
+    if(bonus) { init("or"); sources["or"].push({label:UTILITY_BUILDINGS[top].label, value:bonus, category:"batiments"}); }
   }
 
   // Hôtel des impôts
   if(G.buildings.some(b=>b.type==="hotel_impots")) {
     const tranches = Math.floor(popCapacity()/100);
     const bonus = 50*tranches;
-    if(bonus) { init("or"); sources["or"].push({label:`Hôtel des impôts (${tranches}×)`, value:bonus}); }
+    if(bonus) { init("or"); sources["or"].push({label:`Hôtel des impôts (${tranches}×)`, value:bonus, category:"batiments"}); }
   }
 
   // Pop libre productive
   if(G.free_pop_gold_active) {
     const free = Math.max(0, popCapacity()-popOccupied());
-    if(free>0) { init("or"); sources["or"].push({label:`Pop. libre (${free} hab.)`, value:free}); }
+    if(free>0) { init("or"); sources["or"].push({label:`Pop. libre (${free} hab.)`, value:free, category:"population"}); }
   }
 
-  // Entretien bâtiments (négatif)
+  // Entretien bâtiments (groupé par type)
+  const bldCountMap = {};
+  for(const b of G.buildings) { bldCountMap[b.type] = (bldCountMap[b.type]||0)+1; }
+  const seenBld = new Set();
   for(const b of G.buildings) {
+    if(seenBld.has(b.type)) continue; seenBld.add(b.type);
     const i = UTILITY_BUILDINGS[b.type]; if(!i) continue;
+    const n = bldCountMap[b.type]||1;
+    const suffix = n > 1 ? ` ×${n}` : "";
     for(const [k,v] of Object.entries(i.upkeep||{})) {
-      init(k); sources[k].push({label:`Entretien ${i.label}`, value:-v});
+      init(k); sources[k].push({label:`Entretien ${i.label}${suffix}`, value:-v*n, category:"batiments"});
     }
   }
 
@@ -2195,10 +2823,10 @@ function computeResourceSources() {
     const batches = u.batches_per_turn === 0 ? 0 : Math.max(1, u.batches_per_turn||1);
     if(!batches) continue; // pause explicite
     for(const [k,v] of Object.entries(info.produce)) {
-      init(k); sources[k].push({label:`${info.label} (prod.)`, value:v*batches});
+      init(k); sources[k].push({label:`${info.label} (prod.)`, value:v*batches, category:"batiments"});
     }
     for(const [k,v] of Object.entries(info.consume)) {
-      init(k); sources[k].push({label:`${info.label} (conso.)`, value:-v*batches});
+      init(k); sources[k].push({label:`${info.label} (conso.)`, value:-v*batches, category:"batiments"});
     }
   }
 
@@ -2208,28 +2836,28 @@ function computeResourceSources() {
     const batches = u.batches_per_turn === 0 ? 0 : Math.max(1, u.batches_per_turn||1);
     if(!batches) continue; // pause explicite
     for(const [k,v] of Object.entries(info.produce)) {
-      init(k); sources[k].push({label:`${info.label} ✨`, value:v*batches});
+      init(k); sources[k].push({label:`${info.label} ✨`, value:v*batches, category:"batiments"});
     }
   }
 
-  // Entretien navires (modulé par mobilisation navale)
-  const _navalMob = (G.naval_mobilisation ?? 100) / 100;
+  // Entretien navires (fixe)
   for(const sg of G.ships) {
     const spec = sg.kind==="guerre"?(SHIP_TIERS[sg.tier]||SHIP_TIERS[1]):sg.kind==="galion"?GALION:MERCHANT_SHIP;
     for(const [k,v] of Object.entries(spec.upkeep)) {
-      const mult = k === "ble" ? (1 + _navalMob) : 1;
-      init(k); sources[k].push({label:`Entretien ${spec.label} ×${sg.count}`, value:-Math.round(v*sg.count*mult)});
+      init(k); sources[k].push({label:`Entretien ${spec.label} ×${sg.count}`, value:-Math.round(v*sg.count), category:"militaire"});
     }
   }
 
-  // Solde troupes (modulé par mobilisation armée)
-  const _armyMob = (G.army_mobilisation ?? 100) / 100;
+  // Solde troupes (armée=armyMob, marins=navalMob, sur blé uniquement)
+  const _armyMob  = (G.army_mobilisation  ?? 0) / 100;
+  const _navalMob = (G.naval_mobilisation  ?? 0) / 100;
   for(const tg of G.troops) {
     const tiers = tg.branch==="infanterie"?TROOP_TIERS_INFANTERIE:TROOP_TIERS_MARINE;
     const spec = tiers[tg.tier]; if(!spec) continue;
+    const mob = tg.branch==="marine" ? _navalMob : _armyMob;
     for(const [k,v] of Object.entries(spec.upkeep)) {
-      const mult = k === "ble" ? (1 + _armyMob) : 1;
-      init(k); sources[k].push({label:`Solde ${tg.branch} Niv.${tg.tier} ×${tg.packs} paq.`, value:-Math.round(v*tg.packs*mult)});
+      const mult = k === "ble" ? (1 + mob) : 1;
+      init(k); sources[k].push({label:`Solde ${tg.branch} Niv.${tg.tier} ×${tg.packs} paq.`, value:-Math.round(v*tg.packs*mult), category:"militaire"});
     }
   }
   const _capitalCap2 = CAPITAL_BASE_POP + G.buildings.reduce((sum,b)=>{
@@ -2237,18 +2865,18 @@ function computeResourceSources() {
   }, 0);
   const _eaters2 = Math.max(0, popCapacity() - _capitalCap2);
   if(_eaters2 > 0) {
-    init("ble"); sources["ble"].push({label:`Nourriture (${_eaters2} hab. × 1)`, value:-_eaters2});
+    init("ble"); sources["ble"].push({label:`Nourriture (${_eaters2} hab. × 1)`, value:-_eaters2, category:"population"});
   }
 
   // Commerce — routes récurrentes ET ponctuelles
   for(const r of G.trade_routes) {
     const label = r.recurring ? "" : " 🕐";
     if(r.direction==="import") {
-      init(r.resource); sources[r.resource].push({label:`Import ${r.partner||"?"}${label}`, value:r.quantity});
-      init("or"); sources["or"].push({label:`Paiement import ${r.partner||"?"}${label}`, value:-r.quantity*r.price_per_unit});
+      init(r.resource); sources[r.resource].push({label:`Import ${r.partner||"?"}${label}`, value:r.quantity, category:"commerce"});
+      init("or"); sources["or"].push({label:`Paiement import ${r.partner||"?"}${label}`, value:-r.quantity*r.price_per_unit, category:"commerce"});
     } else {
-      init(r.resource); sources[r.resource].push({label:`Export → ${r.partner||"?"}${label}`, value:-r.quantity});
-      init("or"); sources["or"].push({label:`Recette ${RESOURCE_LABELS[r.resource]||r.resource} → ${r.partner||"?"}${label}`, value:r.quantity*r.price_per_unit});
+      init(r.resource); sources[r.resource].push({label:`Export → ${r.partner||"?"}${label}`, value:-r.quantity, category:"commerce"});
+      init("or"); sources["or"].push({label:`Recette ${RESOURCE_LABELS[r.resource]||r.resource} → ${r.partner||"?"}${label}`, value:r.quantity*r.price_per_unit, category:"commerce"});
     }
   }
 
@@ -2257,10 +2885,10 @@ function computeResourceSources() {
     const label = pt.recurring ? "" : " 🕐";
     const partner = pt.partner||"?";
     if(RESOURCE_KEYS.includes(pt.give_res)) {
-      init(pt.give_res); sources[pt.give_res].push({label:`Échange → ${partner}${label}`, value:-pt.give_qty});
+      init(pt.give_res); sources[pt.give_res].push({label:`Échange → ${partner}${label}`, value:-pt.give_qty, category:"commerce"});
     }
     if(RESOURCE_KEYS.includes(pt.recv_res)) {
-      init(pt.recv_res); sources[pt.recv_res].push({label:`Échange ← ${partner}${label}`, value:pt.recv_qty});
+      init(pt.recv_res); sources[pt.recv_res].push({label:`Échange ← ${partner}${label}`, value:pt.recv_qty, category:"commerce"});
     }
   }
 
@@ -2348,23 +2976,35 @@ function renderResources() {
   // Resource grid
   const rg=document.getElementById("resource-grid");
   const srcs = computeResourceSources();
+  // Stocker pour la popup
+  window._resSources = srcs;
   rg.innerHTML=RESOURCE_KEYS.map(k=>{
     const v=G.resources[k]||0, d=preview.delta[k]||0;
     const dc=d>0?"delta-pos":d<0?"delta-neg":"delta-neu";
     const da=d>0?"▲":d<0?"▼":"—";
     const sList = (srcs[k]||[]).filter(s=>s.value!==0);
-    const srcHtml = sList.length
-      ? `<div style="margin-top:0.45rem;padding-top:0.4rem;border-top:1px dashed var(--border)">`
-        + sList.map(s=>{
-            const cl=s.value>0?"text-success":"text-danger";
-            return `<div class="${cl}" style="font-family:monospace;font-size:0.62rem;display:flex;justify-content:space-between;gap:0.25rem">
-              <span style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:65%">${s.label}</span>
-              <span>${s.value>0?"+":""}${fmt(s.value)}</span>
+    // Regrouper par catégorie : on somme les valeurs par catégorie
+    const catSums = {}; // {catKey: sum}
+    for(const s of sList) {
+      const c = s.category || "autre";
+      catSums[c] = (catSums[c]||0) + s.value;
+    }
+    const catEntries = Object.entries(catSums)
+      .filter(([,vv])=>vv!==0)
+      .sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+    const srcHtml = catEntries.length
+      ? `<div class="res-cat-block">`
+        + catEntries.map(([catKey, sum])=>{
+            const cl=sum>0?"text-success":"text-danger";
+            const meta = BD_CAT_META[catKey] || BD_CAT_META.autre;
+            return `<div class="res-cat-row ${cl}">
+              <span class="res-cat-label" title="${meta.label}">${meta.icon} ${meta.label}</span>
+              <span class="res-cat-val">${sum>0?"+":""}${fmt(sum)}</span>
             </div>`;
           }).join("")
         + `</div>`
       : "";
-    return `<div class="resource-tile">
+    return `<div class="resource-tile resource-tile-clickable" onclick="openResourceDetail('${k}')" title="Cliquez pour voir le détail">
       <div class="flex items-center justify-between mb-1">
         <span class="overline" style="font-size:0.6rem">${RESOURCE_LABELS[k]}</span>
         <span>${RESOURCE_ICON[k]||""}</span>
@@ -2375,19 +3015,425 @@ function renderResources() {
     </div>`;
   }).join("");
 
-  // Breakdown
+  // Breakdown — regroupement par catégorie (territoire / capitale / batiments / militaire / population / commerce)
   const bk=document.getElementById("breakdown-card");
-  const bl=document.getElementById("breakdown-list");
+  const gainsEl=document.getElementById("breakdown-gains");
+  const lossesEl=document.getElementById("breakdown-losses");
   if(preview.breakdown&&preview.breakdown.length) {
     bk.style.display="";
-    bl.innerHTML=preview.breakdown.map(row=>{
-      const changes=Object.entries(row.changes).filter(([k])=>k!=="__pop").map(([k,v])=>{
+    // 1) Cumuler par catégorie (somme des changes + concaténation des sources/details)
+    const catAgg = {}; // {catKey: {totals:{res:qty}, sources:[{label,count,changes,details}]}}
+    for(const row of preview.breakdown) {
+      const cat = row.category || "autre";
+      if(!catAgg[cat]) catAgg[cat] = {totals:{}, sources:[]};
+      // cumuler les totaux par ressource (ignorer __pop)
+      for(const [k,v] of Object.entries(row.changes||{})) {
+        if(k==="__pop") continue;
+        catAgg[cat].totals[k] = (catAgg[cat].totals[k]||0) + v;
+      }
+      // regrouper les sources identiques (même label) — ex: 2 cases blé fusionnées dans details côté tile mais pour les autres labels on dédup
+      const existing = catAgg[cat].sources.find(s => s.label === row.label);
+      if(existing) {
+        existing.count++;
+        for(const [k,v] of Object.entries(row.changes||{})) {
+          if(k==="__pop") continue;
+          existing.changes[k] = (existing.changes[k]||0) + v;
+        }
+        if(row.details) existing.details = [...(existing.details||[]), ...row.details];
+      } else {
+        const cleanCh = {};
+        for(const [k,v] of Object.entries(row.changes||{})) if(k!=="__pop") cleanCh[k]=v;
+        catAgg[cat].sources.push({
+          label: row.label,
+          count: 1,
+          changes: cleanCh,
+          details: row.details ? [...row.details] : []
+        });
+      }
+    }
+    // 2) Classer chaque catégorie en gains ou pertes
+    //    Classement par défaut basé sur la nature de la catégorie ; commerce et bâtiments
+    //    peuvent basculer selon leur bilan net (positif → gains, négatif → pertes).
+    const DEFAULT_SIDE = {
+      territoire: "gains",
+      capitale:   "gains",
+      batiments:  "auto",   // dépend du net
+      commerce:   "auto",   // dépend du net
+      militaire:  "pertes",
+      population: "auto",   // peut être +or via pop libre, ou -blé via nourriture
+      autre:      "auto",
+    };
+    const gainCats = [];
+    const lossCats = [];
+    for(const [catKey, data] of Object.entries(catAgg)) {
+      const side = DEFAULT_SIDE[catKey] || "auto";
+      let target = side;
+      if(side === "auto") {
+        // Calcul du net : on additionne tout (ressources mélangées). C'est imparfait
+        // mais suffisant comme heuristique pour décider gain vs perte dominant.
+        let net = 0;
+        for(const v of Object.values(data.totals)) net += v;
+        target = net >= 0 ? "gains" : "pertes";
+      }
+      if(target === "gains") gainCats.push({catKey, data});
+      else lossCats.push({catKey, data});
+    }
+    // Ordre des catégories : selon l'ordre canonique
+    const CAT_ORDER = ["territoire","capitale","batiments","commerce","population","militaire","autre"];
+    const sortCats = arr => arr.sort((a,b)=>CAT_ORDER.indexOf(a.catKey)-CAT_ORDER.indexOf(b.catKey));
+    sortCats(gainCats);
+    sortCats(lossCats);
+
+    const renderCard = ({catKey, data}) => {
+      const meta = BD_CAT_META[catKey] || BD_CAT_META.autre;
+      const entries = Object.entries(data.totals).filter(([,v])=>v!==0);
+      // Compter le nombre de sous-éléments réels (details consolidés) sinon 0
+      const detailCount = data.sources.reduce((sum,s)=>sum+((s.details&&s.details.length)||0),0);
+      const changesHtml = entries.length
+        ? entries.map(([k,v])=>{
+            const cl=v>0?"text-success":v<0?"text-danger":"text-muted";
+            return `<span class="${cl}">${fmtDelta(v)} ${RESOURCE_LABELS[k]||k}</span>`;
+          }).join("")
+        : `<span class="none">aucun effet net</span>`;
+      return `<div class="bd-cat-card" onclick="openBreakdownDetail('${catKey}')" title="Voir le détail">
+        <span class="bd-cat-clue">↗</span>
+        <div class="bd-cat-header">
+          <div class="bd-cat-title">${meta.icon} ${meta.label}</div>
+          ${detailCount?`<div class="bd-cat-count">${detailCount}</div>`:""}
+        </div>
+        <div class="bd-cat-changes">${changesHtml}</div>
+      </div>`;
+    };
+    gainsEl.innerHTML = gainCats.length ? gainCats.map(renderCard).join("") : `<div class="text-muted text-sm" style="grid-column:1/-1">Aucun gain net.</div>`;
+    lossesEl.innerHTML = lossCats.length ? lossCats.map(renderCard).join("") : `<div class="text-muted text-sm" style="grid-column:1/-1">Aucune perte nette.</div>`;
+    // Stocker l'agrégat pour la modal
+    window._bdCatAgg = catAgg;
+  } else { bk.style.display="none"; window._bdCatAgg = null; }
+}
+
+// ── Métadonnées des catégories du breakdown ──────────────────────────────────
+const BD_CAT_META = {
+  territoire: {icon:"🗺️", label:"Territoire", desc:"Production des cases (terres & mers)"},
+  capitale:   {icon:"👑", label:"Capitale",   desc:"Production fixe de la capitale"},
+  batiments:  {icon:"🏛", label:"Bâtiments",  desc:"Banques, hôtel des impôts, usines, entretien"},
+  commerce:   {icon:"⚖️", label:"Commerce",   desc:"Routes commerciales et échanges entre joueurs"},
+  militaire:  {icon:"⚔️", label:"Militaire",  desc:"Solde des troupes et entretien des navires"},
+  population: {icon:"👥", label:"Population", desc:"Nourriture et revenus de la population libre"},
+  autre:      {icon:"❓", label:"Autre",      desc:"Effets divers"},
+};
+
+// ── Petite palette pour les graphes (couleurs distinctes mais sobres) ───────
+const BD_PALETTE = ["#8b6914","#2d6a2d","#8b1a1a","#3d5a80","#9b6a3c","#5e548e","#588b8b","#bb6a51","#4a6e8c","#6b6043","#a17f4a","#7a5c2e"];
+
+function openBreakdownDetail(catKey) {
+  const agg = window._bdCatAgg && window._bdCatAgg[catKey];
+  if(!agg) return;
+  const meta = BD_CAT_META[catKey] || BD_CAT_META.autre;
+  document.getElementById("bd-modal-title").innerHTML = `${meta.icon} ${meta.label}`;
+  document.getElementById("bd-modal-subtitle").textContent = meta.desc;
+
+  // ── Résumé : totaux par ressource ──
+  const totalsEntries = Object.entries(agg.totals).filter(([,v])=>v!==0);
+  const totalsHtml = totalsEntries.length
+    ? `<div class="bd-cat-changes" style="font-size:0.85rem">${totalsEntries.map(([k,v])=>{
         const cl=v>0?"text-success":v<0?"text-danger":"text-muted";
-        return `<span class="${cl}" style="margin-left:0.75rem;font-family:monospace;font-size:0.75rem">${fmtDelta(v)} ${RESOURCE_LABELS[k]||k}</span>`;
-      }).join("");
-      return `<div class="table-row"><span class="text-sm bold">${row.label}</span><span>${changes}</span></div>`;
+        return `<span class="${cl}" style="font-weight:600">${fmtDelta(v)} ${RESOURCE_LABELS[k]||k}</span>`;
+      }).join("")}</div>`
+    : `<div class="text-muted text-sm">Aucun effet net.</div>`;
+  document.getElementById("bd-modal-summary").innerHTML = `<div class="overline mb-1">Total catégorie</div>${totalsHtml}`;
+
+  // ── Graphe(s) : un graphe par ressource impactée, avec onglets ──
+  // On regroupe : pour chaque ressource, somme des contributions (positives séparées des négatives)
+  // On choisit la ressource la plus "impactante" comme onglet actif par défaut.
+  // Pour simplifier : on construit un onglet par ressource présente, et un graphe donut des sources.
+  const resKeysImpacted = [...new Set(agg.sources.flatMap(s =>
+    (s.details && s.details.length ? s.details : [s])
+      .flatMap(d => Object.keys(d.changes||{}))
+  ))].filter(k => k!=="__pop");
+
+  // Trier les ressources par impact absolu décroissant
+  resKeysImpacted.sort((a,b)=>Math.abs(agg.totals[b]||0)-Math.abs(agg.totals[a]||0));
+
+  if(resKeysImpacted.length === 0) {
+    document.getElementById("bd-modal-chart").innerHTML = "";
+  } else {
+    const tabsHtml = `<div class="bd-chart-tabs">${
+      resKeysImpacted.map((k,i)=>`<button class="bd-chart-tab ${i===0?"active":""}" onclick="renderBdChart('${catKey}','${k}',this)">${RESOURCE_LABELS[k]||k}</button>`).join("")
+    }</div>`;
+    document.getElementById("bd-modal-chart").innerHTML = `${tabsHtml}<div id="bd-chart-content"></div>`;
+    renderBdChart(catKey, resKeysImpacted[0], null);
+  }
+
+  // ── Lignes détaillées : on affiche tous les details consolidés ──
+  // Pour chaque source, on liste ses details (sinon la source elle-même).
+  const rows = [];
+  for(const src of agg.sources) {
+    if(src.details && src.details.length) {
+      for(const d of src.details) rows.push(d);
+    } else {
+      // Pas de details → utiliser la source comme une ligne
+      rows.push({name: src.label, changes: src.changes});
+    }
+  }
+  // Trier par impact net absolu décroissant
+  rows.sort((a,b)=>{
+    const sa = Object.values(a.changes||{}).reduce((s,v)=>s+Math.abs(v),0);
+    const sb = Object.values(b.changes||{}).reduce((s,v)=>s+Math.abs(v),0);
+    return sb - sa;
+  });
+  const rowsHtml = rows.length ? rows.map(r=>{
+    const ch = Object.entries(r.changes||{}).filter(([k])=>k!=="__pop").map(([k,v])=>{
+      const cl=v>0?"text-success":v<0?"text-danger":"text-muted";
+      return `<span class="${cl}">${fmtDelta(v)} ${RESOURCE_LABELS[k]||k}</span>`;
     }).join("");
-  } else { bk.style.display="none"; }
+    return `<div class="bd-detail-row">
+      <div>
+        <div class="bd-detail-name">${r.name||"(sans nom)"}</div>
+        ${r.sublabel?`<div class="bd-detail-sub">${r.sublabel}</div>`:""}
+      </div>
+      <div class="bd-detail-changes">${ch||'<span class="text-muted">—</span>'}</div>
+    </div>`;
+  }).join("") : `<div class="text-muted text-sm">Aucun détail disponible.</div>`;
+  document.getElementById("bd-modal-rows").innerHTML = rowsHtml;
+
+  openModal("modal-breakdown-detail");
+}
+
+// Rend un donut SVG pour une ressource donnée d'une catégorie
+function renderBdChart(catKey, resKey, btn) {
+  // gestion onglets
+  if(btn) {
+    btn.parentElement.querySelectorAll(".bd-chart-tab").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+  }
+  const agg = window._bdCatAgg && window._bdCatAgg[catKey];
+  if(!agg) return;
+  // Collecte les contributions par source pour cette ressource
+  // On utilise details si disponibles, sinon la source elle-même
+  const contribs = []; // {name, value}
+  for(const src of agg.sources) {
+    const subs = (src.details && src.details.length) ? src.details : [{name:src.label, changes:src.changes}];
+    for(const d of subs) {
+      const v = (d.changes||{})[resKey] || 0;
+      if(v !== 0) contribs.push({name: d.name || src.label, value: v});
+    }
+  }
+  // Séparer positifs et négatifs (on affiche en deux donuts si les deux existent)
+  const positives = contribs.filter(c=>c.value>0).sort((a,b)=>b.value-a.value);
+  const negatives = contribs.filter(c=>c.value<0).map(c=>({name:c.name, value:-c.value})).sort((a,b)=>b.value-a.value);
+
+  const container = document.getElementById("bd-chart-content");
+  if(!container) return;
+
+  // Tronque/regroupe les petites parts au-delà de 8 pour lisibilité
+  const groupSmall = (arr, max=8) => {
+    if(arr.length <= max) return arr;
+    const top = arr.slice(0, max-1);
+    const restSum = arr.slice(max-1).reduce((s,x)=>s+x.value,0);
+    return [...top, {name:`Autres (${arr.length-max+1})`, value: restSum}];
+  };
+  const pSlim = groupSmall(positives);
+  const nSlim = groupSmall(negatives);
+
+  const donutSvg = (arr, title, colorOffset=0) => {
+    if(arr.length === 0) return "";
+    const total = arr.reduce((s,x)=>s+x.value,0);
+    if(total === 0) return "";
+    const size = 140, cx = size/2, cy = size/2, r = 55, rin = 32;
+    let acc = 0;
+    const paths = arr.map((d, i) => {
+      const frac = d.value / total;
+      const a0 = acc * 2 * Math.PI - Math.PI/2;
+      acc += frac;
+      const a1 = acc * 2 * Math.PI - Math.PI/2;
+      const large = frac > 0.5 ? 1 : 0;
+      const x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0);
+      const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+      const xi0 = cx + rin * Math.cos(a0), yi0 = cy + rin * Math.sin(a0);
+      const xi1 = cx + rin * Math.cos(a1), yi1 = cy + rin * Math.sin(a1);
+      const color = BD_PALETTE[(i+colorOffset) % BD_PALETTE.length];
+      // Cas dégénéré : une seule part = cercle complet
+      if(arr.length === 1) {
+        return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" />
+                <circle cx="${cx}" cy="${cy}" r="${rin}" fill="var(--parchment)" />`;
+      }
+      return `<path d="M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1} L ${xi1} ${yi1} A ${rin} ${rin} 0 ${large} 0 ${xi0} ${yi0} Z" fill="${color}" stroke="var(--parchment)" stroke-width="1"/>`;
+    }).join("");
+    const legend = arr.map((d, i) => {
+      const color = BD_PALETTE[(i+colorOffset) % BD_PALETTE.length];
+      const pct = ((d.value/total)*100).toFixed(0);
+      return `<div class="bd-chart-legend-item"><span class="bd-chart-swatch" style="background:${color}"></span><span style="flex:1">${d.name}</span><span class="text-muted" style="font-family:monospace">${fmt(d.value)} (${pct}%)</span></div>`;
+    }).join("");
+    return `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:0.5rem;flex:1;min-width:280px">
+      <div class="overline" style="font-size:0.7rem">${title} · total ${fmt(total)} ${RESOURCE_LABELS[resKey]||resKey}</div>
+      <div class="bd-chart-wrap">
+        <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" style="flex-shrink:0">${paths}<text x="${cx}" y="${cy+4}" text-anchor="middle" style="font-family:monospace;font-size:11px;fill:var(--ink)">${fmt(total)}</text></svg>
+        <div class="bd-chart-legend">${legend}</div>
+      </div>
+    </div>`;
+  };
+
+  const pHtml = donutSvg(pSlim, "▲ Contributions positives", 0);
+  const nHtml = donutSvg(nSlim, "▼ Contributions négatives", 4);
+  if(!pHtml && !nHtml) {
+    container.innerHTML = `<div class="text-muted text-sm">Aucune contribution pour ${RESOURCE_LABELS[resKey]||resKey}.</div>`;
+  } else {
+    container.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:1.5rem;justify-content:flex-start">${pHtml}${nHtml}</div>`;
+  }
+}
+
+// ── Détail d'une ressource au clic sur sa case ─────────────────────────────
+function openResourceDetail(resKey) {
+  const srcs = (window._resSources && window._resSources[resKey]) || [];
+  const sList = srcs.filter(s=>s.value!==0);
+  const current = G.resources[resKey] || 0;
+  const delta = (preview && preview.delta && preview.delta[resKey]) || 0;
+  const label = RESOURCE_LABELS[resKey] || resKey;
+  const icon = (typeof RESOURCE_ICON !== 'undefined' && RESOURCE_ICON[resKey]) || "";
+
+  document.getElementById("rd-modal-title").innerHTML = `${icon} ${label}`;
+  document.getElementById("rd-modal-subtitle").textContent = `Sources de gain et de perte ce tour`;
+
+  // Bloc "stock actuel + delta projeté"
+  const deltaCl = delta>0?"text-success":delta<0?"text-danger":"text-muted";
+  const deltaArrow = delta>0?"▲":delta<0?"▼":"—";
+  const projected = Math.max(0, current + delta);
+  document.getElementById("rd-modal-current").innerHTML = `
+    <div class="res-detail-current">
+      <div>
+        <div class="overline" style="font-size:0.65rem">Stock actuel</div>
+        <div class="res-detail-current-val">${fmt(current)}</div>
+      </div>
+      <div>
+        <div class="overline" style="font-size:0.65rem">Delta / tour</div>
+        <div class="res-detail-current-delta ${deltaCl}">${deltaArrow} ${fmtDelta(delta)}</div>
+      </div>
+      <div>
+        <div class="overline" style="font-size:0.65rem">Stock projeté</div>
+        <div class="res-detail-current-delta text-muted">${fmt(projected)}</div>
+      </div>
+    </div>`;
+
+  // Graphes : donut positifs (par catégorie) + donut négatifs (par catégorie)
+  const renderRdChart = () => {
+    const posByCat = {}, negByCat = {};
+    for(const s of sList) {
+      const c = s.category || "autre";
+      if(s.value>0) posByCat[c] = (posByCat[c]||0) + s.value;
+      else if(s.value<0) negByCat[c] = (negByCat[c]||0) + (-s.value);
+    }
+    const toArr = obj => Object.entries(obj).map(([c,v])=>({name:(BD_CAT_META[c]||BD_CAT_META.autre).label, icon:(BD_CAT_META[c]||BD_CAT_META.autre).icon, value:v}));
+    const positives = toArr(posByCat).sort((a,b)=>b.value-a.value);
+    const negatives = toArr(negByCat).sort((a,b)=>b.value-a.value);
+
+    const donutSvg = (arr, title, colorOffset=0) => {
+      if(arr.length === 0) return "";
+      const total = arr.reduce((s,x)=>s+x.value,0);
+      if(total === 0) return "";
+      const size = 130, cx = size/2, cy = size/2, r = 52, rin = 30;
+      let acc = 0;
+      const paths = arr.map((d, i) => {
+        const frac = d.value / total;
+        const a0 = acc * 2 * Math.PI - Math.PI/2;
+        acc += frac;
+        const a1 = acc * 2 * Math.PI - Math.PI/2;
+        const large = frac > 0.5 ? 1 : 0;
+        const x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0);
+        const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+        const xi0 = cx + rin * Math.cos(a0), yi0 = cy + rin * Math.sin(a0);
+        const xi1 = cx + rin * Math.cos(a1), yi1 = cy + rin * Math.sin(a1);
+        const color = BD_PALETTE[(i+colorOffset) % BD_PALETTE.length];
+        if(arr.length === 1) {
+          return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" />
+                  <circle cx="${cx}" cy="${cy}" r="${rin}" fill="var(--parchment)" />`;
+        }
+        return `<path d="M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1} L ${xi1} ${yi1} A ${rin} ${rin} 0 ${large} 0 ${xi0} ${yi0} Z" fill="${color}" stroke="var(--parchment)" stroke-width="1"/>`;
+      }).join("");
+      const legend = arr.map((d, i) => {
+        const color = BD_PALETTE[(i+colorOffset) % BD_PALETTE.length];
+        const pct = ((d.value/total)*100).toFixed(0);
+        return `<div class="bd-chart-legend-item"><span class="bd-chart-swatch" style="background:${color}"></span><span style="flex:1">${d.icon} ${d.name}</span><span class="text-muted" style="font-family:monospace">${fmt(d.value)} (${pct}%)</span></div>`;
+      }).join("");
+      return `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:0.4rem;flex:1;min-width:260px">
+        <div class="overline" style="font-size:0.7rem">${title} · total ${fmt(total)}</div>
+        <div class="bd-chart-wrap">
+          <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" style="flex-shrink:0">${paths}<text x="${cx}" y="${cy+4}" text-anchor="middle" style="font-family:monospace;font-size:11px;fill:var(--ink)">${fmt(total)}</text></svg>
+          <div class="bd-chart-legend">${legend}</div>
+        </div>
+      </div>`;
+    };
+
+    const pHtml = donutSvg(positives, "▲ Gains par catégorie", 0);
+    const nHtml = donutSvg(negatives, "▼ Pertes par catégorie", 4);
+    const chartEl = document.getElementById("rd-modal-chart");
+    if(!pHtml && !nHtml) {
+      chartEl.innerHTML = `<div class="text-muted text-sm" style="margin:0.5rem 0">Aucune source active pour ${label}.</div>`;
+    } else {
+      chartEl.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:1.5rem;justify-content:flex-start;margin-top:0.5rem">${pHtml}${nHtml}</div>`;
+    }
+  };
+  renderRdChart();
+
+  // Sources groupées par catégorie
+  const byCat = {}; // catKey: [sources]
+  for(const s of sList) {
+    const c = s.category || "autre";
+    if(!byCat[c]) byCat[c] = [];
+    byCat[c].push(s);
+  }
+  const CAT_ORDER = ["territoire","capitale","batiments","commerce","population","militaire","autre"];
+  const catKeysSorted = Object.keys(byCat).sort((a,b)=>CAT_ORDER.indexOf(a)-CAT_ORDER.indexOf(b));
+
+  const groupsHtml = catKeysSorted.length ? catKeysSorted.map(catKey=>{
+    const meta = BD_CAT_META[catKey] || BD_CAT_META.autre;
+    const arr = byCat[catKey];
+    const sum = arr.reduce((s,x)=>s+x.value,0);
+    const sumCl = sum>0?"text-success":sum<0?"text-danger":"text-muted";
+    // Tri par impact absolu décroissant
+    arr.sort((a,b)=>Math.abs(b.value)-Math.abs(a.value));
+    const rows = arr.map(s=>{
+      const cl = s.value>0?"text-success":"text-danger";
+      return `<div class="res-detail-source-row">
+        <span class="lbl">${s.label}</span>
+        <span class="${cl}">${s.value>0?"+":""}${fmt(s.value)}</span>
+      </div>`;
+    }).join("");
+    return `<div class="res-detail-cat-group">
+      <div class="res-detail-cat-header">
+        <span>${meta.icon} ${meta.label}</span>
+        <span class="${sumCl}" style="font-family:monospace">${sum>0?"+":""}${fmt(sum)} ${label}</span>
+      </div>
+      <div class="res-detail-cat-sources">${rows}</div>
+    </div>`;
+  }).join("") : `<div class="text-muted text-sm">Aucune source active pour ${label} ce tour.</div>`;
+  document.getElementById("rd-modal-groups").innerHTML = groupsHtml;
+
+  openModal("modal-resource-detail");
+}
+
+// ── Affichage typographique des forteresses ────────────────────────────────
+// Met en valeur le niveau (badge), le bonus de résistance (% en couleur or)
+// et les pts à briser. Utilisé uniquement pour les bâtiments dont la clé
+// commence par "forteresse_".
+function renderFortressEffect(key, info) {
+  // Le niveau est encodé en suffixe : forteresse_cap_1 → "I", _2 → "II", _3 → "III"
+  const m = key.match(/_(\d+)$/);
+  const lvlNum = m ? parseInt(m[1]) : 0;
+  const lvlRoman = ["", "I", "II", "III", "IV", "V"][lvlNum] || String(lvlNum);
+  const isCapital = key.startsWith("forteresse_cap_");
+  const scope = isCapital ? "Capitale" : "Province";
+  const resist = info.resistance_pct || 0;
+  const popBonus = info.capital_pop_bonus || 0;
+  return `<div class="fortress-effect">
+    <div class="fortress-effect-line">
+      <span class="fortress-badge-lvl">Niv. ${lvlRoman}</span>
+      <span class="fortress-scope">${scope}</span>
+    </div>
+    <div class="fortress-effect-stats">
+      ${resist  ? `<span class="fortress-stat fortress-stat-resist" title="Résistance aux dégâts">🛡 +${resist}% résistance</span>` : ""}
+      ${popBonus? `<span class="fortress-stat fortress-stat-pop" title="Habitants supplémentaires logés dans la capitale (exemptés de blé)">🏘 +${popBonus} hab.</span>` : ""}
+    </div>
+  </div>`;
 }
 
 function renderEmpire() {
@@ -2437,7 +3483,7 @@ function renderEmpire() {
     return tiles.map(t=>{
       // ── Cas spécial : capitale ennemie ──────────────────────────────────────
       if(t.resource==="capitale_ennemie") {
-        const prodLines = Object.entries(CAPITAL_PRODUCTION).map(([k,v])=>
+        const prodLines = Object.entries(CAPITAL_ENNEMIE_PRODUCTION).map(([k,v])=>
           `<div class="table-row"><span>${RESOURCE_LABELS[k]}</span><span class="font-mono text-success">+${fmt(v)}</span></div>`
         ).join("");
         return `<div class="card" style="border-color:var(--crimson);border-width:2px"><div class="card-body">
@@ -2445,7 +3491,7 @@ function renderEmpire() {
             <div>
               <div class="overline mb-1" style="color:var(--crimson)">👑 Capitale ennemie conquise</div>
               <h4 style="font-size:1.1rem;font-weight:700">${t.name}</h4>
-              <p class="text-sm text-muted">Produit comme votre propre capitale</p>
+              <p class="text-sm text-muted">Production réduite par rapport à une capitale propre</p>
             </div><span>🏚</span>
           </div>
           <div class="mt-2 flex flex-wrap gap-sm">
@@ -2609,7 +3655,7 @@ function renderBuildings() {
         <div class="flex items-start gap justify-between">
           <div class="flex-1">
             <h3 style="font-size:1rem;font-weight:700">${info.label}</h3>
-            <p class="text-xs text-muted mt-1">${info.effect}</p>
+            ${key.startsWith("forteresse_") ? renderFortressEffect(key, info) : `<p class="text-xs text-muted mt-1">${info.effect}</p>`}
           </div>
           ${statusLabel
             ? `<span class="badge ${superseded?"badge-sea":"badge-gold"}">${statusLabel}</span>`
@@ -2895,6 +3941,34 @@ function updateMerchTarif() {
    +`<div style="color:var(--muted);margin-top:0.2rem">${count*MERCHANT_SHIP.crew} hab. d'équipage</div>`;
 }
 
+function armyBleBonus(pct) {
+  // Calcule le coût bonus en blé par tour pour l'infanterie au % donné
+  const mob = (pct ?? 0) / 100;
+  if(mob === 0) return 0;
+  let total = 0;
+  for(const tg of G.troops) {
+    if(tg.branch !== "infanterie") continue;
+    const spec = TROOP_TIERS_INFANTERIE[tg.tier]; if(!spec) continue;
+    const base = (spec.upkeep.ble || 0) * tg.packs;
+    total += Math.round(base * mob);
+  }
+  return total;
+}
+
+function navalBleBonus(pct) {
+  // Calcule le coût bonus en blé par tour pour les marins au % donné
+  const mob = (pct ?? 0) / 100;
+  if(mob === 0) return 0;
+  let total = 0;
+  for(const tg of G.troops) {
+    if(tg.branch !== "marine") continue;
+    const spec = TROOP_TIERS_MARINE[tg.tier]; if(!spec) continue;
+    const base = (spec.upkeep.ble || 0) * tg.packs;
+    total += Math.round(base * mob);
+  }
+  return total;
+}
+
 function renderMilitary() {
   // Armée
   const tierOptions=(tiers)=>Object.entries(tiers).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
@@ -2920,15 +3994,22 @@ function renderMilitary() {
       <div id="mar-tarif" style="background:var(--bg-alt,rgba(0,0,0,0.04));border-radius:4px;padding:0.5rem 0.75rem;font-size:0.75rem"></div>
     </div></div>
     <div class="card"><div class="card-body">
-      <h3 class="mb-2" style="font-size:1rem;font-weight:700">⚔⚔️ Abondance de provisions pour les troupes</h3>\n      <p class="text-xs text-muted mb-2">Plus les rations sont généreuses, plus le moral des troupes est boosté — mais cela augmente la consommation de blé.
-      <div class="flex items-center gap" style="gap:1rem">
+      <h3 class="mb-2" style="font-size:1rem;font-weight:700">⚔️ Abondance de provisions pour les troupes</h3>
+      <p class="text-xs text-muted mb-2">Plus les rations sont généreuses, plus le moral des troupes est boosté — mais cela augmente la consommation de blé.</p>
+      <div class="flex items-center gap" style="gap:1rem;margin-bottom:0.5rem">
         <input type="range" id="army-mob-slider" min="0" max="100" step="1"
           value="${G.army_mobilisation}"
           style="flex:1;accent-color:var(--gold)"
-          oninput="document.getElementById('army-mob-val').textContent=this.value+'%';"
+          oninput="document.getElementById('army-mob-val').textContent=this.value+'%'; document.getElementById('army-mob-preview').textContent=armyBleBonus(+this.value)+' blé/tour';"
           onmouseup="G.army_mobilisation=+this.value; saveGame(); render();"
           ontouchend="G.army_mobilisation=+this.value; saveGame(); render();">
         <span id="army-mob-val" style="font-weight:700;font-size:1.1rem;min-width:3rem;text-align:right">${G.army_mobilisation}%</span>
+      </div>
+      <div class="flex gap" style="gap:1.5rem;font-size:0.75rem;flex-wrap:wrap">
+        <div><span class="text-muted">Coût blé/tour : </span><span id="army-mob-preview" style="color:var(--crimson);font-weight:600">${armyBleBonus(G.army_mobilisation)} blé/tour</span></div>
+        <div><span class="text-muted">Moral actuel : </span><span style="color:var(--gold);font-weight:700">${G.army_moral ?? 0}%</span></div>
+        <div><span class="text-muted">Moral visé : </span><span style="color:var(--gold-dim);font-weight:600">${G.army_mobilisation}%</span></div>
+        ${(G.army_moral??0) < G.army_mobilisation ? `<div style="color:var(--teal-bright);font-size:0.7rem">↑ +${Math.min(25,G.army_mobilisation-(G.army_moral??0))}% ce tour</div>` : (G.army_moral??0) > G.army_mobilisation ? `<div style="color:var(--crimson);font-size:0.7rem">↓ -${Math.min(25,(G.army_moral??0)-G.army_mobilisation)}% ce tour</div>` : `<div style="color:var(--success,#4a9e6b);font-size:0.7rem">✓ Moral atteint</div>`}
       </div>
     </div></div>
     <div class="card"><div class="card-body">
@@ -2946,7 +4027,10 @@ function renderMilitary() {
           for(let i=0; i<t.packs; i++) {
             const key = t.branch+"|"+t.tier+"|"+t.id+"|"+i;
             const tu  = tuMap[key];
-            packets.push({t, spec, packIdx:i+1, key, rank: tu?(tu.rank||0):0, inTraining:!!tu});
+            const manualRank = (t.ranks && t.ranks[i]) || 0;
+            const trainRank  = tu ? (tu.rank||0) : 0;
+            const totalRank  = Math.min(20, trainRank + manualRank);
+            packets.push({t, spec, packIdx:i+1, key, rank: totalRank, manualRank, trainRank, inTraining:!!tu});
           }
         }
 
@@ -2967,9 +4051,14 @@ function renderMilitary() {
                 <span class="text-xs text-muted">Paquet ${p.packIdx} · 10 sold.</span>
                 ${p.inTraining?`<span class="badge" style="background:rgba(26,107,122,0.15);border-color:var(--teal);color:var(--teal-bright);font-size:0.55rem">🏕️ EN CAMP</span>`:""}
               </div>
-              ${p.rank>0?`<div class="flex items-center gap-sm mt-1">${rankStars(p.rank)}<span class="text-xs" style="color:var(--gold-dim);font-style:italic;font-weight:600">${rankLabel}</span><span class="text-xs text-muted">(rang ${p.rank})</span></div>`:`<span class="text-xs text-muted italic">${rankLabel}</span>`}
+              ${p.rank>0?`<div class="flex items-center gap-sm mt-1">${rankStars(p.rank)}<span class="text-xs" style="color:var(--gold-dim);font-style:italic;font-weight:600">${rankLabel}</span><span class="text-xs text-muted">(rang ${p.rank}${p.trainRank>0&&p.manualRank>0?" = "+p.trainRank+" camp + "+p.manualRank+" manuel":p.trainRank>0?" camp":p.manualRank>0?" manuel":""})</span></div>`:`<span class="text-xs text-muted italic">${rankLabel}</span>`}
             </div>
-            <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDisbandTroop('${p.t.id}',1)" title="Démobiliser 1 paquet">−</button>
+            <div class="flex gap-sm items-center">
+              ${p.t.branch==="infanterie"&&p.spec&&TROOP_TIERS_INFANTERIE[p.t.tier+1]?`<button class="btn btn-ghost btn-sm" style="font-size:0.6rem;padding:0.1rem 0.4rem;color:var(--gold)" onclick="upgradeTroop('${p.t.id}','${p.packIdx-1}')" title="Améliorer ce paquet au niveau supérieur">↑ Niv.</button>`:""}
+              <button class="btn btn-ghost btn-sm" style="font-size:0.6rem;padding:0.1rem 0.4rem;color:var(--teal-bright)" onclick="addTroopRank('${p.t.id}','${p.packIdx-1}')" title="+1 rang manuel">★+</button>
+              ${p.manualRank>0?`<button class="btn btn-ghost btn-sm" style="font-size:0.6rem;padding:0.1rem 0.4rem;color:var(--crimson)" onclick="removeTroopRank('${p.t.id}','${p.packIdx-1}')" title="-1 rang manuel">★−</button>`:""}
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDisbandTroop('${p.t.id}',1)" title="Démobiliser 1 paquet">−</button>
+            </div>
           </div>`;
         };
 
@@ -3020,15 +4109,22 @@ function renderMilitary() {
       ${linkedMar>totalMar?`<div style="margin-top:0.6rem;padding:0.5rem 0.75rem;background:rgba(139,26,26,0.08);border:1px solid var(--crimson);border-radius:4px;color:var(--crimson);font-size:0.8rem;font-weight:600">⚠ Déficit de ${linkedMar-totalMar} paquet(s) — ${(linkedMar-totalMar)*10} marins manquants. Des navires sont non opérationnels.</div>`:""}
     </div></div>
     <div class="card"><div class="card-body">
-      <h3 class="mb-2" style="font-size:1rem;font-weight:700">⚓ Abondance de provisions pour les marins</h3>\n      <p class="text-xs text-muted mb-2">Plus les rations sont généreuses, plus le moral des marins est boosté — mais cela augmente la consommation de blé.</p>
-      <div class="flex items-center gap" style="gap:1rem">
+      <h3 class="mb-2" style="font-size:1rem;font-weight:700">⚓ Abondance de provisions pour les marins</h3>
+      <p class="text-xs text-muted mb-2">Plus les rations sont généreuses, plus le moral des marins est boosté — mais cela augmente la consommation de blé.</p>
+      <div class="flex items-center gap" style="gap:1rem;margin-bottom:0.5rem">
         <input type="range" id="naval-mob-slider" min="0" max="100" step="1"
           value="${G.naval_mobilisation}"
           style="flex:1;accent-color:var(--sea)"
-          oninput="document.getElementById('naval-mob-val').textContent=this.value+'%';"
+          oninput="document.getElementById('naval-mob-val').textContent=this.value+'%'; document.getElementById('naval-mob-preview').textContent=navalBleBonus(+this.value)+' blé/tour';"
           onmouseup="G.naval_mobilisation=+this.value; saveGame(); render();"
           ontouchend="G.naval_mobilisation=+this.value; saveGame(); render();">
         <span id="naval-mob-val" style="font-weight:700;font-size:1.1rem;min-width:3rem;text-align:right">${G.naval_mobilisation}%</span>
+      </div>
+      <div class="flex gap" style="gap:1.5rem;font-size:0.75rem;flex-wrap:wrap">
+        <div><span class="text-muted">Coût blé/tour : </span><span id="naval-mob-preview" style="color:var(--crimson);font-weight:600">${navalBleBonus(G.naval_mobilisation)} blé/tour</span></div>
+        <div><span class="text-muted">Moral actuel : </span><span style="color:var(--sea);font-weight:700">${G.naval_moral ?? 0}%</span></div>
+        <div><span class="text-muted">Moral visé : </span><span style="color:var(--sea);font-weight:600;opacity:0.7">${G.naval_mobilisation}%</span></div>
+        ${(G.naval_moral??0) < G.naval_mobilisation ? `<div style="color:var(--teal-bright);font-size:0.7rem">↑ +${Math.min(25,G.naval_mobilisation-(G.naval_moral??0))}% ce tour</div>` : (G.naval_moral??0) > G.naval_mobilisation ? `<div style="color:var(--crimson);font-size:0.7rem">↓ -${Math.min(25,(G.naval_moral??0)-G.naval_mobilisation)}% ce tour</div>` : `<div style="color:var(--success,#4a9e6b);font-size:0.7rem">✓ Moral atteint</div>`}
       </div>
     </div></div>
     <div class="card"><div class="card-body">
@@ -3078,10 +4174,12 @@ function renderMilitary() {
               undercrewBadge = `<span class="badge" style="background:rgba(139,26,26,0.12);border:1px solid var(--crimson);color:var(--crimson);font-size:0.6rem;padding:0.1rem 0.4rem">⚠ Sous-équipé</span>`;
             }
           }
+          const canUpgradeShip = s.kind==="guerre" && s.tier < 3;
           return `<div class="table-row" style="${undercrewBadge?"border-left:3px solid var(--crimson)":""}">
             <div class="flex items-center gap-sm" style="flex-wrap:wrap">${ico} <span class="bold text-sm">${spec.label}</span>${marBadge}${undercrewBadge}</div>
             <div class="flex items-center gap-sm">
               <span class="font-mono text-sm">×${s.count}</span>
+              ${canUpgradeShip?`<button class="btn btn-ghost btn-sm" style="font-size:0.6rem;padding:0.1rem 0.4rem;color:var(--gold)" onclick="upgradeShip('${s.id}')" title="Améliorer 1 navire au niveau supérieur">↑ Niv.</button>`:""}
               <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDisbandShip('${s.id}',1)" title="Désarmer 1">−</button>
             </div>
           </div>`;
@@ -3381,10 +4479,29 @@ function renderFiche() {
 // UI HELPERS
 // =============================================================================
 function showTab(name,btn) {
-  document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
-  document.querySelectorAll(".tabs-nav .tab-btn").forEach(b=>{if(b.closest(".tabs-nav")===btn.closest(".tabs-nav"))b.classList.remove("active");});
-  document.getElementById("tab-"+name).classList.add("active");
+  const nav = btn.closest(".tabs-nav");
+  // Direction d'animation : si on va vers un onglet à droite → slide depuis la droite
+  let direction = 0;
+  if(nav) {
+    const buttons = [...nav.querySelectorAll(".tab-btn")];
+    const oldIdx = buttons.findIndex(b => b.classList.contains("active"));
+    const newIdx = buttons.indexOf(btn);
+    if(oldIdx !== -1 && newIdx !== -1 && oldIdx !== newIdx) {
+      direction = newIdx > oldIdx ? 1 : -1;
+    }
+  }
+  document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active","slide-from-right","slide-from-left"));
+  document.querySelectorAll(".tabs-nav .tab-btn").forEach(b=>{if(b.closest(".tabs-nav")===nav)b.classList.remove("active");});
+  const panel = document.getElementById("tab-"+name);
+  panel.classList.add("active");
+  if(direction === 1) panel.classList.add("slide-from-right");
+  else if(direction === -1) panel.classList.add("slide-from-left");
   btn.classList.add("active");
+  // Auto-centrage de l'onglet actif dans la barre (utile en scroll horizontal sur mobile)
+  if(nav) {
+    try { btn.scrollIntoView({behavior:"smooth", block:"nearest", inline:"center"}); }
+    catch(_) { /* navigateurs anciens */ }
+  }
   // Recalcul complet à chaque changement d'onglet — garantit que la fiche est à jour
   if(G && name === "fiche") {
     saveGame();
@@ -3623,6 +4740,110 @@ function addTile() {
     for(let i=0;i<qty;i++) actionAddTile(domain,"random",null,"");
   }
   closeModal("modal-add-tile");
+}
+
+function upgradeTroop(id, packIndex) {
+  const grp = G.troops.find(t=>t.id===id); if(!grp) return;
+  if(grp.branch !== "infanterie") return;
+  const nextTier = grp.tier + 1;
+  const currSpec = TROOP_TIERS_INFANTERIE[grp.tier];
+  const nextSpec = TROOP_TIERS_INFANTERIE[nextTier];
+  if(!nextSpec) return toast("Niveau maximum atteint.");
+  // Vérifier que la base militaire du niveau supérieur est construite
+  const requiredBase = "base_militaire_" + nextTier;
+  if(!G.buildings.some(b=>b.type===requiredBase)) {
+    const baseLabel = UTILITY_BUILDINGS[requiredBase]?.label || "Base militaire Niv. "+nextTier;
+    return toast(`Requiert : ${baseLabel} pour améliorer au niveau ${nextTier}.`);
+  }
+  // Coût = différence de recruit_cost pour 1 paquet
+  const diff = {};
+  const allKeys = new Set([...Object.keys(currSpec.recruit_cost||{}), ...Object.keys(nextSpec.recruit_cost||{})]);
+  for(const k of allKeys) {
+    const d = ((nextSpec.recruit_cost||{})[k]||0) - ((currSpec.recruit_cost||{})[k]||0);
+    if(d > 0) diff[k] = d;
+  }
+  for(const [k,v] of Object.entries(diff)) {
+    if((G.resources[k]||0) < v) return toast(`Pas assez de ${RESOURCE_LABELS[k]} (manque ${v-(G.resources[k]||0)}).`);
+  }
+  run(()=>{
+    for(const [k,v] of Object.entries(diff)) G.resources[k]=(G.resources[k]||0)-v;
+    // Retirer 1 paquet du groupe source
+    grp.packs -= 1;
+    if(grp.packs <= 0) G.troops = G.troops.filter(t=>t.id!==id);
+    // Chercher un groupe existant au niveau sup pour fusionner
+    const existing = G.troops.find(t=>t.id!==id && t.branch===grp.branch && t.tier===nextTier);
+    if(existing) {
+      existing.packs += 1;
+    } else {
+      G.troops.push({id:uid(), branch:grp.branch, tier:nextTier, packs:1, ranks:{}});
+    }
+  });
+  const diffLabel = Object.entries(diff).map(([k,v])=>`${v} ${RESOURCE_LABELS[k]}`).join(", ");
+  toast(`1 paquet ${grp.branch} amélioré → ${nextSpec.label} (coût : ${diffLabel})`);
+}
+
+function upgradeShip(id) {
+  const sg = G.ships.find(s=>s.id===id); if(!sg) return;
+  if(sg.kind !== "guerre") return;
+  if(sg.tier >= 3) return toast("Niveau maximum atteint. Un Niv. III ne devient pas un Galion.");
+  const nextTier = sg.tier + 1;
+  const currSpec = SHIP_TIERS[sg.tier];
+  const nextSpec = SHIP_TIERS[nextTier];
+  if(!nextSpec) return toast("Niveau maximum atteint.");
+  // Vérifier port militaire du niveau supérieur
+  const requiredPort = "port_militaire_" + nextTier;
+  if(!G.buildings.some(b=>b.type===requiredPort)) {
+    const portLabel = UTILITY_BUILDINGS[requiredPort]?.label || "Port militaire Niv. "+nextTier;
+    return toast(`Requiert : ${portLabel} pour améliorer au niveau ${nextTier}.`);
+  }
+  // Vérifier 1 paquet de marins supplémentaire disponible (la diff de crew)
+  const extraCrewNeeded = (nextSpec.crew||0) - (currSpec.crew||0);
+  const extraPacksNeeded = Math.ceil(extraCrewNeeded / 10);
+  if(extraPacksNeeded > 0 && freeMarinePacks() < extraPacksNeeded) {
+    return toast(`Requiert ${extraPacksNeeded} paquet(s) de marins disponibles pour l'équipage supplémentaire.`);
+  }
+  // Coût = différence de prix pour 1 navire
+  const diff = {};
+  const allKeys = new Set([...Object.keys(currSpec.cost||{}), ...Object.keys(nextSpec.cost||{})]);
+  for(const k of allKeys) {
+    const d = ((nextSpec.cost||{})[k]||0) - ((currSpec.cost||{})[k]||0);
+    if(d > 0) diff[k] = d;
+  }
+  for(const [k,v] of Object.entries(diff)) {
+    if((G.resources[k]||0) < v) return toast(`Pas assez de ${RESOURCE_LABELS[k]} (manque ${v-(G.resources[k]||0)}).`);
+  }
+  run(()=>{
+    for(const [k,v] of Object.entries(diff)) G.resources[k]=(G.resources[k]||0)-v;
+    // Retirer 1 navire du groupe source
+    sg.count -= 1;
+    if(sg.count <= 0) G.ships = G.ships.filter(s=>s.id!==id);
+    // Fusionner ou créer groupe au niveau sup
+    const existing = G.ships.find(s=>s.id!==id && s.kind==="guerre" && s.tier===nextTier);
+    if(existing) { existing.count += 1; }
+    else { G.ships.push({id:uid(), kind:"guerre", tier:nextTier, count:1}); }
+  });
+  const diffLabel = Object.entries(diff).map(([k,v])=>`${v} ${RESOURCE_LABELS[k]}`).join(", ");
+  toast(`1 navire amélioré → ${nextSpec.label} (coût : ${diffLabel})`);
+}
+
+function addTroopRank(id, packIndex) {
+  const grp = G.troops.find(t=>t.id===id); if(!grp) return;
+  if(!grp.ranks) grp.ranks = {};
+  const idx = parseInt(packIndex);
+  grp.ranks[idx] = (grp.ranks[idx]||0) + 1;
+  if(grp.ranks[idx] > 20) { grp.ranks[idx] = 20; return toast("Rang maximum (20) atteint."); }
+  run(()=>{});
+  toast(`+1 rang manuel au paquet ${idx+1} (manuel : ${grp.ranks[idx]})`);
+}
+
+function removeTroopRank(id, packIndex) {
+  const grp = G.troops.find(t=>t.id===id); if(!grp) return;
+  if(!grp.ranks) grp.ranks = {};
+  const idx = parseInt(packIndex);
+  if((grp.ranks[idx]||0) <= 0) return toast("Aucun rang manuel à retirer.");
+  grp.ranks[idx] = (grp.ranks[idx]||0) - 1;
+  run(()=>{});
+  toast(`-1 rang manuel au paquet ${idx+1} (manuel : ${grp.ranks[idx]})`);
 }
 
 function onTradeResChange() {
@@ -4228,7 +5449,12 @@ computeTurnChanges = function() {
     const uCh = {};
     for(const[k,v] of Object.entries(info.produce)) uCh[k]=(uCh[k]||0)+v*batches;
     for(const[k,v] of Object.entries(uCh)) result.delta[k]=(result.delta[k]||0)+v;
-    result.breakdown.push({label:`${info.label} (cadeau ×${batches})`, changes:{...uCh}});
+    result.breakdown.push({
+      label:`${info.label} (cadeau ×${batches})`,
+      category:"batiments",
+      changes:{...uCh},
+      details:[{name:`🎁 ${info.label}`,sublabel:`Cadeau MJ — ${batches} lot(s) sans coût`,changes:{...uCh}}]
+    });
   }
   // Note: free buildings, troops, ships have NO upkeep — intentionally not added
   return result;
@@ -5075,7 +6301,7 @@ function simDelta(sim) {
   for(const t of sim.tiles||[]) {
     if(t.domain==="capitale"||t.resource==="capitale_ennemie") {
       if(t.resource==="capitale_ennemie") {
-        for(const[k,v] of Object.entries(CAPITAL_PRODUCTION)) d[k]=(d[k]||0)+v;
+        for(const[k,v] of Object.entries(CAPITAL_ENNEMIE_PRODUCTION)) d[k]=(d[k]||0)+v;
       }
       continue;
     }
@@ -5662,6 +6888,90 @@ function renderPopulation() {
     </div>`;
 }
 
+// ── Navigation tactile entre onglets : swipe gauche/droite ─────────────────
+// Active uniquement sur appareil tactile. Ne s'applique qu'aux onglets principaux
+// (la première .tabs-nav du document). Ignore les zones avec scroll horizontal interne
+// pour ne pas casser graphes, légendes, etc.
+function initTabSwipe() {
+  // Détection tactile : pas de hover possible
+  const isTouch = window.matchMedia && window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  if(!isTouch) return;
+
+  let startX = 0, startY = 0, startTime = 0;
+  let tracking = false;
+
+  // Retourne la barre d'onglets principale (la première au top niveau dans tabs-container)
+  const mainNav = () => document.querySelector(".tabs-container > .tabs-nav");
+
+  // Détecte si un élément (ou un ancêtre jusqu'au panel) a un scroll horizontal qui pourrait absorber le geste
+  const inHorizontalScroll = (el) => {
+    let cur = el;
+    while(cur && cur !== document.body && !cur.classList?.contains("tab-panel")) {
+      const style = getComputedStyle(cur);
+      const ox = style.overflowX;
+      if((ox === "auto" || ox === "scroll") && cur.scrollWidth > cur.clientWidth + 2) return true;
+      cur = cur.parentElement;
+    }
+    return false;
+  };
+
+  // Switch d'onglet principal avec offset (-1 ou +1)
+  const switchMain = (offset) => {
+    const nav = mainNav();
+    if(!nav) return;
+    const buttons = [...nav.querySelectorAll(".tab-btn")];
+    const idx = buttons.findIndex(b => b.classList.contains("active"));
+    if(idx === -1) return;
+    const next = idx + offset;
+    if(next < 0 || next >= buttons.length) {
+      // Petit rebond visuel quand on est aux extrémités
+      const container = document.querySelector(".tabs-container");
+      if(container) {
+        container.classList.add(offset < 0 ? "tab-bounce-left" : "tab-bounce-right");
+        setTimeout(() => container.classList.remove("tab-bounce-left","tab-bounce-right"), 250);
+      }
+      return;
+    }
+    buttons[next].click();
+  };
+
+  const onStart = (e) => {
+    if(e.touches.length !== 1) { tracking = false; return; }
+    const t = e.touches[0];
+    // Ne pas démarrer si on touche la barre d'onglets elle-même (elle a son propre scroll horizontal)
+    if(e.target.closest(".tabs-nav")) { tracking = false; return; }
+    // Ne pas démarrer si on est dans un modal
+    if(e.target.closest(".modal-overlay.open")) { tracking = false; return; }
+    // Ne pas démarrer dans un input/textarea/select
+    const tag = (e.target.tagName||"").toLowerCase();
+    if(tag === "input" || tag === "textarea" || tag === "select") { tracking = false; return; }
+    // Ne pas démarrer dans une zone de scroll horizontal
+    if(inHorizontalScroll(e.target)) { tracking = false; return; }
+    startX = t.clientX; startY = t.clientY; startTime = Date.now();
+    tracking = true;
+  };
+
+  const onEnd = (e) => {
+    if(!tracking) return;
+    tracking = false;
+    const t = (e.changedTouches && e.changedTouches[0]) || null;
+    if(!t) return;
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    const dt = Date.now() - startTime;
+    // Seuils : geste horizontal dominant, > 60px, durée raisonnable
+    if(Math.abs(dx) < 60) return;
+    if(Math.abs(dx) < Math.abs(dy) * 1.3) return; // pas assez horizontal
+    if(dt > 700) return; // trop lent → pas un swipe intentionnel
+    // dx > 0 → swipe vers la droite → onglet précédent
+    // dx < 0 → swipe vers la gauche → onglet suivant
+    switchMain(dx < 0 ? 1 : -1);
+  };
+
+  document.addEventListener("touchstart", onStart, {passive:true});
+  document.addEventListener("touchend",   onEnd,   {passive:true});
+}
+
 // =============================================================================
 // INIT
 // =============================================================================
@@ -5669,6 +6979,7 @@ window.addEventListener("DOMContentLoaded",()=>{
   loadGame();
   preview=getPreview();
   render();
+  initTabSwipe();
   // Petit délai pour laisser l'animation de splash se jouer
   setTimeout(()=>{ document.getElementById("loading").style.display="none"; }, 1200);
 });
