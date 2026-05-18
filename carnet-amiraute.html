@@ -4054,7 +4054,7 @@ function renderMilitary() {
               ${p.rank>0?`<div class="flex items-center gap-sm mt-1">${rankStars(p.rank)}<span class="text-xs" style="color:var(--gold-dim);font-style:italic;font-weight:600">${rankLabel}</span><span class="text-xs text-muted">(rang ${p.rank}${p.trainRank>0&&p.manualRank>0?" = "+p.trainRank+" camp + "+p.manualRank+" manuel":p.trainRank>0?" camp":p.manualRank>0?" manuel":""})</span></div>`:`<span class="text-xs text-muted italic">${rankLabel}</span>`}
             </div>
             <div class="flex gap-sm items-center">
-              ${p.t.branch==="infanterie"&&p.spec&&TROOP_TIERS_INFANTERIE[p.t.tier+1]?`<button class="btn btn-ghost btn-sm" style="font-size:0.6rem;padding:0.1rem 0.4rem;color:var(--gold)" onclick="upgradeTroop('${p.t.id}','${p.packIdx-1}')" title="Améliorer ce paquet au niveau supérieur">↑ Niv.</button>`:""}
+              ${p.t.branch==="infanterie"&&p.spec&&TROOP_TIERS_INFANTERIE[p.t.tier+1]?(()=>{ const lbl=getTroopUpgradeCostLabel(p.t); return `<button class="btn btn-ghost btn-sm" style="font-size:0.6rem;padding:0.1rem 0.4rem;color:var(--gold)" onclick="upgradeTroop('${p.t.id}','${p.packIdx-1}')" title="${lbl.replace(/"/g,'&quot;')}">↑ Niv. <span style="opacity:0.75;font-weight:400">(${(()=>{ const ns=TROOP_TIERS_INFANTERIE[p.t.tier+1],cs=TROOP_TIERS_INFANTERIE[p.t.tier]; const dd={}; const ak=new Set([...Object.keys(cs.recruit_cost||{}),...Object.keys(ns.recruit_cost||{})]); for(const k of ak){const d=((ns.recruit_cost||{})[k]||0)-((cs.recruit_cost||{})[k]||0);if(d>0)dd[k]=d;} return Object.entries(dd).map(([k,v])=>`${v} ${RESOURCE_LABELS[k]}`).join(", ")||"gratuit"; })()})</span></button>`; })():""}
               <button class="btn btn-ghost btn-sm" style="font-size:0.6rem;padding:0.1rem 0.4rem;color:var(--teal-bright)" onclick="addTroopRank('${p.t.id}','${p.packIdx-1}')" title="+1 rang manuel">★+</button>
               ${p.manualRank>0?`<button class="btn btn-ghost btn-sm" style="font-size:0.6rem;padding:0.1rem 0.4rem;color:var(--crimson)" onclick="removeTroopRank('${p.t.id}','${p.packIdx-1}')" title="-1 rang manuel">★−</button>`:""}
               <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDisbandTroop('${p.t.id}',1)" title="Démobiliser 1 paquet">−</button>
@@ -4179,7 +4179,7 @@ function renderMilitary() {
             <div class="flex items-center gap-sm" style="flex-wrap:wrap">${ico} <span class="bold text-sm">${spec.label}</span>${marBadge}${undercrewBadge}</div>
             <div class="flex items-center gap-sm">
               <span class="font-mono text-sm">×${s.count}</span>
-              ${canUpgradeShip?`<button class="btn btn-ghost btn-sm" style="font-size:0.6rem;padding:0.1rem 0.4rem;color:var(--gold)" onclick="upgradeShip('${s.id}')" title="Améliorer 1 navire au niveau supérieur">↑ Niv.</button>`:""}
+              ${canUpgradeShip?(()=>{ const lbl=getShipUpgradeCostLabel(s); const ns=SHIP_TIERS[s.tier+1],cs=SHIP_TIERS[s.tier]; const dd={}; const ak=new Set([...Object.keys(cs.cost||{}),...Object.keys(ns.cost||{})]); for(const k of ak){const d=((ns.cost||{})[k]||0)-((cs.cost||{})[k]||0);if(d>0)dd[k]=d;} const costStr=Object.entries(dd).map(([k,v])=>`${v} ${RESOURCE_LABELS[k]}`).join(", ")||"gratuit"; return `<button class="btn btn-ghost btn-sm" style="font-size:0.6rem;padding:0.1rem 0.4rem;color:var(--gold)" onclick="upgradeShip('${s.id}')" title="${lbl.replace(/"/g,'&quot;')}">↑ Niv. <span style="opacity:0.75;font-weight:400">(${costStr})</span></button>`; })():""}
               <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDisbandShip('${s.id}',1)" title="Désarmer 1">−</button>
             </div>
           </div>`;
@@ -4742,6 +4742,44 @@ function addTile() {
   closeModal("modal-add-tile");
 }
 
+function getTroopUpgradeCostLabel(grp) {
+  if(!grp || grp.branch !== "infanterie") return "";
+  const nextTier = grp.tier + 1;
+  const currSpec = TROOP_TIERS_INFANTERIE[grp.tier];
+  const nextSpec = TROOP_TIERS_INFANTERIE[nextTier];
+  if(!currSpec || !nextSpec) return "";
+  const diff = {};
+  const allKeys = new Set([...Object.keys(currSpec.recruit_cost||{}), ...Object.keys(nextSpec.recruit_cost||{})]);
+  for(const k of allKeys) {
+    const d = ((nextSpec.recruit_cost||{})[k]||0) - ((currSpec.recruit_cost||{})[k]||0);
+    if(d > 0) diff[k] = d;
+  }
+  const baseLabel = UTILITY_BUILDINGS["base_militaire_"+nextTier]?.label || "Base militaire Niv. "+nextTier;
+  const costStr = Object.entries(diff).map(([k,v])=>`${v} ${RESOURCE_LABELS[k]}`).join(", ") || "gratuit";
+  return `→ ${nextSpec.label}\nCoût : ${costStr}\nRequis : ${baseLabel} (ou Niv. supérieur)`;
+}
+
+function getShipUpgradeCostLabel(sg) {
+  if(!sg || sg.kind !== "guerre") return "";
+  const nextTier = sg.tier + 1;
+  const currSpec = SHIP_TIERS[sg.tier];
+  const nextSpec = SHIP_TIERS[nextTier];
+  if(!currSpec || !nextSpec) return "";
+  const diff = {};
+  const allKeys = new Set([...Object.keys(currSpec.cost||{}), ...Object.keys(nextSpec.cost||{})]);
+  for(const k of allKeys) {
+    const d = ((nextSpec.cost||{})[k]||0) - ((currSpec.cost||{})[k]||0);
+    if(d > 0) diff[k] = d;
+  }
+  const portLabel = UTILITY_BUILDINGS["port_militaire_"+nextTier]?.label || "Port militaire Niv. "+nextTier;
+  const costStr = Object.entries(diff).map(([k,v])=>`${v} ${RESOURCE_LABELS[k]}`).join(", ") || "gratuit";
+  const extraCrew = Math.max(0, (nextSpec.crew||0) - (currSpec.crew||0));
+  const extraPacks = Math.ceil(extraCrew / 10);
+  let crewStr = "";
+  if(extraPacks > 0) crewStr = `\n+${extraPacks} paquet(s) marins (équipage)`;
+  return `→ ${nextSpec.label}\nCoût : ${costStr}${crewStr}\nRequis : ${portLabel} (ou Niv. supérieur)`;
+}
+
 function upgradeTroop(id, packIndex) {
   const grp = G.troops.find(t=>t.id===id); if(!grp) return;
   if(grp.branch !== "infanterie") return;
@@ -4749,11 +4787,16 @@ function upgradeTroop(id, packIndex) {
   const currSpec = TROOP_TIERS_INFANTERIE[grp.tier];
   const nextSpec = TROOP_TIERS_INFANTERIE[nextTier];
   if(!nextSpec) return toast("Niveau maximum atteint.");
-  // Vérifier que la base militaire du niveau supérieur est construite
-  const requiredBase = "base_militaire_" + nextTier;
-  if(!G.buildings.some(b=>b.type===requiredBase)) {
-    const baseLabel = UTILITY_BUILDINGS[requiredBase]?.label || "Base militaire Niv. "+nextTier;
-    return toast(`Requiert : ${baseLabel} pour améliorer au niveau ${nextTier}.`);
+  // Vérifier que la base militaire du niveau requis (ou supérieur) est construite.
+  // Un Niv. supérieur remplace les niveaux inférieurs lors de l'upgrade des bâtiments,
+  // donc avoir base_militaire_3 satisfait aussi le prérequis pour l'upgrade Niv. 2.
+  const hasBase = G.buildings.some(b=>{
+    const m = (b.type||"").match(/^base_militaire_(\d+)$/);
+    return m && parseInt(m[1]) >= nextTier;
+  });
+  if(!hasBase) {
+    const baseLabel = UTILITY_BUILDINGS["base_militaire_"+nextTier]?.label || "Base militaire Niv. "+nextTier;
+    return toast(`Requiert : ${baseLabel} (ou niveau supérieur) pour améliorer au niveau ${nextTier}.`);
   }
   // Coût = différence de recruit_cost pour 1 paquet
   const diff = {};
@@ -4762,8 +4805,9 @@ function upgradeTroop(id, packIndex) {
     const d = ((nextSpec.recruit_cost||{})[k]||0) - ((currSpec.recruit_cost||{})[k]||0);
     if(d > 0) diff[k] = d;
   }
+  const diffLabelFull = Object.entries(diff).map(([k,v])=>`${v} ${RESOURCE_LABELS[k]}`).join(", ") || "gratuit";
   for(const [k,v] of Object.entries(diff)) {
-    if((G.resources[k]||0) < v) return toast(`Pas assez de ${RESOURCE_LABELS[k]} (manque ${v-(G.resources[k]||0)}).`);
+    if((G.resources[k]||0) < v) return toast(`Pas assez de ${RESOURCE_LABELS[k]} pour améliorer (coût total : ${diffLabelFull} — manque ${v-(G.resources[k]||0)} ${RESOURCE_LABELS[k]}).`);
   }
   run(()=>{
     for(const [k,v] of Object.entries(diff)) G.resources[k]=(G.resources[k]||0)-v;
@@ -4790,11 +4834,14 @@ function upgradeShip(id) {
   const currSpec = SHIP_TIERS[sg.tier];
   const nextSpec = SHIP_TIERS[nextTier];
   if(!nextSpec) return toast("Niveau maximum atteint.");
-  // Vérifier port militaire du niveau supérieur
-  const requiredPort = "port_militaire_" + nextTier;
-  if(!G.buildings.some(b=>b.type===requiredPort)) {
-    const portLabel = UTILITY_BUILDINGS[requiredPort]?.label || "Port militaire Niv. "+nextTier;
-    return toast(`Requiert : ${portLabel} pour améliorer au niveau ${nextTier}.`);
+  // Vérifier port militaire du niveau requis OU supérieur (Niv. sup remplace Niv. inf)
+  const hasPort = G.buildings.some(b=>{
+    const m = (b.type||"").match(/^port_militaire_(\d+)$/);
+    return m && parseInt(m[1]) >= nextTier;
+  });
+  if(!hasPort) {
+    const portLabel = UTILITY_BUILDINGS["port_militaire_"+nextTier]?.label || "Port militaire Niv. "+nextTier;
+    return toast(`Requiert : ${portLabel} (ou niveau supérieur) pour améliorer au niveau ${nextTier}.`);
   }
   // Vérifier 1 paquet de marins supplémentaire disponible (la diff de crew)
   const extraCrewNeeded = (nextSpec.crew||0) - (currSpec.crew||0);
@@ -4809,8 +4856,9 @@ function upgradeShip(id) {
     const d = ((nextSpec.cost||{})[k]||0) - ((currSpec.cost||{})[k]||0);
     if(d > 0) diff[k] = d;
   }
+  const diffLabelFull = Object.entries(diff).map(([k,v])=>`${v} ${RESOURCE_LABELS[k]}`).join(", ") || "gratuit";
   for(const [k,v] of Object.entries(diff)) {
-    if((G.resources[k]||0) < v) return toast(`Pas assez de ${RESOURCE_LABELS[k]} (manque ${v-(G.resources[k]||0)}).`);
+    if((G.resources[k]||0) < v) return toast(`Pas assez de ${RESOURCE_LABELS[k]} pour améliorer (coût total : ${diffLabelFull} — manque ${v-(G.resources[k]||0)} ${RESOURCE_LABELS[k]}).`);
   }
   run(()=>{
     for(const [k,v] of Object.entries(diff)) G.resources[k]=(G.resources[k]||0)-v;
