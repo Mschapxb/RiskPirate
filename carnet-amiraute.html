@@ -4908,6 +4908,21 @@ function toggleTraining(key, branch, tier, checked) {
       if(G.training_units.some(tu=>tu.troop_key===key)) return;
       G.training_units.push({id:uid(), troop_key:key, branch, tier:parseInt(tier), rank:0, turns_trained:0});
     } else {
+      // Sortie du camp : transférer le rang acquis vers le paquet (persistant)
+      // key format: branch|tier|troop_id|pack_index
+      const tu = G.training_units.find(t=>t.troop_key===key);
+      if(tu && (tu.rank||0) > 0) {
+        const parts = key.split("|");
+        const troopId = parts[2];
+        const packIdx = parseInt(parts[3]);
+        const grp = G.troops.find(t=>t.id===troopId);
+        if(grp) {
+          if(!grp.ranks) grp.ranks = {};
+          // Ajout au rang manuel existant (camp + manuel, plafonné à 20)
+          const merged = Math.min(20, (grp.ranks[packIdx]||0) + (tu.rank||0));
+          grp.ranks[packIdx] = merged;
+        }
+      }
       G.training_units = G.training_units.filter(tu=>tu.troop_key!==key);
     }
   });
