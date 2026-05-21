@@ -2455,6 +2455,17 @@ function actionCreateTrade(data) {
     const free = totalMerchants - usedByRoutes - usedByPT;
     const needed = data.merchant_ships_required||1;
     if(free < needed) error(`Navires marchands insuffisants — ${free} disponible(s), ${needed} requis.`);
+    // ── Vérification solvabilité (production récurrente uniquement) ──
+    // Si contrat récurrent ET production prévue < quantité du contrat → refus
+    if(data.recurring) {
+      const projDelta = computeTurnChanges().delta;
+      const projGain = projDelta[data.resource] || 0;
+      // projGain inclut déjà les contrats existants. On vérifie que la marge couvre le nouveau.
+      if(projGain < data.quantity) {
+        const manque = data.quantity - projGain;
+        error(`Production insuffisante pour ce contrat récurrent : ${RESOURCE_LABELS[data.resource]} produit ${fmt(projGain)}/tour (net, après contrats existants), il en faudrait ${fmt(data.quantity)}. Manque ${fmt(manque)}/tour. Augmentez la production ou rompez un contrat existant.`);
+      }
+    }
     G.trade_routes.push({id:uid(),...data, direction:"export"});
   });
   toast("Contrat d'exportation signé !");
@@ -2532,6 +2543,59 @@ function actionDeleteAttack(id) {
 }
 
 function actionEndTurn() {
+  // ── Pré-vérification : aucune ressource ne doit passer en négatif ──
+  // On simule l'application du delta sans muter G, puis on bloque si déficit.
+  {
+    const ch0 = computeTurnChanges();
+    const negatives = [];
+    for(const k of RESOURCE_KEYS) {
+      const stock = G.resources[k] || 0;
+      const gain  = ch0.delta[k] || 0;
+      const after = stock + gain;
+      if(after < 0) {
+        negatives.push({res:k, stock, gain, after, manque: -after});
+      }
+    }
+    if(negatives.length) {
+      // Identifier la cause principale par ressource (export récurrent vs upkeep vs autre)
+      const exportContribByRes = {};
+      for(const r of G.trade_routes) {
+        if(!r.recurring || r.direction !== "export") continue;
+        exportContribByRes[r.resource] = (exportContribByRes[r.resource]||0) + r.quantity;
+      }
+      for(const pt of (G.player_trades||[])) {
+        if(!pt.recurring) continue;
+        if(RESOURCE_KEYS.includes(pt.give_res)) {
+          exportContribByRes[pt.give_res] = (exportContribByRes[pt.give_res]||0) + pt.give_qty;
+        }
+      }
+      const lines = negatives.map(n=>{
+        const exp = exportContribByRes[n.res]||0;
+        let cause = "";
+        if(exp > 0) cause = ` — ${fmt(exp)} part(ent) en contrat(s) commercial(aux)`;
+        else cause = ` — upkeep/consommation supérieur(e) à la production`;
+        return `• ${RESOURCE_LABELS[n.res]} : stock ${fmt(n.stock)} + gain ${fmt(n.gain)} = ${fmt(n.after)} (manque ${fmt(n.manque)})${cause}`;
+      }).join("\n");
+      // Modal d'erreur détaillée
+      const modalMsg = `Impossible de clôturer le tour — la trésorerie passerait dans le rouge sur ${negatives.length} ressource(s) :\n\n${lines}\n\nActions possibles :\n• Rompre un contrat de commerce (onglet Commerce)\n• Démolir un bâtiment/usine coûteux en upkeep\n• Augmenter la production de la ressource manquante`;
+      // Si modal-confirm existe, on l'utilise ; sinon toast simple
+      const titleEl = document.getElementById("confirm-title");
+      const msgEl   = document.getElementById("confirm-msg");
+      const okEl    = document.getElementById("confirm-ok");
+      if(titleEl && msgEl && okEl) {
+        titleEl.textContent = "⛔ Faillite imminente — tour bloqué";
+        msgEl.style.whiteSpace = "pre-line";
+        msgEl.textContent = modalMsg;
+        okEl.textContent = "Compris";
+        okEl.className = "btn btn-danger";
+        okEl.onclick = () => { closeModal("modal-confirm"); msgEl.style.whiteSpace = ""; };
+        // Cacher éventuel bouton "annuler" — sans dépendance forte
+        openModal("modal-confirm");
+      }
+      toast(`Tour bloqué — ${negatives.map(n=>RESOURCE_LABELS[n.res]).join(", ")} passerait(ent) en négatif.`, "error");
+      return;
+    }
+  }
   const ch=computeTurnChanges();
   const before={...G.resources};
   const after={};
@@ -2601,7 +2665,7 @@ function actionEndTurn() {
         fromStock = Math.min(stock, exportQty - fromGain);
       }
 
-      const raw = stock + gainHorsExport - fromStock;
+      const raw = stock + gainHorsExport - fromStock - fromGain;
       after[k]  = Math.max(0, raw);
       if(raw < 0) deficits[k] = raw;
     } else {
@@ -5086,6 +5150,16 @@ function actionCreatePlayerTrade(data) {
     const free = totalMerchants - usedByRoutes - usedByPT;
     const needed = data.merchant_ships_required||1;
     if(free < needed) error(`Navires marchands insuffisants — ${free} disponible(s), ${needed} requis.`);
+    // ── Vérification solvabilité pour troc récurrent ──
+    // give_res sort à chaque tour, recv_res rentre — on vérifie le delta net sur give_res
+    if(data.recurring) {
+      const projDelta = computeTurnChanges().delta;
+      const projGain = projDelta[data.give_res] || 0;
+      if(projGain < data.give_qty) {
+        const manque = data.give_qty - projGain;
+        error(`Production insuffisante pour ce troc récurrent : ${RESOURCE_LABELS[data.give_res]} produit ${fmt(projGain)}/tour (net, après contrats existants), il en faudrait ${fmt(data.give_qty)}. Manque ${fmt(manque)}/tour.`);
+      }
+    }
     G.player_trades = G.player_trades||[];
     G.player_trades.push({id:uid(),...data});
   });
