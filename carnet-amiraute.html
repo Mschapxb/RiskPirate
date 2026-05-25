@@ -1655,6 +1655,46 @@ function canAfford(res,cost) {
   return null;
 }
 
+// Vérifie que l'upkeep futur d'une unité/navire qu'on va ajouter est viable :
+// pour chaque ressource consommée par l'upkeep, refuse si stock=0 ET gain déjà négatif.
+// (Cas extrême : la ressource est déjà en faillite, ajouter de l'upkeep dessus est absurde.)
+function checkUpkeepViability(upkeep) {
+  if(!upkeep || !Object.keys(upkeep).length) return null;
+  let projDelta = null;
+  for(const k of Object.keys(upkeep)) {
+    if(!RESOURCE_KEYS.includes(k)) continue;
+    const stock = G.resources[k] || 0;
+    if(stock > 0) continue; // il reste du stock, on tolère
+    if(projDelta === null) projDelta = computeTurnChanges().delta;
+    const gain = projDelta[k] || 0;
+    if(gain < 0) {
+      return `Impossible : ${RESOURCE_LABELS[k]||k} est à 0 et déjà en déficit de ${-gain}/tour. Cette unité consomme ${upkeep[k]} ${RESOURCE_LABELS[k]||k}/tour d'entretien — rétablissez la production avant d'en ajouter.`;
+    }
+  }
+  return null;
+}
+// Vérifie que la dépense ne provoquera pas de déficit en fin de tour.
+// dispo_réelle = stock + min(0, gain_projeté)  (on ignore le gain positif, on ne dépense pas du futur)
+// Refuse si dispo_réelle < cost.
+function canAffordWithProjection(cost) {
+  let projDelta = null;
+  for(const[k,v] of Object.entries(cost)) {
+    const stock = G.resources[k] || 0;
+    if(stock < v) return `Insuffisant : ${RESOURCE_LABELS[k]||k} (${stock}/${v})`;
+    // Lazy : ne calcule le delta qu'une fois si nécessaire
+    if(projDelta === null) projDelta = computeTurnChanges().delta;
+    const gain = projDelta[k] || 0;
+    if(gain < 0) {
+      const dispo = stock + gain; // déduction du déficit prévu
+      if(dispo < v) {
+        const manque = v - dispo;
+        return `Trésorerie ${RESOURCE_LABELS[k]||k} trop fragile : stock ${stock}, mais perte prévue de ${-gain}/tour → seulement ${Math.max(0,dispo)} réellement disponible (coût ${v}, manque ${manque}). Rétablissez la production avant de vous engager.`;
+      }
+    }
+  }
+  return null;
+}
+
 function deduct(res,cost) { for(const[k,v] of Object.entries(cost)) { res[k]=(res[k]||0)-v; } }
 
 function popOccupied() {
@@ -1701,6 +1741,48 @@ function popCapacity() {
   }
   cap += (G.pop_bonus||0);
   return cap;
+}
+
+// Renvoie la répartition de la population par grande catégorie (en valeur absolue).
+// Catégories : territoires (slots de cases), batiments (utility + usines), armee (troupes + équipages marchands), libre.
+function popBreakdown() {
+  const noPopRes = ["coffre","terra_incognita","rien","capitale_ennemie","tresor_terre"];
+  let territoires = 0;
+  for(const t of G.tiles) {
+    if(t.domain==="capitale") continue;
+    if(t.resource==="capitale_ennemie") continue;
+    const rawPop  = t.domain==="mer" ? SEA_RAW_POP     : TILE_RAW_POP;
+    const primPop = t.domain==="mer" ? SEA_PRIMARY_POP : PRIMARY_POP;
+    if(!t.slot1_disabled) {
+      if(t.has_primary && t.resource && !noPopRes.includes(t.resource)) territoires += primPop;
+      else if(t.resource && !noPopRes.includes(t.resource)) territoires += rawPop;
+    }
+    if(t.domain==="terre"&&t.resource2&&!noPopRes.includes(t.resource2)&&!t.slot2_disabled) {
+      if(t.has_primary2) territoires += PRIMARY_POP;
+      else territoires += TILE_RAW_POP;
+    }
+  }
+  let batiments = 0;
+  for(const u of G.usines) { const i=USINES[u.type]; if(i) batiments += i.pop; }
+  for(const b of G.buildings) { const i=UTILITY_BUILDINGS[b.type]; if(i) batiments += (i.pop_required||0); }
+  let armee = 0;
+  for(const tg of G.troops) armee += tg.packs*TROOP_POP_PER_PACK;
+  for(const sg of G.ships) {
+    if(sg.kind==="commerce") armee += sg.count*MERCHANT_SHIP.crew;
+  }
+  const cap = popCapacity();
+  const occupied = territoires + batiments + armee;
+  const libre = Math.max(0, cap - occupied);
+  const total = Math.max(1, cap); // évite division par 0
+  return {
+    territoires, batiments, armee, libre, occupied, total: cap,
+    pct: {
+      territoires: total ? (territoires/total*100) : 0,
+      batiments:   total ? (batiments/total*100)   : 0,
+      armee:       total ? (armee/total*100)       : 0,
+      libre:       total ? (libre/total*100)       : 0,
+    }
+  };
 }
 
 function computeTurnChanges() {
@@ -2340,7 +2422,8 @@ function actionRecruit(branch,tier,packs) {
     const hasReq = reqFamily.slice(reqIdx).some(bld=>G.buildings.some(b=>b.type===bld));
     if(!hasReq) error(`Prérequis : ${UTILITY_BUILDINGS[reqBld]?.label||reqBld}`);
     const cost=Object.fromEntries(Object.entries(spec.recruit_cost).map(([k,v])=>[k,v*packs]));
-    const err=canAfford(G.resources,cost); if(err) error(err);
+    const err=canAffordWithProjection(cost); if(err) error(err);
+    const upErr=checkUpkeepViability(spec.upkeep); if(upErr) error(upErr);
     const free=popCapacity()-popOccupied();
     if(free<packs*TROOP_POP_PER_PACK) error(`Population insuffisante (${free}/${packs*TROOP_POP_PER_PACK})`);
     deduct(G.resources,cost);
@@ -2378,6 +2461,62 @@ function linkedMarinePacks() {
 }
 function freeMarinePacks() { return Math.max(0, totalMarinePacks() - linkedMarinePacks()); }
 
+// Construit l'assignation visuelle des paquets de marins aux navires.
+// Stratégie FIFO : on liste les paquets dans l'ordre des troupes (recrutement chronologique),
+// puis on remplit séquentiellement les navires (guerre+galion) dans leur ordre d'apparition.
+// Chaque navire reçoit un code-bataillon (A, B, C, ...) et chaque paquet hérite "{code}·{n}".
+// Retourne :
+//   shipCodes        : Map ship_index → {code, marReq, marAssigned, marMissing, packIdsAssigned}
+//   packAssignments  : Map "{troopId}|{packIdx}" → {code, slot, shipIndex} pour les paquets liés
+//   missingByShip    : nombre de slots non remplis par navire
+function buildMarineAssignments() {
+  // 1) Liste FIFO des paquets de marins disponibles
+  const marinePackList = []; // {troopId, packIdx, key}
+  for(const tg of G.troops) {
+    if(tg.branch !== "marine") continue;
+    for(let i=0; i<tg.packs; i++) {
+      marinePackList.push({troopId:tg.id, packIdx:i, key:tg.id+"|"+i});
+    }
+  }
+  // 2) Liste des navires nécessitant des marins (guerre + galion), dans l'ordre
+  const ships = []; // {shipId, shipIdx, kind, tier, instance, marReq}
+  let shipCounter = 0;
+  for(const s of G.ships) {
+    if(s.kind !== "guerre" && s.kind !== "galion") continue;
+    const reqPerShip = s.kind === "galion" ? SHIP_MARINES_REQUIRED.galion : (SHIP_MARINES_REQUIRED.guerre[s.tier]||1);
+    for(let inst=0; inst<s.count; inst++) {
+      ships.push({shipId:s.id, shipIdx:shipCounter++, kind:s.kind, tier:s.tier, instance:inst, marReq:reqPerShip});
+    }
+  }
+  // 3) Génération du code (A, B, ..., Z, AA, AB, ...)
+  const codeFor = idx => {
+    let s = "";
+    let n = idx;
+    do { s = String.fromCharCode(65 + (n%26)) + s; n = Math.floor(n/26) - 1; } while(n >= 0);
+    return s;
+  };
+  // 4) Assignation séquentielle
+  const shipInfo = new Map();      // shipIdx → {code, marReq, marAssigned, marMissing, packKeysAssigned}
+  const packAssign = new Map();    // pack key → {code, slot, shipIdx, shipKind, shipTier}
+  let cursor = 0;
+  for(const sh of ships) {
+    const code = codeFor(sh.shipIdx);
+    const assigned = [];
+    for(let slot=0; slot<sh.marReq; slot++) {
+      if(cursor < marinePackList.length) {
+        const p = marinePackList[cursor++];
+        assigned.push(p.key);
+        packAssign.set(p.key, {code, slot:slot+1, shipIdx:sh.shipIdx, shipKind:sh.kind, shipTier:sh.tier, marReq:sh.marReq});
+      }
+    }
+    shipInfo.set(sh.shipIdx, {
+      code, marReq:sh.marReq, marAssigned:assigned.length, marMissing:sh.marReq-assigned.length,
+      packKeysAssigned:assigned, kind:sh.kind, tier:sh.tier, shipId:sh.shipId
+    });
+  }
+  return {shipInfo, packAssign, totalPacks:marinePackList.length, totalNeeded:ships.reduce((a,s)=>a+s.marReq,0)};
+}
+
 function actionBuildShip(kind,tier,count) {
   run(()=>{
     tier=parseInt(tier); count=parseInt(count);
@@ -2405,7 +2544,8 @@ function actionBuildShip(kind,tier,count) {
       if(!G.buildings.some(b=>b.type===required)) error(`Prérequis : ${UTILITY_BUILDINGS[required]?.label||required}`);
     }
     const cost=Object.fromEntries(Object.entries(spec.cost).map(([k,v])=>[k,v*count]));
-    const err=canAfford(G.resources,cost); if(err) error(err);
+    const err=canAffordWithProjection(cost); if(err) error(err);
+    const upErr=checkUpkeepViability(spec.upkeep); if(upErr) error(upErr);
     // Vérification marins pour navires de guerre et galions
     if(kind==="guerre"||kind==="galion") {
       const packsNeeded = kind==="galion" ? SHIP_MARINES_REQUIRED.galion*count : (SHIP_MARINES_REQUIRED.guerre[tier]||1)*count;
@@ -2988,50 +3128,57 @@ function renderResources() {
   // Pop detail
   const pd = document.getElementById("pop-detail-section");
   if(pd) {
-    const noPopRes=["coffre","terra_incognita","rien","capitale_ennemie","tresor_terre"];
-    const rows = [];
+    const br = popBreakdown();
+    const cap = br.total;
+    if(cap === 0 || (br.territoires + br.batiments + br.armee + br.libre) === 0) {
+      pd.innerHTML = "";
+    } else {
+      const segColors = {
+        territoires: "var(--success)",
+        batiments:   "var(--sea)",
+        armee:       "var(--crimson)",
+        libre:       "var(--gold)",
+      };
+      const segIcons  = { territoires:"🗺", batiments:"🏛", armee:"⚔", libre:"🧑" };
+      const segLabels = { territoires:"Territoires", batiments:"Bâtiments & usines", armee:"Armée & flotte", libre:"Libre" };
+      const segDesc   = {
+        territoires:"Habitants affectés aux cases colonisées",
+        batiments:  "Habitants affectés aux bâtiments et usines",
+        armee:      "Soldats, marins et équipages marchands",
+        libre:      "Habitants disponibles pour de nouveaux postes",
+      };
+      const segVals   = { territoires:br.territoires, batiments:br.batiments, armee:br.armee, libre:br.libre };
+      const fmtPct    = p => p<0.05?"0%":(p<10?p.toFixed(1):Math.round(p))+"%";
 
-    // Cases / slots
-    G.tiles.filter(t=>t.domain!=="capitale").forEach(t=>{
-      const r1=t.resource; const r2=t.resource2;
-      if(r1&&!noPopRes.includes(r1)) {
-        const _pp=t.domain==="mer"?SEA_PRIMARY_POP:PRIMARY_POP, _rp=t.domain==="mer"?SEA_RAW_POP:TILE_RAW_POP;
-        const p=t.slot1_disabled?0:(t.has_primary?_pp:_rp);
-        rows.push({cat:"🗺 Cases",label:`${t.name} — ${TILE_RESOURCES[r1]?.label||r1}${t.has_primary?" (bât.)":""}`,pop:p,off:t.slot1_disabled});
-      }
-      if(t.domain==="terre"&&r2&&!noPopRes.includes(r2)) {
-        const p=t.slot2_disabled?0:(t.has_primary2?PRIMARY_POP:TILE_RAW_POP); // slot2 = terre uniquement
-        rows.push({cat:"🗺 Cases",label:`${t.name} — ${TILE_RESOURCES[r2]?.label||r2} (slot 2)${t.has_primary2?" (bât.)":""}`,pop:p,off:t.slot2_disabled});
-      }
-    });
-    // Bâtiments
-    G.buildings.forEach(b=>{const i=UTILITY_BUILDINGS[b.type];if(i&&(i.pop_required||0)>0)rows.push({cat:"🏛 Bâtiments",label:i.label,pop:i.pop_required});});
-    // Usines
-    [...G.usines,...(G.free_usines||[])].forEach(u=>{const i=USINES[u.type];if(i)rows.push({cat:"⚙ Usines",label:i.label+(G.free_usines?.some(x=>x.id===u.id)?" ✨":""),pop:i.pop});});
-    // Troupes
-    [...G.troops,...(G.free_troops||[])].forEach(t=>{rows.push({cat:"⚔ Armée",label:`${t.branch} Niv.${t.tier} ×${t.packs}${G.free_troops?.some(x=>x.id===t.id)?" ✨":""}`,pop:t.packs*TROOP_POP_PER_PACK});});
-    // Navires marchands uniquement (guerre/galion = pop comptée via les marins)
-    [...G.ships,...(G.free_ships||[])].filter(s=>s.kind==="commerce").forEach(s=>{rows.push({cat:"🚢 Marine",label:`Navire marchand ×${s.count}${G.free_ships?.some(x=>x.id===s.id)?" ✨":""}`,pop:MERCHANT_SHIP.crew*s.count});});
-
-    if(!rows.length) { pd.innerHTML=""; }
-    else {
-      // Grouper par catégorie
-      const cats = [...new Set(rows.map(r=>r.cat))];
-      const sections = cats.map(cat=>{
-        const catRows = rows.filter(r=>r.cat===cat);
-        const catTotal = catRows.reduce((s,r)=>s+r.pop,0);
-        return `<div>
-          <div class="overline mb-1" style="font-size:0.6rem">${cat} — ${fmt(catTotal)} hab.</div>
-          ${catRows.map(r=>`<div class="table-row text-xs" style="${r.off?"opacity:0.45;text-decoration:line-through":""}">
-            <span class="text-muted">${r.label}</span>
-            <span class="font-mono">${r.pop} hab.</span>
-          </div>`).join("")}
-        </div>`;
+      // Barre empilée
+      const segHtml = ["territoires","batiments","armee","libre"].map(k=>{
+        const p = br.pct[k];
+        if(p < 0.5) return "";
+        return `<div title="${segLabels[k]} : ${fmt(segVals[k])} hab. (${fmtPct(p)})" style="width:${p}%;background:${segColors[k]};display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.7rem;font-weight:700;overflow:hidden;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,0.4)">${p>=8?fmtPct(p):""}</div>`;
       }).join("");
-      pd.innerHTML=`<div class="brass-divider">✦ Répartition de la population ✦</div>
+
+      // 4 cartes catégorie
+      const cards = ["territoires","batiments","armee","libre"].map(k=>`
+        <div style="border:1px solid var(--border);border-left:3px solid ${segColors[k]};border-radius:3px;padding:0.6rem 0.75rem;background:var(--bg-alt,rgba(0,0,0,0.02))">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.25rem">
+            <span style="font-size:0.75rem;font-weight:700">${segIcons[k]} ${segLabels[k]}</span>
+            <span style="font-family:monospace;font-weight:700;color:${segColors[k]};font-size:1rem">${fmtPct(br.pct[k])}</span>
+          </div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.25rem">${segDesc[k]}</div>
+          <div style="font-family:monospace;font-size:0.8rem">${fmt(segVals[k])} hab.</div>
+        </div>`).join("");
+
+      pd.innerHTML = `<div class="brass-divider">✦ Répartition de la population ✦</div>
         <div class="card"><div class="card-body">
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem">
-            ${sections}
+          <div class="flex items-center justify-between mb-2">
+            <span class="overline">Répartition par catégorie</span>
+            <span class="font-mono text-sm">${fmt(br.occupied)} / ${fmt(cap)} hab.</span>
+          </div>
+          <div style="display:flex;background:var(--border);border-radius:3px;height:24px;overflow:hidden;margin-bottom:0.75rem">
+            ${segHtml}
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.5rem">
+            ${cards}
           </div>
         </div></div>`;
     }
@@ -4036,6 +4183,11 @@ function navalBleBonus(pct) {
 function renderMilitary() {
   // Armée
   const tierOptions=(tiers)=>Object.entries(tiers).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
+  // Calcul des liens marin↔navire (FIFO) — utilisé dans les renderings ci-dessous
+  const marineAssign = buildMarineAssignments();
+  // Style typo dédié aux codes de liaison (monospace condensée, italique, sea)
+  const codeStyle = "font-family:'Courier New',ui-monospace,monospace;font-style:italic;font-weight:700;font-size:0.65rem;color:#fff;background:var(--sea);padding:0.1rem 0.35rem;border-radius:2px;letter-spacing:0.05em;white-space:nowrap";
+  const codeStyleEmpty = "font-family:'Courier New',ui-monospace,monospace;font-style:italic;font-weight:700;font-size:0.65rem;color:var(--crimson);background:transparent;border:1px dashed var(--crimson);padding:0.1rem 0.35rem;border-radius:2px;letter-spacing:0.05em;white-space:nowrap";
   const ma=document.getElementById("mil-armee");
   ma.innerHTML=`
     <div class="card"><div class="card-body">
@@ -4106,16 +4258,30 @@ function renderMilitary() {
           const ico = p.t.branch==="infanterie"?"⚔️":"⚓";
           const rankNames = ["Recrue","Conscrit","Milicien","Guerrier","Éclaireur","Archer","Lancier","Vétéran","Fantassin d'élite","Sous-officier","Sergent","Sergent-chef","Adjudant","Lieutenant","Capitaine-lieutenant","Capitaine","Capitaine de renom","Capitaine aguerri","Capitaine légendaire","Champion","Champion Suprême"];
           const rankLabel = rankNames[p.rank] || "Recrue";
-          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 0.5rem;border-bottom:1px solid var(--border);${p.rank>0?"background:rgba(201,162,39,0.05);border-left:3px solid var(--gold)":""}">
-            <div>
-              <div class="flex items-center gap-sm">
+          // Lien navire pour les paquets de marins (FIFO via buildMarineAssignments)
+          let shipLinkBadge = "";
+          if(p.t.branch === "marine") {
+            const lookupKey = p.t.id + "|" + (p.packIdx - 1);
+            const assignment = marineAssign.packAssign.get(lookupKey);
+            if(assignment) {
+              const shipShort = assignment.shipKind === "galion" ? "GAL" : "N-" + ["","I","II","III"][assignment.shipTier];
+              const fullTitle = `Affecté à ${shipShort} (navire ${assignment.code}, slot ${assignment.slot}/${assignment.marReq})`;
+              shipLinkBadge = `<span style="${codeStyle}" title="${fullTitle}">⚓ ${assignment.code}·${shipShort}·${assignment.slot}</span>`;
+            } else {
+              shipLinkBadge = `<span style="${codeStyleEmpty}" title="Aucun navire à armer — ce paquet est en réserve">⚓ libre</span>`;
+            }
+          }
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 0.5rem;border-bottom:1px solid var(--border);${p.inTraining?"background:rgba(26,107,122,0.12);border-left:3px solid var(--teal-bright);":p.rank>0?"background:rgba(201,162,39,0.05);border-left:3px solid var(--gold)":""}">
+            <div style="min-width:0;flex:1">
+              <div class="flex items-center gap-sm" style="flex-wrap:wrap;row-gap:0.25rem">
                 <span>${ico}</span>
+                ${shipLinkBadge}
+                ${p.inTraining?`<span class="badge" style="background:var(--teal);border-color:var(--teal-bright);color:#fff;font-size:0.6rem;font-weight:700;padding:0.15rem 0.4rem">🏕️ AU CAMP</span>`:""}
                 <span style="font-weight:700;font-size:0.85rem;text-transform:capitalize">${p.t.branch}</span>
                 <span class="badge badge-gold" style="font-size:0.6rem">${p.spec?.label}</span>
-                <span class="text-xs text-muted">Paquet ${p.packIdx} · 10 sold.</span>
-                ${p.inTraining?`<span class="badge" style="background:rgba(26,107,122,0.15);border-color:var(--teal);color:var(--teal-bright);font-size:0.55rem">🏕️ EN CAMP</span>`:""}
+                <span class="text-xs text-muted">P.${p.packIdx} · 10</span>
               </div>
-              ${p.rank>0?`<div class="flex items-center gap-sm mt-1">${rankStars(p.rank)}<span class="text-xs" style="color:var(--gold-dim);font-style:italic;font-weight:600">${rankLabel}</span><span class="text-xs text-muted">(rang ${p.rank}${p.trainRank>0&&p.manualRank>0?" = "+p.trainRank+" camp + "+p.manualRank+" manuel":p.trainRank>0?" camp":p.manualRank>0?" manuel":""})</span></div>`:`<span class="text-xs text-muted italic">${rankLabel}</span>`}
+              ${p.rank>0?`<div class="flex items-center gap-sm mt-1" style="flex-wrap:wrap;row-gap:0.2rem">${rankStars(p.rank)}<span class="text-xs" style="color:var(--gold-dim);font-style:italic;font-weight:600">${rankLabel}</span><span class="text-xs text-muted">(rang ${p.rank}${p.trainRank>0&&p.manualRank>0?" = "+p.trainRank+" camp + "+p.manualRank+" manuel":p.trainRank>0?" camp":p.manualRank>0?" manuel":""})</span></div>`:`<span class="text-xs text-muted italic">${rankLabel}</span>`}
             </div>
             <div class="flex gap-sm items-center">
               ${p.t.branch==="infanterie"&&p.spec&&TROOP_TIERS_INFANTERIE[p.t.tier+1]?(()=>{ const lbl=getTroopUpgradeCostLabel(p.t); return `<button class="btn btn-ghost btn-sm" style="font-size:0.6rem;padding:0.1rem 0.4rem;color:var(--gold)" onclick="upgradeTroop('${p.t.id}','${p.packIdx-1}')" title="${lbl.replace(/"/g,'&quot;')}">↑ Niv. <span style="opacity:0.75;font-weight:400">(${(()=>{ const ns=TROOP_TIERS_INFANTERIE[p.t.tier+1],cs=TROOP_TIERS_INFANTERIE[p.t.tier]; const dd={}; const ak=new Set([...Object.keys(cs.recruit_cost||{}),...Object.keys(ns.recruit_cost||{})]); for(const k of ak){const d=((ns.recruit_cost||{})[k]||0)-((cs.recruit_cost||{})[k]||0);if(d>0)dd[k]=d;} return Object.entries(dd).map(([k,v])=>`${v} ${RESOURCE_LABELS[k]}`).join(", ")||"gratuit"; })()})</span></button>`; })():""}
@@ -4222,32 +4388,55 @@ function renderMilitary() {
     <div class="card"><div class="card-body">
       <h3 class="mb-2" style="font-size:1.1rem;font-weight:700">Flotte actuelle</h3>
       ${!G.ships.length?`<p class="italic text-muted text-sm">Aucun navire en service.</p>`:
-        G.ships.map(s=>{
+        (()=>{
+          // Compteur d'instance global pour matcher shipIdx dans marineAssign
+          let _shipInstanceCursor = 0;
+          return G.ships.map(s=>{
           const spec=s.kind==="guerre"?(SHIP_TIERS[s.tier]||SHIP_TIERS[1]):s.kind==="galion"?GALION:MERCHANT_SHIP;
           const ico=s.kind==="galion"?"⚓":s.kind==="commerce"?"⛵":"🚢";
           const marReq = s.kind==="guerre" ? (SHIP_MARINES_REQUIRED.guerre[s.tier]||1)*s.count
                        : s.kind==="galion" ? SHIP_MARINES_REQUIRED.galion*s.count : null;
-          const marBadge = marReq!==null ? `<span class="text-xs" style="color:var(--sea)">⚓ ${marReq} paquet${marReq!==1?"s":""} liés</span>` : "";
-          // Badge sous-équipé : vérifier si ce navire contribue au déficit global
-          let undercrewBadge = "";
-          if(marReq!==null) {
-            // On recalcule le déficit global et on marque les navires dans l'ordre de liste
-            const deficit = Math.max(0, linkedMarinePacks() - totalMarinePacks());
-            if(deficit>0) {
-              // Accumulation : chaque navire guerre/galion est potentiellement affecté
-              undercrewBadge = `<span class="badge" style="background:rgba(139,26,26,0.12);border:1px solid var(--crimson);color:var(--crimson);font-size:0.6rem;padding:0.1rem 0.4rem">⚠ Sous-équipé</span>`;
+          // Pour chaque instance de ce groupe, récupérer le code et les paquets liés
+          const isMilitary = s.kind==="guerre" || s.kind==="galion";
+          let instanceLines = "";
+          let totalMissing = 0;
+          if(isMilitary) {
+            const lines = [];
+            for(let inst=0; inst<s.count; inst++) {
+              const info = marineAssign.shipInfo.get(_shipInstanceCursor++);
+              if(!info) continue;
+              totalMissing += info.marMissing;
+              const slotsHtml = [];
+              for(let slot=1; slot<=info.marReq; slot++) {
+                if(slot <= info.marAssigned) slotsHtml.push(`<span style="${codeStyle}">${info.code}·${slot}</span>`);
+                else slotsHtml.push(`<span style="${codeStyleEmpty}">${info.code}·${slot}?</span>`);
+              }
+              lines.push(`<div style="display:flex;align-items:center;gap:0.3rem;flex-wrap:wrap;padding:0.15rem 0">
+                <span style="${codeStyle};background:var(--gold);color:#1a1a1a" title="Code du navire ${info.code}">▸ ${info.code}</span>
+                ${slotsHtml.join("")}
+              </div>`);
             }
+            instanceLines = lines.join("");
+          }
+          const marBadge = marReq!==null ? `<span class="text-xs" style="color:var(--sea)">⚓ ${marReq - totalMissing}/${marReq} paquet${marReq!==1?"s":""}</span>` : "";
+          let undercrewBadge = "";
+          if(totalMissing > 0) {
+            undercrewBadge = `<span class="badge" style="background:rgba(139,26,26,0.12);border:1px solid var(--crimson);color:var(--crimson);font-size:0.6rem;padding:0.1rem 0.4rem">⚠ Sous-équipé (${totalMissing})</span>`;
           }
           const canUpgradeShip = s.kind==="guerre" && s.tier < 3;
-          return `<div class="table-row" style="${undercrewBadge?"border-left:3px solid var(--crimson)":""}">
-            <div class="flex items-center gap-sm" style="flex-wrap:wrap">${ico} <span class="bold text-sm">${spec.label}</span>${marBadge}${undercrewBadge}</div>
-            <div class="flex items-center gap-sm">
-              <span class="font-mono text-sm">×${s.count}</span>
-              ${canUpgradeShip?(()=>{ const lbl=getShipUpgradeCostLabel(s); const ns=SHIP_TIERS[s.tier+1],cs=SHIP_TIERS[s.tier]; const dd={}; const ak=new Set([...Object.keys(cs.cost||{}),...Object.keys(ns.cost||{})]); for(const k of ak){const d=((ns.cost||{})[k]||0)-((cs.cost||{})[k]||0);if(d>0)dd[k]=d;} const costStr=Object.entries(dd).map(([k,v])=>`${v} ${RESOURCE_LABELS[k]}`).join(", ")||"gratuit"; return `<button class="btn btn-ghost btn-sm" style="font-size:0.6rem;padding:0.1rem 0.4rem;color:var(--gold)" onclick="upgradeShip('${s.id}')" title="${lbl.replace(/"/g,'&quot;')}">↑ Niv. <span style="opacity:0.75;font-weight:400">(${costStr})</span></button>`; })():""}
-              <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDisbandShip('${s.id}',1)" title="Désarmer 1">−</button>
+          return `<div class="table-row" style="${undercrewBadge?"border-left:3px solid var(--crimson);":""}flex-direction:column;align-items:stretch">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
+              <div class="flex items-center gap-sm" style="flex-wrap:wrap">${ico} <span class="bold text-sm">${spec.label}</span>${marBadge}${undercrewBadge}</div>
+              <div class="flex items-center gap-sm">
+                <span class="font-mono text-sm">×${s.count}</span>
+                ${canUpgradeShip?(()=>{ const lbl=getShipUpgradeCostLabel(s); const ns=SHIP_TIERS[s.tier+1],cs=SHIP_TIERS[s.tier]; const dd={}; const ak=new Set([...Object.keys(cs.cost||{}),...Object.keys(ns.cost||{})]); for(const k of ak){const d=((ns.cost||{})[k]||0)-((cs.cost||{})[k]||0);if(d>0)dd[k]=d;} const costStr=Object.entries(dd).map(([k,v])=>`${v} ${RESOURCE_LABELS[k]}`).join(", ")||"gratuit"; return `<button class="btn btn-ghost btn-sm" style="font-size:0.6rem;padding:0.1rem 0.4rem;color:var(--gold)" onclick="upgradeShip('${s.id}')" title="${lbl.replace(/"/g,'&quot;')}">↑ Niv. <span style="opacity:0.75;font-weight:400">(${costStr})</span></button>`; })():""}
+                <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDisbandShip('${s.id}',1)" title="Désarmer 1">−</button>
+              </div>
             </div>
+            ${instanceLines?`<div style="margin-top:0.25rem;padding-left:1.5rem">${instanceLines}</div>`:""}
           </div>`;
-        }).join("")}
+        }).join("");
+        })()}
     </div></div>`;
   // Peupler les tarifs navires au rendu
   setTimeout(()=>{ updateWarTarif(); updateGalionTarif(); updateMerchTarif(); },0);
@@ -4870,9 +5059,10 @@ function upgradeTroop(id, packIndex) {
     if(d > 0) diff[k] = d;
   }
   const diffLabelFull = Object.entries(diff).map(([k,v])=>`${v} ${RESOURCE_LABELS[k]}`).join(", ") || "gratuit";
-  for(const [k,v] of Object.entries(diff)) {
-    if((G.resources[k]||0) < v) return toast(`Pas assez de ${RESOURCE_LABELS[k]} pour améliorer (coût total : ${diffLabelFull} — manque ${v-(G.resources[k]||0)} ${RESOURCE_LABELS[k]}).`);
-  }
+  const affErr = canAffordWithProjection(diff);
+  if(affErr) return toast(`Impossible d'améliorer (coût total : ${diffLabelFull}). ${affErr}`);
+  const upErr = checkUpkeepViability(nextSpec.upkeep);
+  if(upErr) return toast(upErr);
   run(()=>{
     for(const [k,v] of Object.entries(diff)) G.resources[k]=(G.resources[k]||0)-v;
     // Retirer 1 paquet du groupe source
@@ -4921,9 +5111,10 @@ function upgradeShip(id) {
     if(d > 0) diff[k] = d;
   }
   const diffLabelFull = Object.entries(diff).map(([k,v])=>`${v} ${RESOURCE_LABELS[k]}`).join(", ") || "gratuit";
-  for(const [k,v] of Object.entries(diff)) {
-    if((G.resources[k]||0) < v) return toast(`Pas assez de ${RESOURCE_LABELS[k]} pour améliorer (coût total : ${diffLabelFull} — manque ${v-(G.resources[k]||0)} ${RESOURCE_LABELS[k]}).`);
-  }
+  const affErr = canAffordWithProjection(diff);
+  if(affErr) return toast(`Impossible d'améliorer (coût total : ${diffLabelFull}). ${affErr}`);
+  const upErr = checkUpkeepViability(nextSpec.upkeep);
+  if(upErr) return toast(upErr);
   run(()=>{
     for(const [k,v] of Object.entries(diff)) G.resources[k]=(G.resources[k]||0)-v;
     // Retirer 1 navire du groupe source
