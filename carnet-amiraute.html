@@ -1154,10 +1154,6 @@ input:checked + .slider:before { transform: translateX(18px); }
           <label class="switch"><input type="checkbox" id="evt-usine-free"><span class="slider"></span></label>
           <span class="text-sm">Sans entretien</span>
         </div>
-        <div class="form-group">
-          <label class="overline">Cycles / tour</label>
-          <input type="number" id="evt-usine-batches" value="1" min="0" style="width:80px" />
-        </div>
       </div>
 
       <!-- TROUPE panel -->
@@ -1593,6 +1589,19 @@ function importSave(input) {
 function migrateState(d) {
   // Tableaux manquants
   d.usines          = d.usines          || [];
+  // Migration batches_per_turn → production_rate
+  for(const u of d.usines) {
+    if(u.production_rate === undefined) {
+      u.production_rate = (u.batches_per_turn === 0) ? 0 : 100;
+      delete u.batches_per_turn;
+    }
+  }
+  for(const u of (d.free_usines||[])) {
+    if(u.production_rate === undefined) {
+      u.production_rate = (u.batches_per_turn === 0) ? 0 : 100;
+      delete u.batches_per_turn;
+    }
+  }
   d.attacks         = d.attacks         || [];
   d.events          = d.events          || [];
   d.free_buildings  = d.free_buildings  || [];
@@ -1916,29 +1925,22 @@ function computeTurnChanges() {
     });
   }
 
-  // 6) Usines — batches_per_turn=0 signifie pause (aucune production ni consommation)
+  // 6) Usines — production_rate=0 signifie pause (aucune production ni consommation)
   for(const u of G.usines) {
     const info=USINES[u.type]; if(!info) continue;
-    const maxB = u.batches_per_turn === 0 ? 0 : Math.max(1, u.batches_per_turn||1);
-    if(maxB===0) continue; // pause explicite
-    const uCh={};let runs=0;
-    for(let i=0;i<maxB;i++){
-      let ok=true;
-      for(const[k,v] of Object.entries(info.consume)) {
-        if((G.resources[k]||0)+(delta[k]||0)+(uCh[k]||0)<v){ok=false;break;}
-      }
-      if(!ok) break;
-      for(const[k,v] of Object.entries(info.consume)) uCh[k]=(uCh[k]||0)-v;
-      for(const[k,v] of Object.entries(info.produce)) uCh[k]=(uCh[k]||0)+v;
-      runs++;
-    }
-    if(runs){
+    const rate = (u.production_rate ?? 100) / 100;
+    if(rate === 0) continue; // pause explicite
+    const uCh={};
+    for(const[k,v] of Object.entries(info.consume)) uCh[k]=(uCh[k]||0)-Math.round(v*rate);
+    for(const[k,v] of Object.entries(info.produce)) uCh[k]=(uCh[k]||0)+Math.round(v*rate);
+    const hasChange = Object.values(uCh).some(v=>v!==0);
+    if(hasChange){
       for(const[k,v] of Object.entries(uCh)) delta[k]=(delta[k]||0)+v;
       breakdown.push({
-        label:`${info.label} (×${runs})`,
+        label:`${info.label} (${Math.round(rate*100)}%)`,
         category:"batiments",
         changes:{...uCh},
-        details:[{name:`🏭 ${info.label}`,sublabel:`${runs} lot(s) ce tour`,changes:{...uCh}}]
+        details:[{name:`🏭 ${info.label}`,sublabel:`Production à ${Math.round(rate*100)}%`,changes:{...uCh}}]
       });
     }
   }
@@ -2373,7 +2375,7 @@ function actionBuildUsine(type) {
     const free=popCapacity()-popOccupied();
     if(free<info.pop) error(`Population insuffisante (${free}/${info.pop})`);
     deduct(G.resources,info.cost);
-    G.usines.push({id:uid(),type,batches_per_turn:1});
+    G.usines.push({id:uid(),type,production_rate:100});
   });
   const _lastUsine = G.usines[G.usines.length-1];
   if(_lastUsine && _lastUsine.type === type) {
@@ -2382,14 +2384,13 @@ function actionBuildUsine(type) {
   }
 }
 
-function actionConfigureFreeUsine(id, batches) {
+function actionConfigureFreeUsine(id, rate) {
   initEventsState();
   run(()=>{
     const u = G.free_usines.find(x=>x.id===id);
     if(!u) error("Usine introuvable");
-    u.batches_per_turn = Math.max(0, parseInt(batches)||0);
+    u.production_rate = Math.min(100, Math.max(0, parseInt(rate)||0));
   });
-  toast("Cadence mise à jour.");
 }
 
 function actionDemolishUsine(id) {
@@ -2397,12 +2398,11 @@ function actionDemolishUsine(id) {
   toast("Usine démolie.");
 }
 
-function actionConfigureUsine(id,batches) {
+function actionConfigureUsine(id, rate) {
   run(()=>{
     const u=G.usines.find(x=>x.id===id); if(!u) error("Usine introuvable");
-    u.batches_per_turn=Math.max(0,parseInt(batches)||0);
+    u.production_rate = Math.min(100, Math.max(0, parseInt(rate)||0));
   });
-  toast("Cadence mise à jour.");
 }
 
 function actionRecruit(branch,tier,packs) {
@@ -3024,23 +3024,23 @@ function computeResourceSources() {
   // Usines (production - consommation)
   for(const u of G.usines) {
     const info = USINES[u.type]; if(!info) continue;
-    const batches = u.batches_per_turn === 0 ? 0 : Math.max(1, u.batches_per_turn||1);
-    if(!batches) continue; // pause explicite
+    const rate = (u.production_rate ?? 100) / 100;
+    if(!rate) continue; // pause explicite
     for(const [k,v] of Object.entries(info.produce)) {
-      init(k); sources[k].push({label:`${info.label} (prod.)`, value:v*batches, category:"batiments"});
+      init(k); sources[k].push({label:`${info.label} (prod.)`, value:Math.round(v*rate), category:"batiments"});
     }
     for(const [k,v] of Object.entries(info.consume)) {
-      init(k); sources[k].push({label:`${info.label} (conso.)`, value:-v*batches, category:"batiments"});
+      init(k); sources[k].push({label:`${info.label} (conso.)`, value:-Math.round(v*rate), category:"batiments"});
     }
   }
 
   // Usines gratuites
   for(const u of G.free_usines||[]) {
     const info = USINES[u.type]; if(!info) continue;
-    const batches = u.batches_per_turn === 0 ? 0 : Math.max(1, u.batches_per_turn||1);
-    if(!batches) continue; // pause explicite
+    const rate = (u.production_rate ?? 100) / 100;
+    if(!rate) continue; // pause explicite
     for(const [k,v] of Object.entries(info.produce)) {
-      init(k); sources[k].push({label:`${info.label} ✨`, value:v*batches, category:"batiments"});
+      init(k); sources[k].push({label:`${info.label} ✨`, value:Math.round(v*rate), category:"batiments"});
     }
   }
 
@@ -3960,7 +3960,8 @@ function renderUsines() {
         const info=USINES[u.type]; if(!info) return "";
         const cons=Object.entries(info.consume).map(([k,v])=>`−${v} ${RESOURCE_LABELS[k]}`).join(" · ");
         const prod=Object.entries(info.produce).map(([k,v])=>`+${v} ${RESOURCE_LABELS[k]}`).join(" · ");
-        const paused = u.batches_per_turn === 0;
+        const rate = u.production_rate ?? 100;
+        const paused = rate === 0;
         return `<div class="table-row flex-wrap gap-sm" style="${paused?"opacity:0.55;":""}">
           <div class="flex items-center gap-sm flex-1">
             <span>${paused?"⏸":"⚙"}</span>
@@ -3969,12 +3970,12 @@ function renderUsines() {
               <div class="text-xs text-muted"><span class="text-danger">${cons}</span> → <span class="text-success">${prod}</span></div>
             </div>
           </div>
-          <div class="flex items-center gap-sm">
-            <span class="overline" title="0 = pause">Cycles/tour</span>
-            <input type="number" min="0" value="${u.batches_per_turn}" style="width:55px"
+          <div class="flex items-center gap-sm" style="min-width:220px">
+            <input type="range" min="0" max="100" step="5" value="${rate}"
+              style="flex:1;accent-color:var(--gold);cursor:pointer"
+              oninput="this.nextElementSibling.textContent=this.value+'%'"
               onchange="actionConfigureUsine('${u.id}',this.value)" />
-            <button class="btn btn-sm" style="padding:0.25rem 0.6rem;background:${paused?"var(--success,#2d6a2d)":"rgba(0,0,0,0.06)"};color:${paused?"#fff":"var(--fg)"};border:1px solid ${paused?"var(--success,#2d6a2d)":"var(--border)"}"
-              onclick="actionConfigureUsine('${u.id}','${paused?1:0}')" title="${paused?"Relancer":"Mettre en pause"}">${paused?"▶ Relancer":"⏸ Pause"}</button>
+            <span class="font-mono text-sm" style="min-width:3rem;text-align:right">${rate}%</span>
             <button class="btn btn-ghost btn-icon text-danger" onclick="confirmDemolishUsine('${u.id}')">🗑</button>
           </div>
         </div>`;
@@ -3989,7 +3990,8 @@ function renderUsines() {
       const info = USINES[u.type]; if(!info) return "";
       const prod = Object.entries(info.produce).map(([k,v]) => `+${v} ${RESOURCE_LABELS[k]}`).join(" · ");
       const uid_ = u.id;
-      const paused2 = u.batches_per_turn === 0;
+      const rate2 = u.production_rate ?? 100;
+      const paused2 = rate2 === 0;
       return `<div class="table-row flex-wrap gap-sm" style="${paused2?"opacity:0.55;":""}">
         <div class="flex items-center gap-sm flex-1">
           <span>${paused2?"⏸":"✨"}</span>
@@ -3998,13 +4000,13 @@ function renderUsines() {
             <div class="text-xs text-success">${prod}</div>
           </div>
         </div>
-        <div class="flex items-center gap-sm">
-          <span class="overline" title="0 = pause">Cycles/tour</span>
-          <input type="number" min="0" value="${u.batches_per_turn}" style="width:55px"
+        <div class="flex items-center gap-sm" style="min-width:220px">
+          <input type="range" min="0" max="100" step="5" value="${rate2}"
+            style="flex:1;accent-color:var(--sea);cursor:pointer"
             data-free-usine-id="${uid_}"
+            oninput="this.nextElementSibling.textContent=this.value+'%'"
             onchange="actionConfigureFreeUsine(this.dataset.freeUsineId, this.value)" />
-          <button class="btn btn-sm" style="padding:0.25rem 0.6rem;background:${paused2?"var(--success,#2d6a2d)":"rgba(0,0,0,0.06)"};color:${paused2?"#fff":"var(--fg)"};border:1px solid ${paused2?"var(--success,#2d6a2d)":"var(--border)"}"
-            onclick="actionConfigureFreeUsine('${uid_}','${paused2?1:0}')" title="${paused2?"Relancer":"Mettre en pause"}">${paused2?"▶ Relancer":"⏸ Pause"}</button>
+          <span class="font-mono text-sm" style="min-width:3rem;text-align:right">${rate2}%</span>
         </div>
       </div>`;
     }).join("");
@@ -4639,7 +4641,7 @@ function renderFiche() {
       </div>
       <div><h3 class="overline mb-2">Usines</h3>
         ${!G.usines.length?`<p class="italic text-muted text-sm">Aucune.</p>`:
-          G.usines.map(u=>{const i=USINES[u.type];return `<div class="table-row">· ${i?.label||u.type} <span class="text-muted">— ${u.batches_per_turn} cycle(s)/tour</span></div>`;}).join("")}
+          G.usines.map(u=>{const i=USINES[u.type];const r=u.production_rate??100;return `<div class="table-row">· ${i?.label||u.type} <span class="text-muted">— ${r}%</span></div>`;}).join("")}
       </div>
     </div>
     <div class="mb-2"><h3 class="overline mb-2">Bâtiments utilitaires</h3>
@@ -5603,7 +5605,6 @@ function openEventModal() {
   document.getElementById("evt-bld-free").checked = false;
   document.getElementById("evt-usine-free").checked = false;
   document.getElementById("evt-trp-free").checked = false;
-  document.getElementById("evt-usine-batches").value = "1";
   document.getElementById("evt-trp-qty").value = "1";
   document.getElementById("evt-case-primary").checked = false;
   document.getElementById("evt-case-name").value = "";
@@ -5669,9 +5670,8 @@ function applyEvent() {
   else if(_evtType === "usine") {
     const type = document.getElementById("evt-usine-type").value;
     const free = document.getElementById("evt-usine-free").checked;
-    const batches = Math.max(1, parseInt(document.getElementById("evt-usine-batches").value)||1);
     const info = USINES[type];
-    const usine = {id: uid(), type, batches_per_turn: batches};
+    const usine = {id: uid(), type, production_rate: 100};
     const _alreadyU = G.usines.some(u=>u.type===type) || (G.free_usines||[]).some(u=>u.type===type);
     if(_alreadyU) error(`${info?.label||type} déjà construite — une seule par type autorisée (même via événement).`);
     if(free) { G.free_usines.push(usine); entity_ids.free_usines.push(usine.id); }
@@ -5772,16 +5772,16 @@ computeTurnChanges = function() {
   // Free usines: produce but no consume cost (gift from MJ)
   for(const u of G.free_usines) {
     const info = USINES[u.type]; if(!info) continue;
-    const batches = u.batches_per_turn === 0 ? 0 : Math.max(1, u.batches_per_turn||1);
-    if(!batches) continue; // pause explicite
+    const rate = (u.production_rate ?? 100) / 100;
+    if(!rate) continue; // pause explicite
     const uCh = {};
-    for(const[k,v] of Object.entries(info.produce)) uCh[k]=(uCh[k]||0)+v*batches;
+    for(const[k,v] of Object.entries(info.produce)) uCh[k]=(uCh[k]||0)+Math.round(v*rate);
     for(const[k,v] of Object.entries(uCh)) result.delta[k]=(result.delta[k]||0)+v;
     result.breakdown.push({
-      label:`${info.label} (cadeau ×${batches})`,
+      label:`${info.label} (cadeau ${Math.round(rate*100)}%)`,
       category:"batiments",
       changes:{...uCh},
-      details:[{name:`🎁 ${info.label}`,sublabel:`Cadeau MJ — ${batches} lot(s) sans coût`,changes:{...uCh}}]
+      details:[{name:`🎁 ${info.label}`,sublabel:`Cadeau MJ — production à ${Math.round(rate*100)}%`,changes:{...uCh}}]
     });
   }
   // Note: free buildings, troops, ships have NO upkeep — intentionally not added
@@ -6390,9 +6390,9 @@ function genererConseils() {
     },0);
     if(netOr<0) addB("💹",`Tes routes commerciales te coûtent ${fmt(Math.abs(netOr))} or/tour net — Revoir les contrats déficitaires.`);
   }
-  // Usines à cadence 0 oubliées
-  const usinesPaused=G.usines.filter(u=>u.batches_per_turn===0);
-  if(usinesPaused.length) addB("⚙",`${usinesPaused.length} usine(s) en pause (cadence 0) — ${usinesPaused.map(u=>USINES[u.type]?.label||u.type).join(", ")} — Vérifier si intentionnel.`);
+  // Usines à 0% oubliées
+  const usinesPaused=G.usines.filter(u=>(u.production_rate??100)===0);
+  if(usinesPaused.length) addB("⚙",`${usinesPaused.length} usine(s) à 0% (production arrêtée) — ${usinesPaused.map(u=>USINES[u.type]?.label||u.type).join(", ")} — Vérifier si intentionnel.`);
 
   // ══════════════════════════════════════════════════════════════
   // RENDU — deux sections : Urgent + Bientôt
@@ -6664,10 +6664,11 @@ function simDelta(sim) {
 
   // Usines (simplifiées)
   for(const u of sim.usines||[]) {
-    const info=USINES[u.type]; if(!info||u.batches_per_turn===0) continue;
-    const b=u.batches_per_turn||1;
-    for(const[k,v] of Object.entries(info.produce)) d[k]=(d[k]||0)+v*b;
-    for(const[k,v] of Object.entries(info.consume)) d[k]=(d[k]||0)-v*b;
+    const info=USINES[u.type]; if(!info) continue;
+    const rate = (u.production_rate ?? 100) / 100;
+    if(!rate) continue;
+    for(const[k,v] of Object.entries(info.produce)) d[k]=(d[k]||0)+Math.round(v*rate);
+    for(const[k,v] of Object.entries(info.consume)) d[k]=(d[k]||0)-Math.round(v*rate);
   }
 
   // Troupes entretien
