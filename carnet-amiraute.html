@@ -1506,14 +1506,14 @@ const GALION = {label:"Galion légendaire",cost:{or:10000},upkeep:{planches:100}
 const MERCHANT_SHIP = {label:"Navire marchand",cost:{or:300},upkeep:{bois:30},crew:10,requires:"port_commerce"};
 
 const USINES = {
-  rhum:{label:"Distillerie de Rhum",labels:["Petite Distillerie","Distillerie de Rhum","Grande Distillerie"],upkeep_bois:[0,20,40],cost:{or:1000},pop:20,prereq:[["sucre",3]],consume:{sucre:300},produce:{rhum:50}},
-  cigares:{label:"Manufacture de cigares",labels:["Petit Atelier à Cigares","Manufacture de Cigares","Grande Manufacture"],upkeep_bois:[0,20,40],cost:{or:1000},pop:20,prereq:[["tabac",3]],consume:{tabac:300},produce:{cigares:50}},
-  chocolat:{label:"Chocolaterie",labels:["Petite Chocolaterie","Chocolaterie","Grande Chocolaterie"],upkeep_bois:[0,20,40],cost:{or:1000},pop:20,prereq:[["cacao",3]],consume:{cacao:300},produce:{chocolat:50}},
-  boulangerie:{label:"Boulangerie",labels:["Petite Boulangerie","Boulangerie","Grande Boulangerie"],upkeep_bois:[0,20,40],cost:{or:1000},pop:20,prereq:[["ble",3],["sel",3]],consume:{ble:300,sel:150},produce:{ble:600}},
-  conserverie:{label:"Conserverie",labels:["Petite Conserverie","Conserverie","Grande Conserverie"],upkeep_bois:[0,20,40],cost:{or:1000},pop:20,prereq:[["poisson",3]],consume:{ble:300,fer:50},produce:{ble:600}},
-  bijouterie:{label:"Bijouterie",labels:["Petite Bijouterie","Bijouterie","Grande Bijouterie"],upkeep_bois:[0,20,40],cost:{or:1000},pop:20,prereq:[["nacre",3],["or",3]],consume:{or:300,nacre:150},produce:{bijoux:50}},
-  forgerie:{label:"Forgerie",labels:["Petite Forge","Forge","Méga Forge"],upkeep_bois:[0,20,40],cost:{or:1000},pop:20,prereq:[["fer",3]],consume:{fer:600},produce:{acier:300}},
-  scierie_indus:{label:"Usine à planches",labels:["Petit Scierie","Scierie Industrielle","Méga Scierie"],upkeep_bois:[0,20,40],cost:{or:1000},pop:20,prereq:[["bois",3]],consume:{bois:600},produce:{planches:300}},
+  rhum:{label:"Distillerie de Rhum",labels:["Petite Distillerie","Distillerie de Rhum","Grande Distillerie"],cost:{or:1000},pop:20,prereq:[["sucre",3]],consume:{sucre:300},produce:{rhum:50}},
+  cigares:{label:"Manufacture de cigares",labels:["Petit Atelier à Cigares","Manufacture de Cigares","Grande Manufacture"],cost:{or:1000},pop:20,prereq:[["tabac",3]],consume:{tabac:300},produce:{cigares:50}},
+  chocolat:{label:"Chocolaterie",labels:["Petite Chocolaterie","Chocolaterie","Grande Chocolaterie"],cost:{or:1000},pop:20,prereq:[["cacao",3]],consume:{cacao:300},produce:{chocolat:50}},
+  boulangerie:{label:"Boulangerie",labels:["Petite Boulangerie","Boulangerie","Grande Boulangerie"],cost:{or:1000},pop:20,prereq:[["ble",3],["sel",3]],consume:{ble:300,sel:150},produce:{ble:600}},
+  conserverie:{label:"Conserverie",labels:["Petite Conserverie","Conserverie","Grande Conserverie"],cost:{or:1000},pop:20,prereq:[["poisson",3]],consume:{ble:300,fer:50},produce:{ble:600}},
+  bijouterie:{label:"Bijouterie",labels:["Petite Bijouterie","Bijouterie","Grande Bijouterie"],cost:{or:1000},pop:20,prereq:[["nacre",3],["or",3]],consume:{or:300,nacre:150},produce:{bijoux:50}},
+  forgerie:{label:"Forgerie",labels:["Petite Forge","Forge","Méga Forge"],cost:{or:1000},pop:20,prereq:[["fer",3]],consume:{fer:600},produce:{acier:300}},
+  scierie_indus:{label:"Usine à planches",labels:["Petit Scierie","Scierie Industrielle","Méga Scierie"],cost:{or:1000},pop:20,prereq:[["bois",3]],consume:{bois:600},produce:{planches:300}},
 };
 
 // Retourne le nom de l'usine selon son niveau
@@ -1944,9 +1944,6 @@ function computeTurnChanges() {
     const uCh={};
     for(const[k,v] of Object.entries(info.consume)) uCh[k]=(uCh[k]||0)-Math.round(v*mult*rate);
     for(const[k,v] of Object.entries(info.produce)) uCh[k]=(uCh[k]||0)+Math.round(v*mult*rate);
-    // Entretien bois par niveau (Niv.I=0, Niv.II=20, Niv.III=40)
-    const upkeepBois = (info.upkeep_bois && info.upkeep_bois[(u.level||1)-1]) || 0;
-    if(upkeepBois > 0) uCh.bois = (uCh.bois||0) - upkeepBois;
     const hasChange = Object.values(uCh).some(v=>v!==0);
     if(hasChange){
       for(const[k,v] of Object.entries(uCh)) delta[k]=(delta[k]||0)+v;
@@ -3102,10 +3099,6 @@ function computeResourceSources() {
     for(const [k,v] of Object.entries(info.consume)) {
       init(k); sources[k].push({label:`${usineLabel(u)}${lvLabel} (conso.)`, value:-Math.round(v*mult*rate), category:"batiments"});
     }
-    const upkeepBois2 = (info.upkeep_bois && info.upkeep_bois[(u.level||1)-1]) || 0;
-    if(upkeepBois2 > 0) {
-      init("bois"); sources["bois"].push({label:`${usineLabel(u)}${lvLabel} (entretien)`, value:-upkeepBois2, category:"batiments"});
-    }
   }
 
   // Usines gratuites
@@ -4041,10 +4034,7 @@ function renderUsines() {
         const r = rate / 100;
         const cons=consEntries.map(([k,v])=>`−${Math.round(v*mult*r)} ${RESOURCE_LABELS[k]}`).join(" · ");
         const prod=prodEntries.map(([k,v])=>`+${Math.round(v*mult*r)} ${RESOURCE_LABELS[k]}`).join(" · ");
-        const upkeepBoisLv = (info.upkeep_bois && info.upkeep_bois[(lv)-1]) || 0;
-        const upkeepParts = consEntries.map(([k,v])=>`<span class="upk-val" style="color:var(--crimson);font-weight:600">${Math.round(v*mult*r)}</span> <span style="opacity:0.7">${RESOURCE_LABELS[k]}</span>`);
-        if(upkeepBoisLv > 0) upkeepParts.push(`<span style="color:var(--crimson);font-weight:600">${upkeepBoisLv}</span> <span style="opacity:0.7">Bois</span>`);
-        const upkeepStr = upkeepParts.join(" · ");
+        const upkeepStr = consEntries.map(([k,v])=>`<span class="upk-val" style="color:var(--crimson);font-weight:600">${Math.round(v*mult*r)}</span> <span style="opacity:0.7">${RESOURCE_LABELS[k]}</span>`).join(" · ");
         const consBase=JSON.stringify(consEntries.map(([k,v])=>({k,b:Math.round(v*mult),l:RESOURCE_LABELS[k]})));
         const prodBase=JSON.stringify(prodEntries.map(([k,v])=>({k,b:Math.round(v*mult),l:RESOURCE_LABELS[k]})));
         const paused = rate === 0;
@@ -4137,9 +4127,6 @@ function renderUsines() {
       <div class="mt-2 text-xs space-y-sm">
         <div class="table-row"><span class="text-muted">Coût</span><span class="font-mono">${costStr(info.cost)}</span></div>
         <div class="table-row"><span class="text-muted">Pop. requise</span><span class="font-mono text-warning">${info.pop} hab.</span></div>
-        <div class="table-row"><span class="text-muted">Entretien Niv.I</span><span class="font-mono text-muted">aucun</span></div>
-        <div class="table-row"><span class="text-muted">Entretien Niv.II</span><span class="font-mono text-danger">${(info.upkeep_bois&&info.upkeep_bois[1])||0} Bois/tour</span></div>
-        <div class="table-row"><span class="text-muted">Entretien Niv.III</span><span class="font-mono text-danger">${(info.upkeep_bois&&info.upkeep_bois[2])||0} Bois/tour</span></div>
         <ul class="mt-1 ml-2" style="list-style:none">${prereqLines}</ul>
       </div>
       <div class="mt-2">
