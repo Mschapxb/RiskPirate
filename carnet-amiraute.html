@@ -1300,7 +1300,7 @@ input:checked + .slider:before { transform: translateX(20px); }
               <option value="cafe">Café ☕</option>
               <option value="diamant">Diamant 💠</option>
             </optgroup>
-            <optgroup label="🜲 Produits de luxe continentaux">
+            <optgroup label="🜲 Produits manufacturés du continent">
               <option value="vetement_luxe">Vêtement de luxe 👘</option>
               <option value="boisson_divine">Boisson divine 🍷</option>
               <option value="bijoux_chef_oeuvre">Bijoux chef-d'œuvre 👑</option>
@@ -2166,7 +2166,9 @@ function usineLabel(u) {
   return (info.labels && info.labels[lv]) || info.label;
 }
 
-const INTERNATIONAL_PRICES = {sucre:100,tabac:100,cacao:100,nacre:200,sel:100,rhum:1000,cigares:1000,chocolat:1000,bijoux:3000,epices:100,coton:100,fourrure:100,diamant:200,cafe:100,vetement_luxe:1000,boisson_divine:1000,bijoux_chef_oeuvre:8000};
+const INTERNATIONAL_PRICES = {sucre:100,tabac:100,cacao:100,nacre:200,sel:100,rhum:1000,cigares:1000,chocolat:1000,bijoux:3000,
+  // 🜲 Ressources continentales et produits manufacturés du continent — désormais vendables
+  epices:100,coton:100,fourrure:100,cafe:100,diamant:200,vetement_luxe:1000,boisson_divine:1000,bijoux_chef_oeuvre:8000};
 const POP_FOOD_PER_HABITANT = 1;
 
 // =============================================================================
@@ -3716,7 +3718,9 @@ function actionDisbandShip(id,count) {
   toast("Navire désarmé — marins libérés.");
 }
 
-const TRADE_EXPORTABLE = ["cacao","tabac","sucre","sel","nacre","rhum","cigares","chocolat","bijoux"];
+const TRADE_EXPORTABLE = ["cacao","tabac","sucre","sel","nacre","rhum","cigares","chocolat","bijoux",
+  // 🜲 Continent : ressources et produits manufacturés désormais exportables
+  "epices","coton","fourrure","cafe","diamant","vetement_luxe","boisson_divine","bijoux_chef_oeuvre"];
 
 function actionCreateTrade(data) {
   run(()=>{
