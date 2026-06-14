@@ -2082,7 +2082,7 @@ const DIVINE_UNIT_SPECS = {
               note:"Marin Tier I · entraînable (camp : +1 rang/tour) · entretien : 60 or (doublé) + 20 blé + 10 pop par paquet · arme les navires comme un paquet de marins classique"},
   golem:     {defLabel:"Golem de combat", ico:"🗿", tier:null, power:null, fixed_rank:null, trainable:true,
               recruit_cost:null, upkeep:null, pop_per_pack:10,
-              note:"Construct d'acier · puissance du Tier choisi · coût du Tier équivalent (200/400/600 🪙) + 20 mana par Tier à l'achat (20/40/60 🜲) · entretien : 20 × Tier en acier par paquet (20/40/60 ⚙/tour) · 10 pop par paquet (opérateurs) · entraînable (camp : +1 rang/tour)"},
+              note:"Construct d'acier · puissance du Tier choisi · coût d'achat : 100/200/300 🪙 + 10 mana par Tier (10/20/30 🜲) · entretien : 10 × Tier en acier par paquet (10/20/30 ⚙/tour) · 10 pop par paquet (opérateurs) · entraînable (camp : +1 rang/tour)"},
   fanatique_marin: {defLabel:"Fanatique marin", ico:"🌊", tier:1, power:1.0, fixed_rank:0, trainable:false,
               recruit_cost:{or:100}, upkeep:{or:30, ble:20}, pop_per_pack:10,
               note:"Marin Tier I · rang 0 fixe · non entraînable · entretien : 30 or + 20 blé + 10 pop par paquet · arme les navires comme un paquet de marins classique"},
@@ -2108,15 +2108,15 @@ const SECULAR_MAX_LEVEL = 3;
 const SECULAR_TIERS = [
   {ico:"🌾", label:"Pragmatisme",          desc:"+5% de production des cases rurales (or, fer, blé, bois), commerciales (sucre, tabac, nacre…) et des sources de mana"},
   {ico:"🛡",  label:"Conscription civique", desc:"Débloque le Soldat de la rationalité (Tier II) et le Marin de la rationalité (Tier I) : entraînables au camp, entretien en or (doublé), blé et population — limités à 1 paquet par tranche de 300 habitants de population totale"},
-  {ico:"⚙",  label:"Ingénierie à vapeur",  desc:"+10 mana/tour et débloque les procédés rationnels : Golems de combat (prix du Tier + 20 🜲 par Tier à l'achat, entretien 20 × Tier en acier, 10 pop, entraînables), Moteur à mana pour navires (prix du navire — équipage réduit à 1 paquet, 5 pour un Galion, contre 5 🜲/tour ; si la Raison est abandonnée, le navire équipé est détruit) et Surrégime des usines"},
+  {ico:"⚙",  label:"Ingénierie à vapeur",  desc:"+10 mana/tour et débloque les procédés rationnels : Golems de combat (100/200/300 🪙 + 10 🜲 par Tier à l'achat, entretien 10 × Tier en acier, 10 pop, entraînables), Moteur à mana pour navires (prix du navire — équipage réduit à 1 paquet, 5 pour un Galion, contre 5 🜲/tour ; si la Raison est abandonnée, le navire équipé est détruit) et Surrégime des usines"},
 ];
 // Procédés rationnels (T3) — la technologie consomme la mana comme carburant
 const SECULAR_PROCEDES = {
-  golem:     {ico:"🗿", label:"Golem de combat",      cost:null,           desc:"Assemble un paquet de golems du Tier choisi (puissance ×1.0 / ×1.6 / ×2.5) : même prix que l'unité du Tier (200/400/600 🪙) + 20 mana par Tier à l'achat (20/40/60 🜲) · entretien 20 × Tier en acier par paquet (20/40/60 ⚙/tour) · 10 pop par paquet — entraînable au camp comme une vraie troupe."},
+  golem:     {ico:"🗿", label:"Golem de combat",      cost:null,           desc:"Assemble un paquet de golems du Tier choisi (puissance ×1.0 / ×1.6 / ×2.5) : coût d'achat 100/200/300 🪙 + 10 mana par Tier à l'achat (10/20/30 🜲) · entretien 10 × Tier en acier par paquet (10/20/30 ⚙/tour) · 10 pop par paquet — entraînable au camp comme une vraie troupe."},
   moteur:    {ico:"⚙", label:"Moteur à mana",         cost:null,           desc:"Équipe un navire de guerre existant — au prix d'achat du navire (600/1200/2400 🪙, 10 000 pour un Galion) : l'équipage requis tombe à 1 paquet (5 pour un Galion au lieu de 15), contre 5 mana de carburant par tour. Si la Raison est abandonnée ou le Panthéon perdu, le navire équipé est détruit."},
   surregime: {ico:"🏭", label:"Surrégime des usines", cost:{mana:300}, desc:"Les usines actives produisent +50% ce tour-ci — production bonus gratuite, sans consommation d'intrants supplémentaire."},
 };
-const GOLEM_ACIER_PER_TIER = 20; // 🗿 Entretien : 20 × Tier en acier par paquet et par tour
+const GOLEM_ACIER_PER_TIER = 10; // 🗿 Entretien : 10 × Tier en acier par paquet et par tour
 const RATIONAL_POP_PER_PACK_LIMIT = 300; // 1 paquet de soldats/marins rationnels par 300 hab. de pop totale
 const ENGINE_CREW_REQ = {guerre:1, galion:5};
 // Cases boostées par Pragmatisme (rural + commerce + mana)
@@ -2732,7 +2732,7 @@ function computeTurnChanges() {
   for(const du of G.divine_units||[]) {
     const spec = DIVINE_UNIT_SPECS[du.kind];
     if(!spec) continue;
-    // 🗿 Golems : entretien 20 × Tier en acier par paquet
+    // 🗿 Golems : entretien 10 × Tier en acier par paquet
     const upkeepDef = du.kind==="golem" ? {acier: GOLEM_ACIER_PER_TIER * (du.tier||1)} : spec.upkeep;
     if(!upkeepDef) continue;
     const isRaison = RAISON_UNIT_KINDS.has(du.kind);
@@ -10623,10 +10623,10 @@ function actionCreateGolem() {
   const packs = Math.max(1, parseInt(document.getElementById("golem-packs")?.value)||1);
   const ok = run(()=>{
     if(secularTier() < 3) error("Doctrine séculière Niv. 3 (Ingénierie à vapeur) requise.");
-    const unitCost = TROOP_TIERS_INFANTERIE[tier]?.recruit_cost || {or:200};
+    const unitCost = {or: 100 * tier}; // coût réduit : 100/200/300 or par Tier (au lieu du prix infanterie standard)
     const cost = {};
-    for(const[k,v] of Object.entries(unitCost)) cost[k] = v*packs; // même prix que l'unité du Tier
-    cost.mana = (cost.mana||0) + (20 * tier * packs); // +20 mana par Tier à l'achat, aucun entretien mana
+    for(const[k,v] of Object.entries(unitCost)) cost[k] = v*packs;
+    cost.mana = (cost.mana||0) + (10 * tier * packs); // +10 mana par Tier à l'achat
     const err = canAfford(G.resources, cost); if(err) error(err);
     const free = popCapacity()-popOccupied();
     const popNeeded = packs*DIVINE_UNIT_SPECS.golem.pop_per_pack;
@@ -10634,7 +10634,7 @@ function actionCreateGolem() {
     deduct(G.resources, cost);
     const power = TROOP_TIERS_INFANTERIE[tier]?.power || 1.0;
     G.divine_units.push({id:uid(), kind:"golem", label:divineDefaultLabel("golem"), icon:DIVINE_UNIT_SPECS.golem.ico, packs, rank:0, tier, power});
-    logAction("religion", `🗿 Procédé rationnel : ${packs} paquet(s) de ${divineDefaultLabel("golem")} Tier ${tier} assemblés (−${costStr(cost)}) — entretien 20 × Tier en acier, entraînables`);
+    logAction("religion", `🗿 Procédé rationnel : ${packs} paquet(s) de ${divineDefaultLabel("golem")} Tier ${tier} assemblés (−${costStr(cost)}) — entretien 10 × Tier en acier, entraînables`);
   });
   if(ok) toast(`🗿 ${packs*10} ${divineDefaultLabel("golem")} (Tier ${tier}) s'éveillent dans un grincement d'acier !`);
 }
