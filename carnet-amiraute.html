@@ -1392,7 +1392,7 @@ input:checked + .slider:before { transform: translateX(20px); }
           <option value="bois_c">🌲 Grande forêt (100 / 200)</option>
           <option value="diamant_c">💠 Veine de diamant (50 / 100)</option>
           <option value="esclave_c">⛓ Camp d'esclaves (+50 ⛓ à la conquête, +50 ⛓ au Fort)</option>
-          <option value="mana_c">🜲 Source de mana (25 / 50 🜲/tour, 20 / 40 pop)</option>
+          <option value="mana_c">🜲 Source de mana (15 / 30 🜲/tour, 20 / 40 pop)</option>
         </select>
       </div>
     </div>
@@ -1928,7 +1928,7 @@ const TILE_YIELD = {
   diamant_c:{resource:"diamant",raw:50,primary:100},
   cafe_c:{resource:"cafe",raw:50,primary:100},
   esclave_c:{resource:null,raw:0,primary:0},  // Plus de production /tour — gains ponctuels à la conquête (+50) et à la construction du primaire (+100)
-  mana_c:{resource:"mana",raw:25,primary:50},  // 25/tour brut, 50/tour avec Sanctuaire arcanique
+  mana_c:{resource:"mana",raw:15,primary:30},  // 15/tour brut, 30/tour avec Sanctuaire arcanique
   fer_c:{resource:"fer",raw:100,primary:200},
   ble_c:{resource:"ble",raw:100,primary:200},
   bois_c:{resource:"bois",raw:100,primary:200},
@@ -4691,12 +4691,12 @@ function computeResourceSources() {
     }
   }
 
-  // ── ⛪ Religion & 🏛 Raison : bonus repris du calcul de tour ────────────
-  // (Terres bénies, Routes saintes, Communion, Pragmatisme, condensateurs…)
+  // ── ⛪ Religion & 🏛 Raison & 🔮 Recherche : bonus repris du calcul de tour ────────────
+  // (Terres bénies, Routes saintes, Communion, Pragmatisme, condensateurs, doctrines…)
   try {
     const bd = computeTurnChanges().breakdown;
     for(const b of bd) {
-      if(b.category !== "religion" && b.category !== "raison") continue;
+      if(b.category !== "religion" && b.category !== "raison" && b.category !== "recherche") continue;
       const dets = (b.details && b.details.length) ? b.details : [{name:b.label, changes:b.changes}];
       for(const d of dets) {
         for(const [k,v] of Object.entries(d.changes||{})) {
@@ -4864,6 +4864,21 @@ function renderResources() {
           }).join("")
         + `</div>`
       : "";
+    // Note spéciale pour la mana : affiche les rendements des Sources de mana
+    let manaNote = "";
+    if(k === "mana") {
+      const manaTiles = G.tiles.filter(t => t.resource === "mana_c");
+      if(manaTiles.length > 0) {
+        const withSanc    = manaTiles.filter(t => t.has_primary).length;
+        const withoutSanc = manaTiles.length - withSanc;
+        const parts = [];
+        if(withoutSanc > 0) parts.push(`${withoutSanc > 1 ? withoutSanc + "×\u202f" : ""}+15\u202f🜲/tour`);
+        if(withSanc    > 0) parts.push(`${withSanc    > 1 ? withSanc    + "×\u202f" : ""}+30\u202f🜲/tour\u202f✦`);
+        manaNote = `<div class="text-xs" style="margin-top:0.3rem;color:var(--muted);border-top:1px dashed var(--border);padding-top:0.3rem;line-height:1.4">${parts.join(" · ")}</div>`;
+      } else {
+        manaNote = `<div class="text-xs" style="margin-top:0.3rem;color:var(--muted);border-top:1px dashed var(--border);padding-top:0.3rem;line-height:1.4">Source de mana : +15/tour · +30/tour ✦ Sanctuaire</div>`;
+      }
+    }
     return `<div class="resource-tile resource-tile-clickable ${isContinent?"zelda-resource":""}" onclick="openResourceDetail('${k}')" title="Cliquez pour voir le détail">
       <div class="flex items-center justify-between mb-1">
         <span class="overline" style="font-size:0.6rem">${RESOURCE_LABELS[k]}</span>
@@ -4872,6 +4887,7 @@ function renderResources() {
       <div class="resource-value">${fmt(v)}</div>
       <div class="resource-delta ${dc}" title="Delta ce tour : ${fmtDelta(d)}">${da}&nbsp;<span style="letter-spacing:0.02em">${fmtDelta(d)}</span><span style="font-weight:400;opacity:0.7;font-size:0.68rem">/tour</span></div>
       ${srcHtml}
+      ${manaNote}
     </div>`;
   }).join("");
 
@@ -5517,8 +5533,8 @@ function continentTileCard(t) {
   let popInfo = "";
   if(t.resource === "mana_c") {
     popInfo = `<div class="table-row"><span>Pop. occupée</span><span class="font-mono">${t.has_primary?CONTINENT_PRIMARY_POP:CONTINENT_RAW_POP} hab.</span></div>
-               <div class="table-row" style="color:var(--zelda-glow)"><span>Production</span><span class="font-mono">${t.has_primary?"+50":"+25"} 🜲 / tour</span></div>
-               ${!t.has_primary?`<div class="table-row" style="color:var(--zelda-ink-dim);font-style:italic"><span>Avec Sanctuaire</span><span class="font-mono">+50 🜲 / tour · ${CONTINENT_PRIMARY_POP} pop</span></div>`:""}`;
+               <div class="table-row" style="color:var(--zelda-glow)"><span>Production</span><span class="font-mono">${t.has_primary?"+30":"+15"} 🜲 / tour</span></div>
+               ${!t.has_primary?`<div class="table-row" style="color:var(--zelda-ink-dim);font-style:italic"><span>Avec Sanctuaire</span><span class="font-mono">+30 🜲 / tour · ${CONTINENT_PRIMARY_POP} pop</span></div>`:""}`;
   } else if(t.resource === "esclave_c") {
     popInfo = `<div class="table-row"><span>Pop. occupée</span><span class="font-mono">${t.has_primary?CONTINENT_PRIMARY_POP:CONTINENT_RAW_POP} hab.</span></div>
                <div class="table-row" style="color:var(--zelda-glow)"><span>Gain conquête</span><span class="font-mono">+50 ⛓ (perçu)</span></div>
@@ -8509,7 +8525,7 @@ function genererConseils() {
   // Source de mana non exploitée
   const manaTilesWithoutSanctuaire = continentTiles.filter(t=>t.resource==="mana_c" && !t.has_primary);
   if(manaTilesWithoutSanctuaire.length && afford(300)) {
-    addU("🜲",`Source(s) de mana sans Sanctuaire arcanique — Doubler la production (25→50 🜲/tour) pour 300 or (pop occupée : 20 → 40 hab.).`);
+    addU("🜲",`Source(s) de mana sans Sanctuaire arcanique — Doubler la production (15→30 🜲/tour) pour 300 or (pop occupée : 20 → 40 hab.).`);
   }
 
   // Usines continentales : construire si matières premières disponibles
@@ -9518,7 +9534,7 @@ const CONTINENT_TILE_META = {
   diamant_c:   {ico:"💠", label:"Veine de diamant",     primary:"Mine de diamants",      produces:"diamant",   desc:"Cristaux extraits des entrailles"},
   cafe_c:      {ico:"☕", label:"Caféière",             primary:"Plantation de café",    produces:"cafe",      desc:"Élixir noir des aristocrates"},
   esclave_c:   {ico:"⛓",  label:"Camp d'esclaves",      primary:"Fort des esclaves",     produces:null,        desc:"+50 ⛓ à la conquête, +50 ⛓ au Fort (total 100). 1 ⛓ → +1 fer/bois/blé/tour"},
-  mana_c:      {ico:"🜲", label:"Source de mana",       primary:"Sanctuaire arcanique",  produces:"mana",      desc:"25 🜲/tour brut (20 pop), 50 🜲/tour avec Sanctuaire (40 pop)"},
+  mana_c:      {ico:"🜲", label:"Source de mana",       primary:"Sanctuaire arcanique",  produces:"mana",      desc:"15 🜲/tour brut (20 pop), 30 🜲/tour avec Sanctuaire (40 pop)"},
   fer_c:       {ico:"⛏️", label:"Gisement de fer",      primary:"Mine de fer continentale", produces:"fer",    desc:"Minerai des montagnes lointaines"},
   ble_c:       {ico:"🌾", label:"Terrain à blé",        primary:"Ferme à blé continentale", produces:"ble",    desc:"Plaines fertiles d'outre-mer"},
   bois_c:      {ico:"🌲", label:"Grande forêt",         primary:"Scierie continentale",     produces:"bois",   desc:"Bois sombres et antiques"},
