@@ -3423,7 +3423,22 @@ function actionBuildUsine(type) {
   run(()=>{
     const info=USINES[type]; if(!info) error("Usine inconnue");
     const primaryByRes={};
-    for(const t of G.tiles) { if(t.has_primary&&t.resource) primaryByRes[t.resource]=(primaryByRes[t.resource]||0)+1; if(t.has_primary2&&t.resource2) primaryByRes[t.resource2]=(primaryByRes[t.resource2]||0)+1; }
+    for(const t of G.tiles) {
+      const keys = [t.has_primary?t.resource:null, t.has_primary2?t.resource2:null].filter(Boolean);
+      for(const res of keys) {
+        primaryByRes[res] = (primaryByRes[res]||0) + 1;
+        // Les cases continentales fer_c/ble_c/bois_c et poisson comptent pour leurs équivalents terrestres
+        const base = TILE_YIELD[res]?.resource;
+        if(base && base !== res) primaryByRes[base] = (primaryByRes[base]||0) + 1;
+      }
+      // Le poisson produit du blé même sans bâtiment primaire → compte pour le prérequis blé
+      for(const res of [t.resource, t.resource2].filter(Boolean)) {
+        const yi = TILE_YIELD[res];
+        if(yi && yi.resource !== res && !t[res===t.resource?"has_primary":"has_primary2"]) {
+          primaryByRes[yi.resource] = (primaryByRes[yi.resource]||0) + 1;
+        }
+      }
+    }
     for(const[res,needed] of info.prereq) {
       const have=primaryByRes[res]||0;
       if(have<needed) error(`Prérequis : ${needed} bât. primaire(s) sur ${RESOURCE_LABELS[res]||res} (${have}/${needed})`);
@@ -3654,7 +3669,9 @@ function buildMarineAssignments() {
 }
 
 function actionBuildShip(kind,tier,count) {
-  run(()=>{
+  const _skind=kind,_stier=parseInt(tier),_scount=parseInt(count);
+  const _shipSpec = _skind==="guerre"?(SHIP_TIERS[_stier]||SHIP_TIERS[1]):_skind==="galion"?GALION:MERCHANT_SHIP;
+  const _ok = run(()=>{
     tier=parseInt(tier); count=parseInt(count);
     if(count<=0) error("Quantité invalide");
     let spec,required,shipTier=tier;
@@ -3669,7 +3686,6 @@ function actionBuildShip(kind,tier,count) {
       spec=MERCHANT_SHIP; required=spec.requires; shipTier=1;
     }
     if(kind==="guerre") {
-      // Accepter port_militaire_N OU tout niveau supérieur
       const portFamily=["port_militaire_1","port_militaire_2","port_militaire_3"];
       const reqIdx=portFamily.indexOf(required);
       const hasPort=reqIdx>=0
@@ -3682,13 +3698,11 @@ function actionBuildShip(kind,tier,count) {
     const cost=Object.fromEntries(Object.entries(spec.cost).map(([k,v])=>[k,v*count]));
     const err=canAffordWithProjection(cost); if(err) error(err);
     const upErr=checkUpkeepViability(spec.upkeep); if(upErr) error(upErr);
-    // Vérification marins pour navires de guerre et galions
     if(kind==="guerre"||kind==="galion") {
       const packsNeeded = kind==="galion" ? SHIP_MARINES_REQUIRED.galion*count : (SHIP_MARINES_REQUIRED.guerre[tier]||1)*count;
       const free=freeMarinePacks();
       if(free<packsNeeded) error(`Marins insuffisants — ${free} paquet(s) libre(s), ${packsNeeded} requis (${packsNeeded*10} marins). Recrutez des marins d'abord.`);
     } else {
-      // Navire marchand : pop générale suffisante
       const free=popCapacity()-popOccupied();
       if(free<spec.crew*count) error(`Population insuffisante pour l'équipage (${free}/${spec.crew*count})`);
     }
@@ -3697,10 +3711,7 @@ function actionBuildShip(kind,tier,count) {
     if(ex) ex.count+=count;
     else G.ships.push({id:uid(),kind,tier:shipTier,count});
   });
-  const _skind=kind,_stier=parseInt(tier),_scount=parseInt(count);
-  const _shipSpec = _skind==="guerre"?(SHIP_TIERS[_stier]||SHIP_TIERS[1]):_skind==="galion"?GALION:MERCHANT_SHIP;
-  const _shipExists = G.ships.some(s=>s.kind===_skind);
-  if(_shipExists) {
+  if(_ok) {
     toast("Navire(s) construit(s) !");
     logAction("ship", `Navire construit : ${_shipSpec.label} × ${_scount}`); saveGame(); preview=getPreview(); render();
   }
@@ -5795,7 +5806,21 @@ function renderUsines() {
 
   // Catalogue
   const primaryByRes={};
-  for(const t of G.tiles) { if(t.has_primary&&t.resource) primaryByRes[t.resource]=(primaryByRes[t.resource]||0)+1; if(t.has_primary2&&t.resource2) primaryByRes[t.resource2]=(primaryByRes[t.resource2]||0)+1; }
+  for(const t of G.tiles) {
+    const keys = [t.has_primary?t.resource:null, t.has_primary2?t.resource2:null].filter(Boolean);
+    for(const res of keys) {
+      primaryByRes[res] = (primaryByRes[res]||0) + 1;
+      const base = TILE_YIELD[res]?.resource;
+      if(base && base !== res) primaryByRes[base] = (primaryByRes[base]||0) + 1;
+    }
+    // Le poisson produit du blé même sans bâtiment primaire → compte pour le prérequis blé
+    for(const res of [t.resource, t.resource2].filter(Boolean)) {
+      const yi = TILE_YIELD[res];
+      if(yi && yi.resource !== res && !t[res===t.resource?"has_primary":"has_primary2"]) {
+        primaryByRes[yi.resource] = (primaryByRes[yi.resource]||0) + 1;
+      }
+    }
+  }
   const cat=document.getElementById("usines-catalogue");
   cat.innerHTML=Object.entries(USINES).map(([key,info])=>{
     const prereqOk=info.prereq.every(([res,n])=>(primaryByRes[res]||0)>=n);
@@ -7142,16 +7167,16 @@ function toggleTraining(key, branch, tier, checked) {
     G.training_units = G.training_units || [];
     if(checked) {
       if(G.training_units.some(tu=>tu.troop_key===key)) return;
+      // tu.rank = rang gagné AU CAMP uniquement (commence à 0)
+      // Le rang persistant (grp.ranks) est lu séparément pour le total
       G.training_units.push({id:uid(), troop_key:key, branch, tier:parseInt(tier), rank:0, turns_trained:0});
     } else {
-      // Sortie du camp : transférer le rang acquis vers le paquet (persistant)
-      // key formats : branch|tier|troop_id|pack_index  OU  divine|kind|du_id|pack_index
+      // Sortie du camp : ajouter le rang de camp au rang persistant
       const tu = G.training_units.find(t=>t.troop_key===key);
       if(tu && (tu.rank||0) > 0) {
         const parts = key.split("|");
         const packIdx = parseInt(parts[3]);
         if(parts[0] === "divine") {
-          // ⛪⚙ Unité divine / rationnelle : fusion dans du.ranks
           const du = (G.divine_units||[]).find(d=>d.id===parts[2]);
           if(du) {
             if(!du.ranks) du.ranks = {};
@@ -7162,9 +7187,7 @@ function toggleTraining(key, branch, tier, checked) {
           const grp = G.troops.find(t=>t.id===troopId);
           if(grp) {
             if(!grp.ranks) grp.ranks = {};
-            // Ajout au rang manuel existant (camp + manuel, plafonné à 20)
-            const merged = Math.min(20, (grp.ranks[packIdx]||0) + (tu.rank||0));
-            grp.ranks[packIdx] = merged;
+            grp.ranks[packIdx] = Math.min(20, (grp.ranks[packIdx]||0) + (tu.rank||0));
           }
         }
       }
@@ -7215,7 +7238,16 @@ function renderTrainingCamp(el) {
     const dspec = isDiv ? (DIVINE_UNIT_SPECS[p.divKind]||{}) : null;
     const tiers = p.branch==="infanterie" ? TROOP_TIERS_INFANTERIE : TROOP_TIERS_MARINE;
     const spec  = isDiv ? {label: (p.du.label||dspec.defLabel)} : tiers[p.tier];
-    const rank  = tu ? (tu.rank||0) : 0;
+    // Rang persistant (hors camp) + rang en cours d'entraînement (au camp)
+    let persistentRank = 0;
+    if(isDiv) {
+      const du2 = (G.divine_units||[]).find(d=>d.id===p.troopId);
+      persistentRank = du2?.ranks?.[p.packIdx-1] || 0;
+    } else {
+      const grp2 = G.troops.find(t=>t.id===p.troopId);
+      persistentRank = grp2?.ranks?.[p.packIdx-1] || 0;
+    }
+    const rank  = tu ? Math.min(20, (tu.rank||0) + persistentRank) : persistentRank;
     const turns = tu ? (tu.turns_trained||0) : 0;
     const ico   = isDiv ? (p.du.icon||dspec.ico||"⚜") : (p.branch==="infanterie" ? "⚔️" : "⚓");
     const tierLvl = ["","I","II","III","IV"][p.tier] || p.tier;
@@ -7259,8 +7291,11 @@ function renderTrainingCamp(el) {
       ${isIn
         ? `<span class="troop-stars ${starsClass}">${stars}<span class="troop-rank-num">${rank}/20</span></span>
            <div class="train-prog"><div class="train-prog-fill" style="width:${progPct}%"></div></div>`
-        : `<span class="train-not-inscribed">non inscrit</span>
-           <span></span>`}
+        : rank > 0
+          ? `<span class="troop-stars ${starsClass}" style="opacity:0.6">${stars}<span class="troop-rank-num">${rank}/20</span></span>
+             <span></span>`
+          : `<span class="train-not-inscribed">non inscrit</span>
+             <span></span>`}
     </div>`;
   };
 
@@ -10798,6 +10833,7 @@ function confirmDisbandDivine(id, packs) {
 function renderDivineUnits() {
   const list = G.divine_units||[];
   const campBuilt = G.buildings.some(b=>b.type==="camp_entrainement");
+  const marineAssign = buildMarineAssignments();
   // 💰 Entretien lisible par paquet (golems : 20 × Tier en acier ; pop incluse)
   const upkeepStr = (du, spec) => {
     const up = du.kind==="golem" ? {acier: GOLEM_ACIER_PER_TIER*(du.tier||1)} : (spec.upkeep||null);
@@ -10859,11 +10895,23 @@ function renderDivineUnits() {
         if(manual>0) actions += `<button class="troop-btn troop-btn-rankminus" onclick="addDivineRank('${du.id}',-1,${i})" title="−1 rang manuel">★−</button>`;
       }
       actions += `<button class="troop-btn troop-btn-disband" onclick="confirmDisbandDivine('${du.id}',1)" title="Démobiliser 1 paquet (10 unités)">🗑</button>`;
+      let shipBadge = "";
+      if(du.kind === "marin" || du.kind === "fanatique_marin") {
+        const lookupKey = du.id + "|" + i;
+        const assignment = marineAssign.packAssign.get(lookupKey);
+        if(assignment) {
+          const shipShort = assignment.shipKind === "galion" ? "GAL" : "N-" + ["","I","II","III"][assignment.shipTier];
+          shipBadge = `<span class="troop-ship-badge troop-ship-linked" title="Affecté à ${shipShort} (${assignment.code}, slot ${assignment.slot}/${assignment.marReq})">⚓ ${assignment.code}</span>`;
+        } else {
+          shipBadge = `<span class="troop-ship-badge troop-ship-free" title="Aucun navire — paquet en réserve">⚓ libre</span>`;
+        }
+      }
       return `<div class="troop-row${packInCamp?" troop-row-training":pr>0?" troop-row-veteran":""}">
         <span class="troop-ico">${du.icon||spec.ico||"✝"}</span>
         <span class="troop-tier-badge troop-tier-${tierVal||1}">${tierLvl}</span>
         <span class="troop-spec-name">${du.label||spec.defLabel}</span>
         ${packInCamp?`<span class="troop-camp-badge" title="Au camp d'entraînement (+1 rang/tour)">🏕️</span>`:""}
+        ${shipBadge}
         <span class="troop-stars ${starsClass}">${spec.no_rank?"—":stars}<span class="troop-rank-num">${spec.no_rank?"":pr}</span></span>
         <span class="troop-pack-idx">#${i+1}</span>
         <div class="troop-actions">${actions}</div>
