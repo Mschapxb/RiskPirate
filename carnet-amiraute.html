@@ -3427,16 +3427,9 @@ function actionBuildUsine(type) {
       const keys = [t.has_primary?t.resource:null, t.has_primary2?t.resource2:null].filter(Boolean);
       for(const res of keys) {
         primaryByRes[res] = (primaryByRes[res]||0) + 1;
-        // Les cases continentales fer_c/ble_c/bois_c et poisson comptent pour leurs équivalents terrestres
         const base = TILE_YIELD[res]?.resource;
-        if(base && base !== res) primaryByRes[base] = (primaryByRes[base]||0) + 1;
-      }
-      // Le poisson produit du blé même sans bâtiment primaire → compte pour le prérequis blé
-      for(const res of [t.resource, t.resource2].filter(Boolean)) {
-        const yi = TILE_YIELD[res];
-        if(yi && yi.resource !== res && !t[res===t.resource?"has_primary":"has_primary2"]) {
-          primaryByRes[yi.resource] = (primaryByRes[yi.resource]||0) + 1;
-        }
+        // poisson ne compte pas comme blé pour les prérequis d'usines (boulangerie exige du vrai blé)
+        if(base && base !== res && res !== "poisson") primaryByRes[base] = (primaryByRes[base]||0) + 1;
       }
     }
     for(const[res,needed] of info.prereq) {
@@ -5811,14 +5804,7 @@ function renderUsines() {
     for(const res of keys) {
       primaryByRes[res] = (primaryByRes[res]||0) + 1;
       const base = TILE_YIELD[res]?.resource;
-      if(base && base !== res) primaryByRes[base] = (primaryByRes[base]||0) + 1;
-    }
-    // Le poisson produit du blé même sans bâtiment primaire → compte pour le prérequis blé
-    for(const res of [t.resource, t.resource2].filter(Boolean)) {
-      const yi = TILE_YIELD[res];
-      if(yi && yi.resource !== res && !t[res===t.resource?"has_primary":"has_primary2"]) {
-        primaryByRes[yi.resource] = (primaryByRes[yi.resource]||0) + 1;
-      }
+      if(base && base !== res && res !== "poisson") primaryByRes[base] = (primaryByRes[base]||0) + 1;
     }
   }
   const cat=document.getElementById("usines-catalogue");
